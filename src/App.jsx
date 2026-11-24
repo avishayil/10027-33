@@ -94,7 +94,7 @@ export default function App() {
 
         <TableRights rights={sim.rights} version={version} tracks={sim.tracks} />
 
-        <TrackCards tracks={sim.tracks} config={sim.config} landArea={sim.landArea} />
+        <TrackCards tracks={sim.tracks} config={sim.config} landArea={sim.landArea} versionId={sim.versionId} />
 
         <TracksCompare tracks={sim.tracks} />
 

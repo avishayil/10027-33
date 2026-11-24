@@ -1,5 +1,6 @@
 import { Tooltip } from './Tooltip';
 import { TOOLTIPS } from '../content/tooltips';
+import { OFFERS_LOTS_NOTE } from '../content/sourcesAndDisclaimer';
 import { formatArea, formatCurrency, formatNumber } from '../utils/format';
 
 function Row({ label, value, tone, tip, className }) {
@@ -30,9 +31,14 @@ function TrackCard({ title, tip, sub, children, notes }) {
   );
 }
 
-export function TrackCards({ tracks, config, landArea }) {
+export function TrackCards({ tracks, config, landArea, versionId }) {
   const { combination, costPlus, revenueSharing, cashExit, units, marketValuePerApartment } = tracks;
   const soldPct = Math.round(combination.soldPortion * 100);
+  const offersNote = versionId === 'v2' && (
+    <p className="warn-hint">
+      <strong>שימו לב:</strong> {OFFERS_LOTS_NOTE}
+    </p>
+  );
 
   return (
     <div className="tracks-grid">
@@ -41,15 +47,18 @@ export function TrackCards({ tracks, config, landArea }) {
         tip={TOOLTIPS.combination}
         sub={`${config.combinationPct}% מ-${formatNumber(units, 2)} יח״ד כדירות מוגמרות · דירה ${formatCurrency(marketValuePerApartment)}`}
         notes={
-          combination.hasMushaProblem && (
-            <p className="warn-hint">
-              <strong>מושע:</strong>{' '}
-              {combination.wholeUnits > 0
-                ? `${formatNumber(combination.wholeUnits, 0)} דירות שלמות + שותפות של ${formatNumber(combination.fractionalPart * 100, 0)}% בדירה נוספת.`
-                : `אין דירה שלמה — בעלות של ${formatNumber(combination.fractionalPart * 100, 0)}% בדירה אחת, במשותף עם בעלים אחרים.`}{' '}
-              <Tooltip content={TOOLTIPS.musha} />
-            </p>
-          )
+          <>
+            {offersNote}
+            {combination.hasMushaProblem && (
+              <p className="warn-hint">
+                <strong>מושע:</strong>{' '}
+                {combination.wholeUnits > 0
+                  ? `${formatNumber(combination.wholeUnits, 0)} דירות שלמות + שותפות של ${formatNumber(combination.fractionalPart * 100, 0)}% בדירה נוספת.`
+                  : `אין דירה שלמה — בעלות של ${formatNumber(combination.fractionalPart * 100, 0)}% בדירה אחת, במשותף עם בעלים אחרים.`}{' '}
+                <Tooltip content={TOOLTIPS.musha} />
+              </p>
+            )}
+          </>
         }
       >
         <Row label="דירות מוגמרות" value={formatNumber(combination.finishedUnits, 2)} />
@@ -110,6 +119,7 @@ export function TrackCards({ tracks, config, landArea }) {
         title={`תמורות (${config.revenueSharePct}%)`}
         tip={TOOLTIPS.revenueSharing}
         sub={`${config.revenueSharePct}% מהכנסות ${formatNumber(units, 2)} יח״ד · ללא הון עצמי`}
+        notes={offersNote}
       >
         <Row label="יח״ד על הזכויות שלכם" value={formatNumber(revenueSharing.finishedUnits, 2)} />
         <Row label="שווי מכירה כולל" value={formatCurrency(revenueSharing.totalMarketValue)} />
