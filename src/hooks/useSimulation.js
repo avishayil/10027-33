@@ -1,10 +1,15 @@
-import { useState, useMemo, useCallback } from 'react';
-import { computeSimulationTracks } from '../utils/simulationMath';
+import { useCallback, useMemo, useState } from 'react';
+import { DEFAULT_VERSION, getVersion } from '../data/parcel33';
+import { computeSimulationTracks, computeTableRights } from '../utils/simulationMath';
 
-// Default configuration. שווי דירה נגזר מ-marketValueSqm × apartmentSizeSqm
+/**
+ * הנחות ברירת מחדל. היחידות, שווי הזכויות והיטל ההשבחה נגזרים מטבלת האיזון;
+ * כאן רק הנחות שוק ועסקה שניתנות לשינוי בהגדרות המתקדמות.
+ */
 export const DEFAULT_CONFIG = {
   combinationPct: 35,
-  sqmPerUnit: 110,
+  /** ריק = לפי טבלת האיזון. מספר = דריסה ידנית של מ״ר קרקע ליח״ד. */
+  sqmPerUnitOverride: null,
 
   costPerSqm: 11000,
   apartmentSizeSqm: 100,
@@ -14,57 +19,56 @@ export const DEFAULT_CONFIG = {
   requiredEquityPct: 25,
 
   marketValueSqm: 25000,
-  /** ברוטו ליחידת זכות — בסיס למסלול מזומן; היטל השבחה מנוכה בנפרד בנוסחה */
-  landValuePerUnit: 760000,
+  /** מחיר קרקע ברוטו למ״ר בחלקה — בסיס למסלול מזומן (760,000 ₪ ÷ 110 מ״ר, מעוגל). */
+  landValuePerSqm: 6900,
   entrepreneurProfitMargin: 18,
 
-  bettermentLevyPerUnit: 160000,
+  /** שיעור היטל ההשבחה מעליית השווי בין המצב הנכנס למצב היוצא. */
+  bettermentLevyPct: 50,
   capitalGainsTax: 25,
 
   revenueSharePct: 45,
 };
 
-/**
- * Custom hook for managing simulation parameters and calculations
- */
 export function useSimulation(initialLandArea = 167) {
   const [landArea, setLandArea] = useState(initialLandArea);
+  const [versionId, setVersionIdState] = useState(DEFAULT_VERSION);
+  const [lotId, setLotId] = useState(() => getVersion(DEFAULT_VERSION).lots[0].id);
   const [config, setConfig] = useState(() => ({ ...DEFAULT_CONFIG }));
 
-  const resetToDefaults = useCallback(() => {
-    setConfig({ ...DEFAULT_CONFIG });
+  const setVersionId = useCallback((next) => {
+    setVersionIdState(next);
+    // מספרי המגרשים שונים בין הגרסאות — חוזרים למגרש הראשון של הגרסה
+    setLotId(getVersion(next).lots[0].id);
   }, []);
+
+  const resetToDefaults = useCallback(() => setConfig({ ...DEFAULT_CONFIG }), []);
 
   const updateConfig = useCallback((key, value) => {
-    setConfig((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setConfig((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const tracks = useMemo(
-    () => computeSimulationTracks(landArea, config),
-    [landArea, config]
+  const rights = useMemo(
+    () => computeTableRights(landArea, versionId, lotId, config.bettermentLevyPct),
+    [landArea, versionId, lotId, config.bettermentLevyPct],
   );
 
-  const marketValuePerApartment = config.marketValueSqm * config.apartmentSizeSqm;
+  const tracks = useMemo(
+    () => computeSimulationTracks(landArea, rights, config),
+    [landArea, rights, config],
+  );
 
   return {
     landArea,
     setLandArea,
+    versionId,
+    setVersionId,
+    lotId,
+    setLotId,
     config,
-    setConfig,
     updateConfig,
-
-    units: tracks.units,
-    marketValuePerApartment,
-    landValuePerUnit: tracks.landValuePerUnit,
-
-    combination: tracks.combination,
-    costPlus: tracks.costPlus,
-    revenueSharing: tracks.revenueSharing,
-    cashExit: tracks.cashExit,
-
     resetToDefaults,
+    rights,
+    tracks,
   };
 }

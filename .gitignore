@@ -33,3 +33,6 @@ Thumbs.db
 *.tsbuildinfo
 .cache
 .turbo
+
+# Plan source documents (named tables include personal data)
+to-review/

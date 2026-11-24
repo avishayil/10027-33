@@ -1,8 +1,150 @@
-import { SimulatorV2 } from './components/SimulatorV2';
-import './App.css';
+import { AdvancedSettings } from './components/AdvancedSettings';
+import { Guide } from './components/Guide';
+import { LandInput } from './components/LandInput';
+import { SegmentedToggle } from './components/SegmentedToggle';
+import { TableRights } from './components/TableRights';
+import { TrackCards } from './components/TrackCards';
+import { TracksCompare } from './components/TracksCompare';
+import { VersionCompare } from './components/VersionCompare';
+import { DISCLAIMER_SHORT, SOURCES } from './content/sourcesAndDisclaimer';
+import { MAVAT_URL, PARCEL, VERSIONS, VERSION_IDS, getVersion } from './data/parcel33';
+import { useSimulation } from './hooks/useSimulation';
 
-function App() {
-  return <SimulatorV2 />;
+/** איפה מוצאים את חלקה 33 בכל גרסה — הצעד הראשון בהוראות. */
+function findYourselfStep(versionId) {
+  const link = (
+    <a href={MAVAT_URL} target="_blank" rel="noreferrer">
+      פתחו את אתר התכנית הרשמי (מבא״ת)
+    </a>
+  );
+  if (versionId === 'v1') {
+    return (
+      <li>
+        מצאו את עצמכם בטבלאות: {link} ונווטו אל <strong>מסמכים מופקדים</strong> ←{' '}
+        <strong>טבלאות איזון והקצאה</strong>. בעמודים 69–70 מופיעים בעלי גוש {PARCEL.gush} חלקה{' '}
+        {PARCEL.parcel}, יחד עם השבר של כל אחד בחלקה.
+      </li>
+    );
+  }
+  return (
+    <li>
+      מצאו את עצמכם בטבלאות: {link} ופתחו את <strong>טבלאות האיזון וההקצאה המעודכנות</strong> (עדכון
+      לפי סעיף 106(ב), נובמבר 2026 — קובץ של 12 עמודים). בעמודים 2–4 מופיעים בעלי חלקה {PARCEL.parcel}:
+      השבר בחלקה, ובאיזה מגרש (149, 150 או 153) הוקצו לכם הזכויות.
+    </li>
+  );
 }
 
-export default App;
+export default function App() {
+  const sim = useSimulation(167);
+  const version = getVersion(sim.versionId);
+  const base = import.meta.env.BASE_URL;
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>
+          סימולטור זכויות — גוש {PARCEL.gush} חלקה {PARCEL.parcel}
+        </h1>
+        <p className="subtitle">
+          מתחם 13, חדרה · תכנית 302-1306018. כמה יחידות מגיעות לכם לפי טבלת האיזון, ומה שווה כל מסלול
+          התקשרות עם יזם.
+        </p>
+      </header>
+
+      <main>
+        <div className="card instructions">
+          <h2>איך זה עובד? 🙂</h2>
+          <ol>
+            {findYourselfStep(sim.versionId)}
+            <li>
+              הזינו את השטח שלכם בחלקה במ״ר, או בחרו <strong>״לפי שבר בחלקה״</strong> והקלידו את השבר
+              כפי שמופיע בטבלה (למשל 167/21258).
+            </li>
+            <li>בחרו את המגרש שהוקצה לכם — נחשב את החלק במגרש, מספר היחידות ושווי הזכויות.</li>
+            <li>
+              למטה מוצגים ארבעה מסלולים (קומבינציה, עלות+, תמורות ומזומן). את הנחות השוק אפשר לשנות
+              ב<strong>הגדרות המתקדמות</strong>.
+            </li>
+            <li>
+              יש שתי גרסאות של הטבלאות: <strong>המופקדת</strong> (יוני 2026) ו
+              <strong>העדכון לפי סעיף 106(ב)</strong> (נובמבר 2026). בעדכון בעלי חלקה 33 עברו ממגרש 44
+              למגרשים 149, 150 ו-153 — ההשוואה מופיעה בסוף.
+            </li>
+          </ol>
+        </div>
+
+        <div className="card version-card">
+          <p className="version-title">גרסת הטבלאות</p>
+          <SegmentedToggle
+            options={VERSION_IDS.map((v) => ({ value: v, label: VERSIONS[v].label }))}
+            value={sim.versionId}
+            onChange={sim.setVersionId}
+            label="גרסת הטבלאות"
+          />
+        </div>
+
+        <LandInput
+          landArea={sim.landArea}
+          onLandAreaChange={sim.setLandArea}
+          version={version}
+          lotId={sim.lotId}
+          onLotChange={sim.setLotId}
+        />
+
+        <TableRights rights={sim.rights} version={version} tracks={sim.tracks} />
+
+        <TrackCards tracks={sim.tracks} config={sim.config} landArea={sim.landArea} />
+
+        <TracksCompare tracks={sim.tracks} />
+
+        <AdvancedSettings
+          config={sim.config}
+          updateConfig={sim.updateConfig}
+          resetToDefaults={sim.resetToDefaults}
+          marketValuePerApartment={sim.tracks.marketValuePerApartment}
+          tableSqmPerUnit={sim.rights.sqmPerUnit}
+        />
+
+        <VersionCompare
+          landArea={sim.landArea}
+          versionId={sim.versionId}
+          lotId={sim.lotId}
+          config={sim.config}
+        />
+
+        <Guide version={version} lotId={sim.lotId} config={sim.config} />
+      </main>
+
+      <footer className="disclaimer">
+        <p>{DISCLAIMER_SHORT}</p>
+        <ul className="sources">
+          {SOURCES.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ul>
+        <ul className="sources">
+          <li>
+            <a href={MAVAT_URL} target="_blank" rel="noreferrer">
+              אתר התכנית במבא״ת
+            </a>
+          </li>
+          <li>
+            תשריט מצב מוצע (106(ב)):{' '}
+            <a href={`${base}maps/proposed-1.pdf`} target="_blank" rel="noreferrer">
+              גיליון 1
+            </a>{' '}
+            |{' '}
+            <a href={`${base}maps/proposed-2.pdf`} target="_blank" rel="noreferrer">
+              גיליון 2
+            </a>
+          </li>
+        </ul>
+        <p>
+          הטבלאות המלאות כוללות שמות ומספרי זהות ולכן אינן מפורסמות כאן — רק נתוני המגרשים והשברים של
+          חלקה 33.
+        </p>
+      </footer>
+    </div>
+  );
+}

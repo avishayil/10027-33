@@ -1,31 +1,38 @@
-import { cn } from '../utils/cn';
+import { Tooltip } from './Tooltip';
 
-export function Slider({
-  min = 0,
-  max = 100,
-  step = 1,
-  value,
-  onChange,
-  className,
-  ...props
-}) {
-  const percentage = ((value - min) / (max - min)) * 100;
-
+/** הגדרה מספרית: סרגל + שדה מספר. */
+export function Slider({ label, value, onChange, min, max, step = 1, unit, tooltip }) {
+  const set = (raw) => {
+    const n = Number(raw);
+    if (Number.isFinite(n)) onChange(n);
+  };
   return (
-    <div className={cn('relative w-full', className)}>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="slider-input w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-        style={{
-          background: `linear-gradient(to left, #3b82f6 0%, #3b82f6 ${percentage}%, #e2e8f0 ${percentage}%, #e2e8f0 100%)`,
-        }}
-        {...props}
-      />
-    </div>
+    <label className="setting">
+      <span className="setting-label">
+        {label}
+        {tooltip && <Tooltip content={tooltip} />}
+      </span>
+      <span className="setting-controls">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => set(e.target.value)}
+          aria-label={label}
+        />
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => set(e.target.value)}
+          aria-label={`${label} (ערך)`}
+        />
+        {unit && <span className="setting-unit">{unit}</span>}
+      </span>
+    </label>
   );
 }
