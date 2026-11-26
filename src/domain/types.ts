@@ -104,6 +104,18 @@ export interface ProjectConfig {
     developerPaymentYear: number;
     /** Price of completion area as a share of finished-apartment market value. */
     completionPriceFactor: number;
+    /** Years from today until statutory approval (waiting strategy sells then). */
+    approvalYears: number;
+    /** Price at which a developer settles a fractional entitlement in cash, as a share of market value. */
+    fractionCashSettlementFactor: number;
+  };
+  developer: {
+    /** Developer's own direct construction cost per m² (no markup). */
+    directCostPerSqm: number;
+    /** Planning, fees, financing, marketing and overhead as a share of direct cost. */
+    softCostRate: number;
+    /** Indicative profit a developer requires, as a share of revenue net of VAT. */
+    targetMarginOnRevenue: number;
   };
   market: {
     apartmentValuePerSqm: number;
@@ -114,6 +126,10 @@ export interface ProjectConfig {
     immediateLandSalePricePerSqm: number | null;
     /** Historical reported transactions in parcel 33 (pre-106(b)). Reference only. */
     immediateSaleReferencePerSqm: number;
+    /** Open-market land value per original m² once the plan is approved (independent of developer offers). */
+    postApprovalLandValuePerSqm: number;
+    /** Discount applied to an unresolved fractional apartment share (illiquid co-ownership). */
+    fractionIlliquidityDiscount: number;
     developerRightsSaleScenario: { pricePerOriginalSqm: number; confirmedOffer: boolean };
   };
   taxation: {
@@ -125,6 +141,8 @@ export interface ProjectConfig {
     landPurchaseTaxRate: number;
     rentalTaxReserve: number;
     saleTransactionCostRate: number;
+    /** Capital-gains tax on revenue-sharing deals is assessed at signing (conservative). */
+    revenueShareTaxAtSigning: boolean;
   };
   financing: {
     nominalAnnualInterest: number;
@@ -171,7 +189,8 @@ export interface RightsInfo {
 export type StrategyType =
   | 'S01' // sell all rights to a developer
   | 'S01M' // sell now on the open market (reference only)
-  | 'S02' // full combination
+  | 'S02' // full combination (fraction kept as an unresolved share)
+  | 'S02C' // full combination, fraction settled in cash
   | 'S03' // construction services for all whole apartments, sell the fraction
   | 'S04' // revenue sharing
   | 'S05' // sell surplus rights, build fewer whole apartments
@@ -179,14 +198,18 @@ export type StrategyType =
   | 'S07' // build several, sell one at completion
   | 'S08' // build, keep and rent (rent counts toward repayment)
   | 'S09' // wait and reassess after approval
-  | 'S10'; // buy complementary rights and build
+  | 'S10' // buy complementary rights and build
+  | 'S11'; // mixed: combination on part of the rights + construction services on the rest
 
 export type Leg =
-  | { kind: 'sell_rights'; rights: number; market: 'developer' | 'open_market' }
+  | { kind: 'sell_rights'; rights: number; market: 'developer' | 'open_market' | 'post_approval' }
   | { kind: 'combination'; rights: number }
   | { kind: 'completion'; apartmentEquivalents: number }
   | { kind: 'buy_rights'; rights: number }
+  /** `apartments` may be fractional (S11 builds only the part of an apartment not covered by combination). */
   | { kind: 'build'; apartments: number; ownRightsUsed: number; purchasedRightsUsed: number }
+  /** The developer buys out a fractional combination entitlement for cash at completion. */
+  | { kind: 'settle_fraction_cash' }
   | { kind: 'revenue_share'; rights: number }
   | { kind: 'sell_apartments'; apartments: number }
   | { kind: 'hold_land'; rights: number }
@@ -210,7 +233,8 @@ export type LedgerCategory =
   | 'purchase_tax'
   | 'transaction_costs'
   | 'rights_purchase'
-  | 'completion_payment';
+  | 'completion_payment'
+  | 'fraction_settlement';
 
 export type Payer = 'owner' | 'developer' | 'buyer' | 'seller';
 
@@ -251,17 +275,25 @@ export interface TransactionPlan {
   /** Apartment-equivalents owned after completion (may be fractional). */
   retainedApartmentEquivalents: number;
   wholeApartmentsRetained: number;
+  /** Unresolved fractional share (no rent, illiquid). */
+  fractionalShare: number;
+  /** Land rights the owner still holds before completion (built share, combination-retained share, purchased). */
+  retainedLandRights: number;
   apartmentsBuilt: number;
   completionMonth: number;
   rentCountsForRepayment: boolean;
   /** Value of held land at the horizon, before deferred liabilities. */
   heldLandValueAtHorizon: number;
   deferredLiabilities: number;
-  /** Indicative value a lender might recognise (today's prices). */
-  collateralValue: number;
+  /** Land a lender could recognise before completion (retained rights at the developer price). Sold rights excluded. */
+  preCompletionLandCollateral: number;
+  /** Whole retained apartments (today's prices) — fractional shares excluded. */
+  postCompletionCollateral: number;
   constructionCost: number;
   capitalGainsRange: { low: number; high: number };
 }
+
+export type FinancingStage = 'bridge' | 'construction' | 'mortgage';
 
 export interface SimulationResult {
   cashAtHorizon: number;
@@ -279,7 +311,26 @@ export interface SimulationResult {
   referenceAtCompletion: number;
   /** Largest amount of the user's own starting capital that was consumed. */
   personalCapitalUsed: number;
+  /** Borrowing by financing stage. */
+  drawsByStage: Record<FinancingStage, number>;
+  /** Obligations no lender finances (taxes, levy, costs) that cash could not cover. */
+  unfunded: number;
+  peakPreCompletionLtv: number;
+  peakPostCompletionLtv: number;
   yearly: { year: number; cash: number; debt: number }[];
+}
+
+/** Financial affordability — can the household fund it? */
+export type Affordability = 'fits' | 'fits_with_financing' | 'does_not_fit' | 'unknown';
+/** Does it survive the adverse scenario? */
+export type Resilience = 'robust' | 'fragile';
+/** Have the commercial terms it relies on been confirmed, and are they plausible for a developer? */
+export type CommercialCertainty = 'not_required' | 'unverified' | 'questionable';
+
+export interface Assessment {
+  affordability: Affordability;
+  resilience: Resilience;
+  commercial: CommercialCertainty;
 }
 
 export type Feasibility = 'estimated_feasible' | 'conditional' | 'fragile' | 'infeasible' | 'unknown';
@@ -296,7 +347,9 @@ export type ReasonCode =
   | 'USES_MORTGAGE'
   | 'RENT_SUPPORTS_REPAYMENT'
   | 'COMBINATION_BELOW_WHOLE_UNIT'
-  | 'NOT_ENOUGH_RIGHTS';
+  | 'NOT_ENOUGH_RIGHTS'
+  | 'UNFUNDED_OBLIGATION'
+  | 'FRACTION_UNRESOLVED';
 
 export type ConditionCode =
   | 'DEVELOPER_PRICE_UNVERIFIED'
@@ -309,11 +362,19 @@ export type ConditionCode =
   | 'LTV_ABOVE_COMFORT'
   | 'WHOLE_UNIT_ALLOCATION'
   | 'TAX_ALLOCATION'
-  | 'CURRENT_APPRAISAL';
+  | 'CURRENT_APPRAISAL'
+  | 'BRIDGE_FINANCING'
+  | 'CONSTRUCTION_FINANCING'
+  | 'MIXED_STRUCTURE'
+  | 'FRACTION_SETTLEMENT'
+  | 'PLANNING_APPROVAL';
 
 export interface ScenarioAssessment {
   fails: ReasonCode[];
+  /** Financing conditions (affect affordability). */
   conditions: ConditionCode[];
+  /** Commercial / legal dependencies (affect commercial certainty, not affordability). */
+  commercial: ConditionCode[];
   missing: ReasonCode[];
 }
 
@@ -372,7 +433,11 @@ export interface StrategyResult {
   futureNetWealth: number;
 
   feasibility: Feasibility;
+  assessment: Assessment;
+  /** Indicative developer margin on revenue for the deal this strategy relies on (null = no developer deal). */
+  developerMargin: number | null;
   reasonCodes: ReasonCode[];
+  /** Financing and commercial conditions together. */
   requiredConditions: ConditionCode[];
   scenarioResults: ScenarioResult[];
   metrics: Metrics;
@@ -389,7 +454,13 @@ export type NegotiationCode =
   | 'MAX_COMPLETION_PAYMENT'
   | 'REQUIRED_ADDITIONAL_CAPITAL'
   | 'MAX_SUSTAINABLE_MORTGAGE'
-  | 'LATEST_SURPLUS_PAYMENT';
+  | 'LATEST_SURPLUS_PAYMENT'
+  | 'BREAKEVEN_SURPLUS_PRICE'
+  | 'CONSERVATIVE_SURPLUS_PRICE'
+  | 'IMMEDIATE_SALE_MIN_PRICE'
+  | 'MAX_COMBINATION_AT_TARGET_MARGIN'
+  | 'DEVELOPER_RESIDUAL_LAND_PRICE'
+  | 'COMBINATION_CONSISTENT_PRICE';
 
 export interface NegotiationTarget {
   code: NegotiationCode;
@@ -399,6 +470,8 @@ export interface NegotiationTarget {
   unit: 'ils' | 'ils_per_sqm' | 'pct' | 'months';
   /** The current assumption, for comparison. */
   current?: number;
+  /** What the threshold answers: affordability, economic break-even, conservative recommendation, developer side. */
+  kind?: 'financing' | 'breakeven' | 'conservative' | 'developer' | 'general';
   note?: string;
 }
 
@@ -425,4 +498,23 @@ export interface DecisionResult {
   followUpQuestions: FollowUpQuestion[];
   sensitivity: Sensitivity;
   mortgageCapacity: number | null;
+  developer: DeveloperEconomics;
+}
+
+export interface DeveloperEconomics {
+  /** Gross value of the combination entitlement per original m² (undiscounted, today's prices). */
+  impliedCombinationValuePerSqm: number;
+  combinationEntitlementValue: number;
+  grossSaleValue: number;
+  /** Developer margin on revenue (net of VAT) for a full combination at the selected %. */
+  combinationMargin: number;
+  /** Developer margin when buying all the land at the developer price scenario. */
+  landPurchaseMargin: number;
+  /** Highest combination % that still leaves the developer its target margin. */
+  maxCombinationAtTargetMargin: number;
+  /** Highest cash price per original m² that leaves the developer its target margin. */
+  residualLandValuePerSqm: number;
+  revenueShareMargin: number;
+  /** Cash price per original m² that leaves the developer as well off as the selected combination offer. */
+  consistentCashPricePerSqm: number;
 }

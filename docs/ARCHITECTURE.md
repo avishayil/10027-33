@@ -11,11 +11,12 @@ UserProfile + CommercialTerms ─▶ analyzeProfile()  (src/optimizer/analyze.ts
    2. generateStrategies     optimizer/generate.ts  S01–S10 candidates, every whole-apartment count
    3. evaluateScenarios      optimizer/scenarios.ts favourable / base / adverse
         └ evaluateCandidate  optimizer/evaluate.ts  legs → ledger + dated cash events → monthly simulation
-   4. assess + classify      optimizer/feasibility.ts  cash, repayment, LTV; conditions; status
+   4. assess + classify      optimizer/feasibility.ts  unfunded obligations, staged financing, repayment,
+                                                       stage-specific LTV → affordability / resilience / commercial
    5. rankStrategies         optimizer/rank.ts      Pareto frontier, then goal weights
    6. strategy/global targets optimizer/reverse.ts  bisection for negotiation thresholds
    7. sensitivity            analyze.ts             one-at-a-time adverse flips of each assumption
-   8. findMaterialUnknowns   optimizer/questions.ts follow-up questions with a reason
+   8. findMaterialUnknowns   optimizer/questions.ts re-runs coreAnalysis with plausible answers; asks only if the top changes
 ```
 
 ## Layers
@@ -23,7 +24,7 @@ UserProfile + CommercialTerms ─▶ analyzeProfile()  (src/optimizer/analyze.ts
 | Folder | Responsibility |
 | --- | --- |
 | `src/data/` | `parcel33.js` (official allocation tables, unchanged), and provenance-tagged `DataPoint`s: `project.ts`, `market.ts` (incl. financing), `regulation.ts`, `commercial.ts`, `scenarios.ts`, `sources.ts`; `config.ts` assembles the flat `ProjectConfig`. |
-| `src/domain/` | Pure financial primitives: rights, construction quote and schedule, tax reserves, mortgage formulas, valuation, transaction legs → plan, month-by-month cash-flow simulation. |
+| `src/domain/` | Pure financial primitives: rights, construction quote and schedule, tax reserves, mortgage formulas, valuation, transaction legs → plan, month-by-month cash-flow simulation with staged financing, developer-side economics (`developer.ts`). |
 | `src/optimizer/` | Generate, evaluate, feasibility, scenarios, rank, reverse, questions, Hebrew explanations. |
 | `src/hooks/useDecisionEngine.ts` | In-memory UI state; runs `analyzeProfile` in a `useMemo`. |
 | `src/components/` | `inputs/`, `verdict/`, `comparisons/`, `assumptions/`, `print/`, and `legacy/` (the original four-track simulator under “השוואה מתקדמת”). |

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Assumptions } from './components/assumptions/Assumptions';
 import {
   CostLedger,
+  DeveloperPanel,
   Financing,
   NegotiationPanel,
   ScenarioComparison,
@@ -78,6 +79,7 @@ export default function App() {
                 {focus && <Financing result={result} r={focus} />}
                 <ScenarioComparison result={result} />
                 <NegotiationPanel result={result} />
+                <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
                 <Assumptions />
                 <div className="no-print print-actions">
                   <button type="button" className="btn-primary" onClick={() => window.print()}>

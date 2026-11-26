@@ -1,29 +1,36 @@
 /**
  * Candidate generation. Enumerates conventional and hybrid strategies for the user's rights,
- * including every whole-apartment target from 1 to floor(R). It does not prefer more apartments —
- * ranking decides.
+ * including every whole-apartment target. It does not prefer more apartments — ranking decides.
  */
 import type { Candidate, CommercialTerms, Leg, ProjectConfig, RightsInfo } from '../domain/types';
 
 const EPS = 1e-6;
 const MAX_APARTMENTS = 20;
 
+/** Rights to keep for construction services so that combination + construction yields N apartments. */
+export function mixedSplit(N: number, R: number, c: number): number {
+  return (N - c * R) / (1 - c);
+}
+
 export function generateStrategies(info: RightsInfo, terms: CommercialTerms, _config: ProjectConfig): Candidate[] {
   const R = info.apartmentEquivalents;
   if (!(R > EPS)) return [];
+  const c = terms.combinationPct;
   const out: Candidate[] = [];
   const add = (id: string, type: Candidate['type'], legs: Leg[], targetApartments: number) =>
     out.push({ id, type, legs, targetApartments });
 
   add('S01', 'S01', [{ kind: 'sell_rights', rights: R, market: 'developer' }], 0);
   add('S01M', 'S01M', [{ kind: 'sell_rights', rights: R, market: 'open_market' }], 0);
-  add('S09', 'S09', [{ kind: 'hold_land', rights: R }], 0);
+  add('S09', 'S09', [{ kind: 'sell_rights', rights: R, market: 'post_approval' }], 0);
 
-  const finished = R * terms.combinationPct;
-  add('S02', 'S02', [{ kind: 'combination', rights: R }], Math.floor(finished + EPS));
-  const fraction = finished - Math.floor(finished + EPS);
+  const finished = R * c;
+  const whole = Math.floor(finished + EPS);
+  const fraction = finished - whole;
+  add('S02', 'S02', [{ kind: 'combination', rights: R }], whole);
   if (fraction > 0.01) {
-    const target = Math.ceil(finished - EPS);
+    add('S02C', 'S02C', [{ kind: 'combination', rights: R }, { kind: 'settle_fraction_cash' }], whole);
+    const target = whole + 1;
     add(`S06-${target}`, 'S06', [
       { kind: 'combination', rights: R },
       { kind: 'completion', apartmentEquivalents: target - finished },
@@ -31,6 +38,16 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, _co
   }
 
   add('S04', 'S04', [{ kind: 'revenue_share', rights: R }], 0);
+
+  // S11: combination on part of the rights, construction services on the rest, for each whole target N.
+  for (let N = whole + 1; N <= Math.min(MAX_APARTMENTS, Math.floor(R + EPS)); N += 1) {
+    const build = mixedSplit(N, R, c);
+    if (build <= EPS || build > R + EPS) continue;
+    const comb = R - build;
+    const legs: Leg[] = [{ kind: 'build', apartments: build, ownRightsUsed: build, purchasedRightsUsed: 0 }];
+    if (comb > EPS) legs.unshift({ kind: 'combination', rights: comb });
+    add(`S11-${N}`, 'S11', legs, N);
+  }
 
   const maxWhole = Math.min(MAX_APARTMENTS, Math.floor(R + EPS));
   for (let k = 1; k <= maxWhole; k += 1) {
@@ -44,7 +61,6 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, _co
     }
   }
 
-  // Complementary purchase up to the next whole apartment.
   const next = Math.ceil(R - EPS);
   const missing = next - R;
   if (missing > 0.01 && next <= MAX_APARTMENTS) {

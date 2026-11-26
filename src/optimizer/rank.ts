@@ -9,6 +9,8 @@ export const SIMPLICITY: Record<StrategyType, number> = {
   S01: 0.9,
   S01M: 0.9,
   S02: 0.8,
+  S02C: 0.75,
+  S11: 0.4,
   S04: 0.7,
   S03: 0.5,
   S05: 0.5,
@@ -65,74 +67,93 @@ export function findParetoFrontier(results: StrategyResult[]): StrategyResult[] 
   return results.filter((r) => !results.some((o) => o !== r && dominates(o.metrics, r.metrics)));
 }
 
-function normaliser(values: number[]): (v: number) => number {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  return (v) => (max - min < 1e-9 ? 1 : (v - min) / (max - min));
+/**
+ * Fixed reference scales so a candidate's score does not depend on which other candidates exist.
+ * All are derived from the user's own rights and the base assumptions.
+ */
+export interface Scales {
+  /** R × today's apartment value. */
+  entitlementValue: number;
+  /** R × land price per right (developer scenario). */
+  landValue: number;
+  /** Whole apartments achievable at most (ceil R, ≥ 1). */
+  maxApartments: number;
+  /** Net monthly rent of that many apartments. */
+  monthlyRent: number;
 }
 
-export function goalScores(results: StrategyResult[], goal: Goal): Map<string, number> {
-  const scores = new Map<string, number>();
-  if (results.length === 0) return scores;
-  const pick = (f: (m: Metrics) => number) => normaliser(results.map((r) => f(r.metrics)));
-  const nW = pick((m) => m.valueCreated);
-  const nR = pick((m) => m.resilience);
-  const nA = pick((m) => m.wholeApartments);
-  const nL = pick((m) => m.liquidity);
-  const nS = pick((m) => m.simplicity);
-  const nI = pick((m) => m.sustainableMonthlyIncome);
-  const nD = pick((m) => -m.peakDebt);
+const clamp = (x: number) => Math.max(-1, Math.min(2, Number.isFinite(x) ? x : 0));
 
-  for (const r of results) {
-    const m = r.metrics;
-    const balanced =
-      BALANCED_WEIGHTS.valueCreated * nW(m.valueCreated) +
-      BALANCED_WEIGHTS.resilience * nR(m.resilience) +
-      BALANCED_WEIGHTS.wholeApartments * nA(m.wholeApartments) +
-      BALANCED_WEIGHTS.liquidity * nL(m.liquidity) +
-      BALANCED_WEIGHTS.simplicity * nS(m.simplicity);
-    let score = balanced;
-    switch (goal) {
-      case 'maximize_apartments':
-        // Whole apartments dominate; balanced score breaks ties.
-        score = m.wholeApartments * 10 + balanced;
-        break;
-      case 'passive_income':
-        score = 0.6 * nI(m.sustainableMonthlyIncome) + 0.4 * balanced;
-        break;
-      case 'immediate_cash':
-        score = 0.6 * nL(m.liquidity) + 0.4 * balanced;
-        break;
-      case 'minimize_risk':
-        score = 0.4 * nR(m.resilience) + 0.3 * nD(-m.peakDebt) + 0.2 * nS(m.simplicity) + 0.1 * nW(m.valueCreated);
-        break;
-      default:
-        break;
-    }
-    scores.set(r.id, score);
+export function normalisedMetrics(m: Metrics, s: Scales) {
+  const pos = (v: number) => (v > 0 ? v : 1);
+  return {
+    W: clamp(m.valueCreated / pos(s.entitlementValue)),
+    R: clamp(m.resilience),
+    A: clamp(m.wholeApartments / pos(s.maxApartments)),
+    L: clamp(m.liquidity / pos(s.landValue)),
+    S: clamp(m.simplicity),
+    I: clamp(m.sustainableMonthlyIncome / pos(s.monthlyRent)),
+    D: clamp(1 - m.peakDebt / pos(s.entitlementValue)),
+  };
+}
+
+export function goalScore(m: Metrics, goal: Goal, s: Scales): number {
+  const n = normalisedMetrics(m, s);
+  const balanced =
+    BALANCED_WEIGHTS.valueCreated * n.W +
+    BALANCED_WEIGHTS.resilience * n.R +
+    BALANCED_WEIGHTS.wholeApartments * n.A +
+    BALANCED_WEIGHTS.liquidity * n.L +
+    BALANCED_WEIGHTS.simplicity * n.S;
+  switch (goal) {
+    case 'maximize_apartments':
+      // Whole apartments dominate; balanced score breaks ties.
+      return m.wholeApartments * 10 + balanced;
+    case 'passive_income':
+      return 0.6 * n.I + 0.4 * balanced;
+    case 'immediate_cash':
+      return 0.6 * n.L + 0.4 * balanced;
+    case 'minimize_risk':
+      return 0.4 * n.R + 0.3 * n.D + 0.2 * n.S + 0.1 * n.W;
+    default:
+      return balanced;
   }
-  return scores;
 }
 
-/** Eligible results ordered best-first: Pareto frontier by score, then dominated ones by score. */
-export function rankStrategies(results: StrategyResult[], goal: Goal): { ranked: StrategyResult[]; frontierIds: string[] } {
+export function goalScores(results: StrategyResult[], goal: Goal, s: Scales): Map<string, number> {
+  return new Map(results.map((r) => [r.id, goalScore(r.metrics, goal, s)]));
+}
+
+/** Explicit preference constraints: applied when at least one eligible strategy satisfies them. */
+function applyConstraints(eligible: StrategyResult[], goal: Goal): StrategyResult[] {
+  const keep = (pred: (r: StrategyResult) => boolean) => {
+    const f = eligible.filter(pred);
+    return f.length ? f : eligible;
+  };
+  if (goal === 'minimize_risk') return keep((r) => r.mortgageRequired <= 1);
+  if (goal === 'immediate_cash') return keep((r) => r.metrics.liquidity > 0);
+  if (goal === 'passive_income') return keep((r) => r.metrics.sustainableMonthlyIncome > 0);
+  return eligible;
+}
+
+/** Eligible results ordered best-first: constrained Pareto frontier by score, then the rest by score. */
+export function rankStrategies(results: StrategyResult[], goal: Goal, s: Scales): { ranked: StrategyResult[]; frontierIds: string[] } {
   const eligible = dropRedundantRentals(results, goal).filter((r) => isEligible(r, goal));
-  const frontier = findParetoFrontier(eligible);
+  const constrained = applyConstraints(eligible, goal);
+  const frontier = findParetoFrontier(constrained);
   const frontierIds = new Set(frontier.map((r) => r.id));
-  const scores = goalScores(eligible, goal);
+  const scores = goalScores(eligible, goal, s);
   const byScore = (a: StrategyResult, b: StrategyResult) =>
     (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0) || a.id.localeCompare(b.id);
-  const ranked = [
-    ...eligible.filter((r) => frontierIds.has(r.id)).sort(byScore),
-    ...eligible.filter((r) => !frontierIds.has(r.id)).sort(byScore),
-  ];
-  return { ranked, frontierIds: [...frontierIds] };
+  const first = constrained.filter((r) => frontierIds.has(r.id)).sort(byScore);
+  const rest = eligible.filter((r) => !frontierIds.has(r.id)).sort(byScore);
+  return { ranked: [...first, ...rest], frontierIds: [...frontierIds] };
 }
 
 /** Best candidate under the goal if financial constraints are ignored (to detect a blocked preference). */
-export function unconstrainedPreference(results: StrategyResult[], goal: Goal): StrategyResult | null {
+export function unconstrainedPreference(results: StrategyResult[], goal: Goal, s: Scales): StrategyResult | null {
   const pool = results.filter((r) => r.strategyType !== 'S01M');
-  const scores = goalScores(pool, goal);
+  const scores = goalScores(pool, goal, s);
   let best: StrategyResult | null = null;
   for (const r of pool) if (!best || (scores.get(r.id) ?? 0) > (scores.get(best.id) ?? 0)) best = r;
   return best;

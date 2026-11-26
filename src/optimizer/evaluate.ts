@@ -1,4 +1,5 @@
 import { simulateCashflow } from '../domain/cashflow';
+import { permitMonth } from '../domain/construction';
 import { buildTransactionPlan, monthlyNetRentFor } from '../domain/transactions';
 import type {
   Candidate,
@@ -48,15 +49,22 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     annualRate: config.financing.nominalAnnualInterest,
     mortgageYears: config.financing.durationYears,
     alternativeReturn: alt,
+    permitMonth: permitMonth(config),
     completionMonth: plan.completionMonth,
     horizonMonth,
     liquidityMonth: Math.max(1, Math.round(liqYears * 12)),
     monthlyNetRent: monthlyNetRentFor(plan, config),
     rentCountsForRepayment: plan.rentCountsForRepayment,
+    preCompletionLandCollateral: plan.preCompletionLandCollateral,
+    postCompletionCollateral: plan.postCompletionCollateral,
   });
 
+  // Whole apartments at market value; an unresolved fractional share at an illiquidity discount.
+  const aptAtHorizon = apartmentValueAt(config, horizonMonth);
   const assetsAtHorizon =
-    plan.retainedApartmentEquivalents * apartmentValueAt(config, horizonMonth) + plan.heldLandValueAtHorizon;
+    plan.wholeApartmentsRetained * aptAtHorizon +
+    plan.fractionalShare * aptAtHorizon * (1 - config.market.fractionIlliquidityDiscount) +
+    plan.heldLandValueAtHorizon;
   const futureNetWealth =
     sim.cashAtHorizon + assetsAtHorizon - sim.debtAtHorizon - sim.personalPaymentsFV - plan.deferredLiabilities;
   const referenceWealth = startingCash * Math.pow(1 + alt, config.analysis.horizonYears);

@@ -80,6 +80,7 @@ describe('mortgage', () => {
       annualRate: 0.05,
       mortgageYears: 25,
       alternativeReturn: 0,
+      permitMonth: 0,
       completionMonth: 0,
       horizonMonth: 120,
       liquidityMonth: 24,
@@ -141,11 +142,14 @@ describe('transactions', () => {
     expect(late.sim.peakDebt).toBeGreaterThan(early.sim.peakDebt + 1000);
   });
 
-  it('retained land is never counted as cash', () => {
-    const ev = evaluateCandidate(cand('S09'), { info, profile: MODERATE, terms: TERMS }, C);
-    expect(ev.sim.cashAtHorizon).toBeCloseTo(300000 * Math.pow(1.04, 10), 0);
-    expect(ev.plan.heldLandValueAtHorizon).toBeGreaterThan(0);
-    expect(ev.plan.deferredLiabilities).toBeGreaterThan(0);
+  it('sold rights are never collateral; retained land is collateral, not cash', () => {
+    const hybrid = plan('S05-1');
+    const landPerRight = (167 / 2.25) * 6900;
+    expect(hybrid.preCompletionLandCollateral).toBeCloseTo(1 * landPerRight, 4);
+    const comb = plan('S02');
+    expect(comb.preCompletionLandCollateral).toBeCloseTo(2.25 * 0.35 * landPerRight, 4);
+    const ev = evaluateCandidate(cand('S02'), { info, profile: MODERATE, terms: TERMS }, C);
+    expect(ev.sim.cashAtHorizon).toBeLessThan(300000 * Math.pow(1.04, 10));
   });
 
   it('rent never funds construction-stage payments', () => {

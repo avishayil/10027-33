@@ -60,9 +60,31 @@ export const MARKET = {
     sourceUrl: 'https://land-check.co.il',
     retrievedAt: RETRIEVED_AT,
     observedAt: '2024-10/2026-04',
-    range: { low: 1647, high: 2395 },
+    range: { low: 1647, high: 2739 },
     verification: 'reported',
-    notes: 'חציון חמש עסקאות של 167 מ״ר לפני עדכון 106(ב). אינו שומה עדכנית.',
+    notes:
+      'חציון חמש עסקאות של 167 מ״ר לפני עדכון 106(ב). אינו שומה עדכנית. טווח לתרחישים: העסקה הזולה ביותר (₪1,647) עד שווי הזכויות בטבלה בניכוי היטל (₪2,739 = (714,371 − 256,940) ÷ 167).',
+  },
+  postApprovalLandValuePerSqm: {
+    value: 7100,
+    label: 'שווי קרקע למ״ר אחרי אישור התכנית (שוק פתוח)',
+    sourceType: 'secondary_market',
+    sourceName: 'Zips — גוש 10027, 71 עסקאות',
+    sourceUrl: 'https://zips.co.il',
+    retrievedAt: RETRIEVED_AT,
+    observedAt: '2024-08/2026-08',
+    range: { low: 5325, high: 7810 },
+    verification: 'reported',
+    notes:
+      'ערך ייחוס לאסטרטגיית ההמתנה, נפרד ממחיר היזם (עסקאות בחלקות שונות בגוש — לא ישים ישירות לחלקה 33). תרחיש שמרני −25%, אופטימי +10%.',
+  },
+  fractionIlliquidityDiscount: {
+    value: 0.2,
+    label: 'הנחת אי-סחירות לחלק מדירה',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'חלק מדירה (מושע) קשה למכירה ולהשכרה; לא נזקפת לו הכנסה משכירות.',
   },
   blockTypicalPricePerSqm: {
     value: 7100,

@@ -65,6 +65,46 @@ export const COMMERCIAL = {
     verification: 'assumed',
     notes: 'שמרני: היזם מוכר את החלק החסר במחיר שוק מלא. המערכת מחשבת את הסכום המקסימלי שתוכלו לשלם.',
   },
+  approvalYears: {
+    value: 2,
+    label: 'זמן משוער עד אישור התכנית',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'אסטרטגיית ההמתנה מוכרת את הזכויות במועד זה בשווי השוק שאחרי האישור.',
+  },
+  fractionCashSettlementFactor: {
+    value: 0.8,
+    label: 'פיצוי כספי על חלק מדירה (ביחס לשווי שוק)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'אם היזם קונה מכם את השבר במסירה. בפועל נקבע בהסכם.',
+  },
+  developerDirectCostPerSqm: {
+    value: 11000,
+    label: 'עלות בנייה ישירה ליזם (מודל צד היזם)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'זהה לבסיס של ₪11,000. ייתכן שיזמים בונים בפחות — ואז הקומבינציה סבירה יותר מבחינתם.',
+  },
+  developerSoftCostRate: {
+    value: 0.12,
+    label: 'עלויות רכות של היזם (תכנון, אגרות, מימון, שיווק)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'כאחוז מעלות הבנייה הישירה.',
+  },
+  developerTargetMargin: {
+    value: 0.15,
+    label: 'רווח יזמי נדרש (מההכנסות, ללא מע״מ)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'שונה מ״רווח יזמי על הבנייה״ (הסליידר): זה הרווח על הפרויקט כולו.',
+  },
 } satisfies Record<string, DataPoint<number>>;
 
 /** Illustrative construction payment schedule (planning placeholder, not contract terms). */

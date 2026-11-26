@@ -8,7 +8,7 @@ import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-26.1';
+export const CONFIG_VERSION = '2026-11-26.2';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,
@@ -36,6 +36,13 @@ export const PROJECT_CONFIG: ProjectConfig = {
     revenueShare: COMMERCIAL.revenueShare.value,
     developerPaymentYear: COMMERCIAL.developerPaymentYear.value,
     completionPriceFactor: COMMERCIAL.completionPriceFactor.value,
+    approvalYears: COMMERCIAL.approvalYears.value,
+    fractionCashSettlementFactor: COMMERCIAL.fractionCashSettlementFactor.value,
+  },
+  developer: {
+    directCostPerSqm: COMMERCIAL.developerDirectCostPerSqm.value,
+    softCostRate: COMMERCIAL.developerSoftCostRate.value,
+    targetMarginOnRevenue: COMMERCIAL.developerTargetMargin.value,
   },
   market: {
     apartmentValuePerSqm: MARKET.apartmentValuePerSqm.value,
@@ -44,6 +51,8 @@ export const PROJECT_CONFIG: ProjectConfig = {
     rentalExpenseReserve: MARKET.rentalExpenseReserve.value,
     immediateLandSalePricePerSqm: null,
     immediateSaleReferencePerSqm: MARKET.immediateSaleReferencePerSqm.value,
+    postApprovalLandValuePerSqm: MARKET.postApprovalLandValuePerSqm.value,
+    fractionIlliquidityDiscount: MARKET.fractionIlliquidityDiscount.value,
     developerRightsSaleScenario: {
       pricePerOriginalSqm: MARKET.developerRightsPricePerOriginalSqm.value,
       confirmedOffer: false,
@@ -57,6 +66,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     landPurchaseTaxRate: REGULATION.landPurchaseTaxRate.value,
     rentalTaxReserve: REGULATION.rentalTaxReserve.value,
     saleTransactionCostRate: REGULATION.saleTransactionCostRate.value,
+    revenueShareTaxAtSigning: true,
   },
   financing: {
     nominalAnnualInterest: FINANCING.nominalAnnualInterest.value,

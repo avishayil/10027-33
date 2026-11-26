@@ -17,6 +17,11 @@ range and verification level, shown in the app under “הנחות החישוב 
 | Capital gains | 25% of gain | basis range | assumed | Tax Authority |
 | Purchase tax | 6% | — | reported | Tax Authority |
 | Indexation | 3%/y | 1–5% | assumed | CBS input index (scenario, not forecast) |
+| Post-approval land value | ₪7,100/m² | 5,325–7,810 | reported (other parcels) | Zips, block 10027 |
+| Immediate-sale scenarios | ₪1,916 | 1,647–2,739 | reported / derived | parcel 33 deals; table value − levy |
+| Fraction illiquidity / cash settlement | 20% / 80% | — | assumed | — |
+| Approval timing | 2 years | — | assumed | — |
+| Developer direct cost / soft costs / target margin | ₪11,000 / 12% / 15% | — | assumed | — |
 
 Review cadence is in `src/data/sources.ts`. Updates are made by editing the data files, bumping
 `CONFIG_VERSION`, and opening a PR whose description lists old/new values and the changed recommendations for

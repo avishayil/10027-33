@@ -9,7 +9,7 @@ import {
   strategyTitle,
 } from '../../optimizer/explain';
 import { formatCurrency, formatNumber } from '../../utils/format';
-import { StatusBadge } from '../verdict/Verdict';
+import { AssessmentChips } from '../verdict/Verdict';
 
 function Section({ title, sub, children, open = false }: { title: string; sub?: string; children: React.ReactNode; open?: boolean }) {
   return (
@@ -46,7 +46,7 @@ export function WhyFits({ result, goal }: { result: DecisionResult; goal: Goal }
               <li key={r.id}>
                 <strong>{strategyTitle(r)}</strong> —{' '}
                 {r.reasonCodes
-                  .filter((c) => ['NO_BORROWING_CAPACITY', 'REPAYMENT_EXCEEDED', 'LTV_EXCEEDED'].includes(c))
+                  .filter((c) => ['NO_BORROWING_CAPACITY', 'REPAYMENT_EXCEEDED', 'LTV_EXCEEDED', 'UNFUNDED_OBLIGATION'].includes(c))
                   .map((c) => REASON_TEXT[c])
                   .join(' ')}
               </li>
@@ -74,7 +74,7 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
           <thead>
             <tr>
               <th>מסלול</th>
-              <th>מצב</th>
+              <th>יכולת · עמידות · יזם</th>
               <th>דירות שלמות</th>
               <th>זכויות שנמכרות</th>
               <th>משכנתא</th>
@@ -88,7 +88,7 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
               <tr key={r.id} className={r.id === result.recommendation?.id ? 'row-recommended' : ''}>
                 <td>{strategyTitle(r)}</td>
                 <td>
-                  <StatusBadge r={r} />
+                  <AssessmentChips r={r} compact />
                 </td>
                 <td>{r.metrics.wholeApartments}</td>
                 <td>{formatRights(r.rightsSold)}</td>
@@ -183,6 +183,28 @@ export function Financing({ result, r }: { result: DecisionResult; r: StrategyRe
             <td>{formatCurrency(r.mortgageRequired)}</td>
           </tr>
           <tr>
+            <th>— מתוכה הלוואת גישור לפני ההיתר</th>
+            <td>{formatCurrency(s.drawsByStage.bridge)}</td>
+          </tr>
+          <tr>
+            <th>— מתוכה מימון בנייה (היתר עד מסירה)</th>
+            <td>{formatCurrency(s.drawsByStage.construction)}</td>
+          </tr>
+          <tr>
+            <th>— מתוכה משכנתא על הדירה הגמורה</th>
+            <td>{formatCurrency(s.drawsByStage.mortgage)}</td>
+          </tr>
+          <tr className={s.unfunded > 1 ? 'row-alert' : ''}>
+            <th>תשלומים שאין להם מימון (מסים, היטל, עלויות)</th>
+            <td>{formatCurrency(s.unfunded)}</td>
+          </tr>
+          <tr>
+            <th>שיעור מימון מקסימלי (לפני מסירה / אחרי)</th>
+            <td>
+              {formatNumber(Math.min(s.peakPreCompletionLtv, 9.99) * 100, 0)}% / {formatNumber(Math.min(s.peakPostCompletionLtv, 9.99) * 100, 0)}%
+            </td>
+          </tr>
+          <tr>
             <th>החזר חודשי בזמן הבנייה (ריבית בלבד)</th>
             <td>{formatCurrency(s.constructionPhaseMonthly)}</td>
           </tr>
@@ -228,7 +250,8 @@ export function Financing({ result, r }: { result: DecisionResult; r: StrategyRe
         </table>
       </div>
       <p className="field-hint">
-        שכר דירה לא משמש לתשלומים בזמן הבנייה — רק אחרי שהדירה קיימת. זכויות שנמכרו לא נספרות גם כבטוחה. אישור
+        מסים, היטל ועלויות עסקה משולמים מכסף פנוי — בנקים לא מממנים אותם. לפני המסירה הבטוחה היא הקרקע שנשארת
+        בבעלותכם והסכומים ששולמו לבנייה; זכויות שנמכרו אינן בטוחה. שכר דירה מגיע רק אחרי המסירה ורק מדירות שלמות.
         מימון בפועל, במיוחד לבנייה על קרקע בבעלות משותפת, דורש אישור בנק.
       </p>
     </Section>
@@ -298,6 +321,14 @@ function formatTarget(t: NegotiationTarget): string {
   }
 }
 
+const KIND_LABELS: Record<NonNullable<NegotiationTarget['kind']>, string> = {
+  financing: 'כדי שתוכלו לממן',
+  breakeven: 'איזון כלכלי',
+  conservative: 'מומלץ (שמרני)',
+  developer: 'מודל צד היזם',
+  general: '',
+};
+
 function formatCurrent(t: NegotiationTarget): string {
   if (t.current === undefined) return '';
   return `הנחה נוכחית: ${formatTarget({ ...t, value: t.current })}`;
@@ -305,7 +336,7 @@ function formatCurrent(t: NegotiationTarget): string {
 
 export function NegotiationPanel({ result }: { result: DecisionResult }) {
   const groups = new Map<string, NegotiationTarget[]>();
-  for (const t of result.negotiationTargets) {
+  for (const t of result.negotiationTargets.filter((x) => x.kind !== 'developer')) {
     const key = t.strategyId ?? '';
     groups.set(key, [...(groups.get(key) ?? []), t]);
   }
@@ -325,6 +356,10 @@ export function NegotiationPanel({ result }: { result: DecisionResult }) {
                 <tr key={t.code}>
                   <th>
                     {NEGOTIATION_LABELS[t.code]}
+                    {t.kind && KIND_LABELS[t.kind] && <span className="kind-tag">{KIND_LABELS[t.kind]}</span>}
+                    {t.note && t.code !== 'MIN_COMBINATION_PCT' && (
+                      <span className="muted"> (לעומת: {titleOf(t.note).replace(' — כרגע לא מתאים', '')})</span>
+                    )}
                     {t.code === 'MIN_COMBINATION_PCT' && t.note && (
                       <span className="muted"> (ל-{t.note === '1' ? 'דירה שלמה אחת' : `${t.note} דירות`})</span>
                     )}
@@ -343,8 +378,9 @@ export function NegotiationPanel({ result }: { result: DecisionResult }) {
         <p className="field-hint">יכולת ההחזר לא הוזנה — הספים חושבו בהנחה שלא תיקחו משכנתא (וכסף פנוי שלא הוזן נחשב 0).</p>
       )}
       <p className="field-hint">
-        השתמשו בספים כדי לבדוק הצעות כשיגיעו: הצעה שמתחת למחיר המינימלי, או מעל עלות הבנייה המקסימלית, לא תתאים
-        ליכולת שהזנתם.
+        שלושה מחירים שונים לזכויות עודפות: <strong>כדי שתוכלו לממן</strong> — המחיר שבו המסלול נכנס ליכולת שלכם;{' '}
+        <strong>איזון כלכלי</strong> — המחיר שבו הוא שווה למסלול המשתלם ביותר בלי מכירה; <strong>מומלץ</strong> — המחיר
+        שבו הוא עדיף גם בתרחיש השמרני. מסלול יכול להיות אפשרי מימונית ועדיין פחות משתלם.
       </p>
     </Section>
   );
@@ -358,5 +394,60 @@ export function Conditions({ r }: { r: StrategyResult }) {
         <li key={c}>{CONDITION_TEXT[c]}</li>
       ))}
     </ul>
+  );
+}
+
+export function DeveloperPanel({ result, combinationPct }: { result: DecisionResult; combinationPct: number }) {
+  const d = result.developer;
+  const pctFmt = (x: number) => `${formatNumber(x * 100, 1)}%`;
+  return (
+    <Section title="היתכנות העסקה מול היזם" sub="האם התנאים שהנחנו הגיוניים גם מבחינת היזם?">
+      <table className="kv-table">
+        <tbody>
+          <tr>
+            <th>שווי הדירות שתקבלו בקומבינציה של {pctFmt(combinationPct)} (היום, לפני מסים ועיתוי)</th>
+            <td>{formatCurrency(d.combinationEntitlementValue)}</td>
+          </tr>
+          <tr>
+            <th>אותו שווי, למ״ר קרקע מקורי</th>
+            <td>{formatCurrency(d.impliedCombinationValuePerSqm)}</td>
+          </tr>
+          <tr>
+            <th>תמורה ממכירת כל הקרקע ב-{formatCurrency(result.negotiationTargets.find((t) => t.code === 'DEVELOPER_RESIDUAL_LAND_PRICE')?.current ?? 0)} למ״ר</th>
+            <td>{formatCurrency(d.grossSaleValue)}</td>
+          </tr>
+          <tr>
+            <th>מחיר במזומן ששקול להצעת הקומבינציה מבחינת היזם</th>
+            <td>{formatCurrency(d.consistentCashPricePerSqm)} למ״ר</td>
+          </tr>
+          <tr>
+            <th>רווח משוער ליזם בקומבינציה של {pctFmt(combinationPct)}</th>
+            <td className={d.combinationMargin < 0 ? 'cell-fail' : ''}>{pctFmt(d.combinationMargin)}</td>
+          </tr>
+          <tr>
+            <th>רווח משוער ליזם אם יקנה את כל הקרקע במחיר התרחיש</th>
+            <td>{pctFmt(d.landPurchaseMargin)}</td>
+          </tr>
+          <tr>
+            <th>רווח משוער ליזם בעסקת תמורות</th>
+            <td className={d.revenueShareMargin < 0 ? 'cell-fail' : ''}>{pctFmt(d.revenueShareMargin)}</td>
+          </tr>
+          <tr>
+            <th>מחיר קרקע מקסימלי שמשאיר ליזם רווח של 15%</th>
+            <td>{formatCurrency(d.residualLandValuePerSqm)} למ״ר</td>
+          </tr>
+          <tr>
+            <th>אחוז קומבינציה מקסימלי שמשאיר ליזם רווח של 15%</th>
+            <td>{pctFmt(d.maxCombinationAtTargetMargin)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="field-hint">
+        מודל אינדיקטיבי: הכנסות מכירה ללא מע״מ, עלות בנייה ישירה של ₪11,000 למ״ר, 12% עלויות רכות, היטל השבחה, ומע״מ
+        על שירותי הבנייה לבעלים בקומבינציה. ״רווח יזמי״ בסליידר הוא תוספת על שירותי בנייה בלבד — כאן מדובר ברווח על
+        הפרויקט כולו. אם יזם מציע בפועל קומבינציה גבוהה מהמקסימום, כנראה שעלויות הבנייה שלו נמוכות מההנחה — ואז גם מחיר
+        הקרקע שהוא יכול לשלם גבוה יותר. זו הערכה, לא הצעה.
+      </p>
+    </Section>
   );
 }
