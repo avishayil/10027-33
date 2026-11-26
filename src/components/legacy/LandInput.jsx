@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { SegmentedToggle } from './SegmentedToggle';
-import { PARCEL } from '../data/parcel33';
-import { parseParcelFraction } from '../utils/simulationMath';
-import { formatArea, formatNumber } from '../utils/format';
+import { SegmentedToggle } from '../SegmentedToggle';
+import { PARCEL } from '../../data/parcel33';
+import { parseParcelFraction } from '../../utils/simulationMath';
+import { formatArea, formatNumber } from '../../utils/format';
 
 const PRESETS = [
   { area: 83.5, label: '83.5 מ״ר (167/42516)' },

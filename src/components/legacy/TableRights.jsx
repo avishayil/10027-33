@@ -1,6 +1,6 @@
-import { Tooltip } from './Tooltip';
-import { TOOLTIPS } from '../content/tooltips';
-import { formatArea, formatCurrency, formatNumber, formatPercent } from '../utils/format';
+import { Tooltip } from '../Tooltip';
+import { TOOLTIPS } from '../../content/tooltips';
+import { formatArea, formatCurrency, formatNumber, formatPercent } from '../../utils/format';
 
 /** "זכויותיך לפי טבלת האיזון" — טבלה בסגנון טבלת התוצאות של compound-13-tables. */
 export function TableRights({ rights, version, tracks }) {

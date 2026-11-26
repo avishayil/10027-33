@@ -1,5 +1,5 @@
-import { computeSimulationTracks, computeTableRights } from '../utils/simulationMath';
-import { formatCurrency, formatNumber } from '../utils/format';
+import { computeSimulationTracks, computeTableRights } from '../../utils/simulationMath';
+import { formatCurrency, formatNumber } from '../../utils/format';
 
 const EXAMPLE_AREA = 167;
 

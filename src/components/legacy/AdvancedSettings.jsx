@@ -1,7 +1,7 @@
-import { Slider } from './Slider';
-import { Tooltip } from './Tooltip';
-import { TOOLTIPS } from '../content/tooltips';
-import { formatCurrency, formatNumber } from '../utils/format';
+import { Slider } from '../Slider';
+import { Tooltip } from '../Tooltip';
+import { TOOLTIPS } from '../../content/tooltips';
+import { formatCurrency, formatNumber } from '../../utils/format';
 
 const GROUPS = [
   {

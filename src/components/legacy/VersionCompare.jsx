@@ -1,6 +1,6 @@
-import { VERSIONS, getVersion } from '../data/parcel33';
-import { computeSimulationTracks, computeTableRights } from '../utils/simulationMath';
-import { formatArea, formatCurrency, formatNumber } from '../utils/format';
+import { VERSIONS, getVersion } from '../../data/parcel33';
+import { computeSimulationTracks, computeTableRights } from '../../utils/simulationMath';
+import { formatArea, formatCurrency, formatNumber } from '../../utils/format';
 
 /** מהגרסה הקודמת לעדכנית, כדי שהשינוי (Δ) ייקרא לפי סדר הזמן. */
 const ORDER = ['v1', 'v2'];

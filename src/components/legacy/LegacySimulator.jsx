@@ -1,14 +1,13 @@
-import { AdvancedSettings } from './components/AdvancedSettings';
-import { Guide } from './components/Guide';
-import { LandInput } from './components/LandInput';
-import { SegmentedToggle } from './components/SegmentedToggle';
-import { TableRights } from './components/TableRights';
-import { TrackCards } from './components/TrackCards';
-import { TracksCompare } from './components/TracksCompare';
-import { VersionCompare } from './components/VersionCompare';
-import { DISCLAIMER_SHORT, SOURCES } from './content/sourcesAndDisclaimer';
-import { MAVAT_URL, PARCEL, VERSIONS, VERSION_IDS, getVersion } from './data/parcel33';
-import { useSimulation } from './hooks/useSimulation';
+import { AdvancedSettings } from './AdvancedSettings';
+import { Guide } from './Guide';
+import { LandInput } from './LandInput';
+import { SegmentedToggle } from '../SegmentedToggle';
+import { TableRights } from './TableRights';
+import { TrackCards } from './TrackCards';
+import { TracksCompare } from './TracksCompare';
+import { VersionCompare } from './VersionCompare';
+import { MAVAT_URL, PARCEL, VERSIONS, VERSION_IDS, getVersion } from '../../data/parcel33';
+import { useSimulation } from '../../hooks/useSimulation';
 
 /** איפה מוצאים את חלקה 33 בכל גרסה — הצעד הראשון בהוראות. */
 function findYourselfStep(versionId) {
@@ -35,24 +34,19 @@ function findYourselfStep(versionId) {
   );
 }
 
-export default function App() {
+export default function LegacySimulator() {
   const sim = useSimulation(167);
   const version = getVersion(sim.versionId);
-  const base = import.meta.env.BASE_URL;
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>
-          סימולטור זכויות — גוש {PARCEL.gush} חלקה {PARCEL.parcel}
-        </h1>
-        <p className="subtitle">
-          מתחם 13, חדרה · תכנית 302-1306018. כמה יחידות מגיעות לכם לפי טבלת האיזון, ומה שווה כל מסלול
-          התקשרות עם יזם.
+    <div className="legacy">
+      <div className="card legacy-intro">
+        <h2>השוואה מתקדמת — המחשבון המקורי</h2>
+        <p className="card-sub">
+          ארבעת המסלולים הקלאסיים לפי טבלת האיזון, עם כל ההנחות לעריכה. החישובים כאן נפרדים ממנוע ״מימוש חכם״
+          (למשל: יחידות לפי הטבלה ולא לפי 2.25, ומחיר קרקע מנוכה ברווח יזמי).
         </p>
-      </header>
-
-      <main>
+      </div>
         <div className="card instructions">
           <h2>איך זה עובד? 🙂</h2>
           <ol>
@@ -114,37 +108,6 @@ export default function App() {
         />
 
         <Guide version={version} lotId={sim.lotId} config={sim.config} />
-      </main>
-
-      <footer className="disclaimer">
-        <p>{DISCLAIMER_SHORT}</p>
-        <ul className="sources">
-          {SOURCES.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ul>
-        <ul className="sources">
-          <li>
-            <a href={MAVAT_URL} target="_blank" rel="noreferrer">
-              אתר התכנית במבא״ת
-            </a>
-          </li>
-          <li>
-            תשריט מצב מוצע (106(ב)):{' '}
-            <a href={`${base}maps/proposed-1.pdf`} target="_blank" rel="noreferrer">
-              גיליון 1
-            </a>{' '}
-            |{' '}
-            <a href={`${base}maps/proposed-2.pdf`} target="_blank" rel="noreferrer">
-              גיליון 2
-            </a>
-          </li>
-        </ul>
-        <p>
-          הטבלאות המלאות כוללות שמות ומספרי זהות ולכן אינן מפורסמות כאן — רק נתוני המגרשים והשברים של
-          חלקה 33.
-        </p>
-      </footer>
     </div>
   );
 }

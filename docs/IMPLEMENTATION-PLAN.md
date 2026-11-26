@@ -1,0 +1,18 @@
+# Implementation status
+
+| Phase | Status |
+| --- | --- |
+| 0 Baseline, config registry, provenance | Done — legacy tests unchanged and passing |
+| 1 Domain engine | Done — rights, construction, tax reserves, mortgage, cash-flow, legs, ledger |
+| 2 Hybrid optimisation | Done — S01–S10 (S01M as open-market reference) |
+| 3 Feasibility & recommendation | Done — 5 statuses, 3 scenarios, Pareto + goal ranking, sensitivity, Hebrew explanations |
+| 4 UI | Done — 4 personal inputs, 2 sliders, verdict, alternatives, 7 collapsible sections, legacy tab |
+| 5 Negotiation intelligence | Done — thresholds by bisection, print summary |
+| 6 Validation & deployment | Partly — automated tests, privacy/e2e browser check, CSP. **Professional review of the fixtures is still required.** |
+| 7 Advanced (P1) | Not started — S11 combination + services, S12 family consolidation, developer-offer comparison, alternative apartment sizes, detailed tax profiles, optional encrypted local save, offline cache, `scripts/update-market-snapshot.mjs` |
+
+## Commands
+```
+npm run typecheck && npm run lint && npm test
+npm run build && npm run test:e2e
+```

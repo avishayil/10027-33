@@ -1,0 +1,149 @@
+/** Researched market and financing estimates. Reference values, not appraisals. */
+import type { DataPoint } from '../domain/types';
+import { RETRIEVED_AT } from './project';
+
+export const MARKET = {
+  apartmentValuePerSqm: {
+    value: 25000,
+    label: 'שווי דירה חדשה למ״ר',
+    sourceType: 'secondary_market',
+    sourceName: 'Zips — עסקאות דירות חדשות בחדרה',
+    sourceUrl: 'https://zips.co.il',
+    retrievedAt: RETRIEVED_AT,
+    observedAt: '2026-09',
+    range: { low: 21000, high: 28000 },
+    verification: 'reported',
+    notes:
+      'כ-₪24,300 למ״ר לדירות חדשות בחדרה (213 עסקאות בשנה); חציון דירת 4 חדרים חדשה כ-₪2.346 מיליון. אומדן השוואתי — לא שומה לדירות שטרם נבנו.',
+  },
+  apartmentValueAnnualGrowth: {
+    value: 0.02,
+    label: 'עליית ערך דירה בשנה (נומינלי)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'אמצע טווח יעד האינפלציה של בנק ישראל (1%–3%), ללא עליית מחירים ריאלית.',
+  },
+  monthlyRentPerApartment: {
+    value: 5500,
+    label: 'שכר דירה חודשי ברוטו (4 חד׳)',
+    sourceType: 'secondary_market',
+    sourceName: 'מודעות שכירות, שכונת פארק, חדרה',
+    sourceUrl: 'https://dorin.app',
+    retrievedAt: RETRIEVED_AT,
+    observedAt: '2026-11',
+    range: { low: 4500, high: 6500 },
+    verification: 'reported',
+    notes: 'מחירי מבוקש ₪5,800–6,700; חציון מבוקש ₪6,600. נבחר אומדן שמרני. לא חוזים חתומים במתחם 13.',
+  },
+  rentalExpenseReserve: {
+    value: 0.1,
+    label: 'רזרבה לתחזוקה ותקופות ריקות',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+  },
+  developerRightsPricePerOriginalSqm: {
+    value: 6900,
+    label: 'מחיר שיזם ישלם על זכויות עודפות (למ״ר קרקע)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes:
+      'תרחיש לא מאומת (₪760,000 ל-110 מ״ר בהצעה קודמת). אינו הצעה קיימת. המערכת מחשבת גם את המחיר המינימלי שתצטרכו.',
+  },
+  immediateSaleReferencePerSqm: {
+    value: 1916,
+    label: 'מחיר ייחוס למכירה מיידית (עסקאות עבר בחלקה 33)',
+    sourceType: 'secondary_market',
+    sourceName: 'LandCheck — עסקאות מדווחות בגוש 10027 חלקה 33',
+    sourceUrl: 'https://land-check.co.il',
+    retrievedAt: RETRIEVED_AT,
+    observedAt: '2024-10/2026-04',
+    range: { low: 1647, high: 2395 },
+    verification: 'reported',
+    notes: 'חציון חמש עסקאות של 167 מ״ר לפני עדכון 106(ב). אינו שומה עדכנית.',
+  },
+  blockTypicalPricePerSqm: {
+    value: 7100,
+    label: 'מחיר טיפוסי בגוש 10027 (כל החלקות)',
+    sourceType: 'secondary_market',
+    sourceUrl: 'https://zips.co.il',
+    retrievedAt: RETRIEVED_AT,
+    observedAt: '2024-08/2026-08',
+    verification: 'reported',
+    notes: '71 עסקאות בחלקות שונות, עם זכויות ותכנון שונים. לא ישים ישירות לחלקה 33.',
+  },
+} satisfies Record<string, DataPoint<number>>;
+
+/** Reported transactions in the exact parcel (167 m² each). Not reconciled to deeds. */
+export const PARCEL33_TRANSACTIONS = [
+  { date: '2026-04', areaSqm: 167, price: 300000 },
+  { date: '2025-11', areaSqm: 167, price: 400000 },
+  { date: '2025-06', areaSqm: 167, price: 320000 },
+  { date: '2025-04', areaSqm: 167, price: 340000 },
+  { date: '2024-10', areaSqm: 167, price: 275000 },
+] as const;
+
+export const FINANCING = {
+  nominalAnnualInterest: {
+    value: 0.05,
+    label: 'ריבית משכנתא שנתית',
+    sourceType: 'official_market',
+    sourceName: 'בנק ישראל — ריביות על משכנתאות',
+    sourceUrl: 'https://boi.org.il/information/interestrates/mortgage',
+    retrievedAt: RETRIEVED_AT,
+    observedAt: '2026-10',
+    range: { low: 0.04, high: 0.07 },
+    verification: 'reported',
+    notes: 'כ-4.61% לא צמוד בממוצע, כ-4.89% ל-20–25 שנה (אוקטובר 2026). 5% כהנחת בסיס.',
+  },
+  stressInterest: {
+    value: 0.07,
+    label: 'ריבית בתרחיש לחץ',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+  },
+  durationYears: {
+    value: 25,
+    label: 'תקופת משכנתא',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'בכפוף לגיל ולזכאות.',
+  },
+  targetRepaymentRatio: {
+    value: 0.3,
+    label: 'יחס החזר מומלץ מההכנסה',
+    sourceType: 'planning_assumption',
+    sourceUrl: 'https://boi.org.il/roles/supervisionregulation/nbt/nbt329/',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+  },
+  alternativeNetAnnualReturn: {
+    value: 0.04,
+    label: 'תשואה נטו על כסף פנוי',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+  },
+  maxLtv: {
+    value: 0.75,
+    label: 'שיעור מימון מקסימלי (LTV)',
+    sourceType: 'statutory',
+    sourceName: 'הוראה 329 של בנק ישראל',
+    sourceUrl: 'https://boi.org.il/roles/supervisionregulation/nbt/nbt329/',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'reported',
+    notes: '75% / 70% / 50% לפי סיווג. אינו מבטיח מימון לקרקע בבעלות משותפת — דורש אישור בנק.',
+  },
+  comfortableLtv: {
+    value: 0.5,
+    label: 'שיעור מימון ללא סיווג מיוחד',
+    sourceType: 'statutory',
+    sourceUrl: 'https://boi.org.il/roles/supervisionregulation/nbt/nbt329/',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'reported',
+  },
+} satisfies Record<string, DataPoint<number>>;

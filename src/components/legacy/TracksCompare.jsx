@@ -1,4 +1,4 @@
-import { formatCurrency, formatNumber } from '../utils/format';
+import { formatCurrency, formatNumber } from '../../utils/format';
 
 /** השוואת המסלולים בטבלה אחת (מחליפה את הגרף). */
 export function TracksCompare({ tracks }) {

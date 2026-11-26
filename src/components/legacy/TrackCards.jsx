@@ -1,7 +1,7 @@
-import { Tooltip } from './Tooltip';
-import { TOOLTIPS } from '../content/tooltips';
-import { OFFERS_LOTS_NOTE } from '../content/sourcesAndDisclaimer';
-import { formatArea, formatCurrency, formatNumber } from '../utils/format';
+import { Tooltip } from '../Tooltip';
+import { TOOLTIPS } from '../../content/tooltips';
+import { OFFERS_LOTS_NOTE } from '../../content/sourcesAndDisclaimer';
+import { formatArea, formatCurrency, formatNumber } from '../../utils/format';
 
 function Row({ label, value, tone, tip, className }) {
   return (
