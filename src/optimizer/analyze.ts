@@ -3,36 +3,68 @@
  * Generate → Evaluate → Filter → Stress-test → Rank and explain.
  */
 import { PROJECT_CONFIG } from '../data/config';
-import { applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
-import { applyScenario } from '../data/scenarios';
+import { applyScenario, applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
+import { developerEconomics } from '../domain/developer';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
+import { netMonthlyRentPerApartment } from '../domain/taxation';
 import type {
   Candidate,
   CommercialTerms,
   DecisionResult,
+  DeveloperEconomics,
   LedgerEntry,
   NegotiationTarget,
   ProjectConfig,
   ScenarioId,
   StrategyResult,
+  StrategyType,
   UserProfile,
 } from '../domain/types';
-import { apartmentValueAt } from '../domain/valuation';
+import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
 import { evaluateCandidate, type EngineContext, type Evaluation } from './evaluate';
-import { assessEvaluation, classify, informationalReasons, isFeasible } from './feasibility';
+import { assess, assessEvaluation, classify, informationalReasons, isFeasible } from './feasibility';
 import { generateStrategies } from './generate';
 import { findMaterialUnknowns } from './questions';
-import { rankStrategies, selectAlternatives, SIMPLICITY, unconstrainedPreference } from './rank';
-import { globalTargets, strategyTargets } from './reverse';
+import { rankStrategies, selectAlternatives, SIMPLICITY, unconstrainedPreference, type Scales } from './rank';
+import {
+  breakevenSurplusPrice,
+  conservativeSurplusPrice,
+  developerTargets,
+  globalTargets,
+  immediateSaleMinPrice,
+  strategyTargets,
+} from './reverse';
 import { evaluateScenarios, type ScenarioEvaluations } from './scenarios';
 
 const sum = (entries: LedgerEntry[], pred: (e: LedgerEntry) => boolean) =>
   entries.filter(pred).reduce((s, e) => s + e.amount, 0);
 
+const COMBINATION_FAMILY: StrategyType[] = ['S02', 'S02C', 'S06', 'S11'];
+const DEVELOPER_SALE: StrategyType[] = ['S01', 'S03', 'S05', 'S07', 'S08'];
+
 function resilienceOf(base: Evaluation, adverseFeasible: boolean, adverse: Evaluation): number {
   if (!adverseFeasible || base.valueCreated <= 0) return 0;
   return Math.max(0, Math.min(1, adverse.valueCreated / base.valueCreated));
+}
+
+/** Indicative developer margin for the deal a strategy relies on (null when no developer deal). */
+export function developerMarginFor(type: StrategyType, dev: DeveloperEconomics): number | null {
+  if (COMBINATION_FAMILY.includes(type)) return dev.combinationMargin;
+  if (DEVELOPER_SALE.includes(type)) return dev.landPurchaseMargin;
+  if (type === 'S04') return dev.revenueShareMargin;
+  return null;
+}
+
+export function buildScales(ctx: EngineContext, config: ProjectConfig): Scales {
+  const R = ctx.info.apartmentEquivalents;
+  const maxApartments = Math.max(1, Math.ceil(R - 1e-6));
+  return {
+    entitlementValue: R * apartmentValueToday(config),
+    landValue: R * ctx.info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm,
+    maxApartments,
+    monthlyRent: maxApartments * netMonthlyRentPerApartment(config),
+  };
 }
 
 export function buildResult(
@@ -40,6 +72,7 @@ export function buildResult(
   evals: ScenarioEvaluations,
   ctx: EngineContext,
   config: ProjectConfig,
+  dev: DeveloperEconomics,
 ): StrategyResult {
   const R = ctx.info.apartmentEquivalents;
   const base = evals.base;
@@ -50,6 +83,7 @@ export function buildResult(
     adverse: assessEvaluation(candidate, evals.adverse, ctx.profile, applyScenario(config, 'adverse'), R),
   };
   const feasibility = classify(assessments.base, assessments.adverse);
+  const developerMargin = developerMarginFor(candidate.type, dev);
   const reasonCodes = [
     ...assessments.base.fails,
     ...assessments.base.missing,
@@ -64,6 +98,7 @@ export function buildResult(
   const P = ctx.profile.maxMonthlyRepayment;
   const capacity = P === null ? null : mortgageCapacity(P, config.financing.nominalAnnualInterest, config.financing.durationYears);
   const alt = config.financing.alternativeNetAnnualReturn;
+  const financed = sim.drawsByStage.bridge + sim.drawsByStage.construction + sim.drawsByStage.mortgage;
 
   const metrics = {
     valueCreated: base.valueCreated,
@@ -95,14 +130,16 @@ export function buildResult(
     personalCapitalRequired: sim.personalCapitalUsed,
     mortgageRequired: sim.peakDebt,
     monthlyRepayment: sim.peakPersonalMonthly,
-    peakFundingGap: capacity === null ? sim.peakDebt : Math.max(0, sim.peakDebt - capacity),
+    peakFundingGap: sim.unfunded + (capacity === null ? financed : Math.max(0, financed - capacity)),
     completedPropertyValue: plan.retainedApartmentEquivalents * apartmentValueAt(config, plan.completionMonth),
     estimatedNetMonthlyRentalCashflow: sim.monthlyNetRent - sim.postCompletionMonthly,
     netPresentValue: base.valueCreated / Math.pow(1 + alt, config.analysis.horizonYears),
     futureNetWealth: base.futureNetWealth,
     feasibility,
+    assessment: assess(assessments.base, assessments.adverse, developerMargin),
+    developerMargin,
     reasonCodes: [...new Set(reasonCodes)],
-    requiredConditions: assessments.base.conditions,
+    requiredConditions: [...assessments.base.conditions, ...assessments.base.commercial],
     scenarioResults: SCENARIO_IDS.map((id) => ({
       scenarioId: id,
       futureNetWealth: evals[id].futureNetWealth,
@@ -119,11 +156,32 @@ export function buildResult(
   };
 }
 
+export interface CoreAnalysis {
+  ctx: EngineContext;
+  scales: Scales;
+  dev: DeveloperEconomics;
+  results: StrategyResult[];
+  ranked: StrategyResult[];
+  frontierIds: string[];
+}
+
+/** Generate, evaluate across scenarios, assess and rank — without reverse optimisation or sensitivity. */
+export function coreAnalysis(profile: UserProfile, terms: CommercialTerms, config: ProjectConfig): CoreAnalysis {
+  const info = calculateRights(profile.landAreaSqm, config, profile.lotId);
+  const ctx: EngineContext = { info, profile, terms };
+  const dev = developerEconomics(info, config, terms.combinationPct);
+  const scales = buildScales(ctx, config);
+  const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config, dev));
+  const { ranked, frontierIds } = rankStrategies(results, profile.goal, scales);
+  return { ctx, scales, dev, results, ranked, frontierIds };
+}
+
 /**
  * Re-ranks the existing results with the base evaluation replaced by another configuration
  * (resilience is kept from the main run). Returns the top strategy id.
  */
-function topUnder(results: StrategyResult[], ctx: EngineContext, config: ProjectConfig): string | null {
+function topUnder(core: CoreAnalysis, config: ProjectConfig): string | null {
+  const { ctx, results, scales } = core;
   const R = ctx.info.apartmentEquivalents;
   const swapped = results.map((r) => {
     const ev = evaluateCandidate(r.candidate, ctx, config);
@@ -132,6 +190,7 @@ function topUnder(results: StrategyResult[], ctx: EngineContext, config: Project
     return {
       ...r,
       feasibility,
+      mortgageRequired: ev.sim.peakDebt,
       metrics: {
         ...r.metrics,
         valueCreated: ev.valueCreated,
@@ -141,35 +200,36 @@ function topUnder(results: StrategyResult[], ctx: EngineContext, config: Project
       },
     } as StrategyResult;
   });
-  return rankStrategies(swapped, ctx.profile.goal).ranked[0]?.id ?? null;
+  return rankStrategies(swapped, ctx.profile.goal, scales).ranked[0]?.id ?? null;
 }
+
+function bestBy(results: StrategyResult[], pred: (r: StrategyResult) => boolean): StrategyResult | null {
+  return results.filter(pred).reduce<StrategyResult | null>((b, r) => (!b || r.metrics.valueCreated > b.metrics.valueCreated ? r : b), null);
+}
+
+const eligibleForBenchmark = (r: StrategyResult) => r.feasibility !== 'infeasible' && r.feasibility !== 'unknown';
 
 export function analyzeProfile(
   profile: UserProfile,
   terms: CommercialTerms,
   config: ProjectConfig = PROJECT_CONFIG,
 ): DecisionResult {
-  const info = calculateRights(profile.landAreaSqm, config, profile.lotId);
-  const ctx: EngineContext = { info, profile, terms };
-  const candidates = generateStrategies(info, terms, config);
-  const results = candidates.map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
-
-  const { ranked, frontierIds } = rankStrategies(results, profile.goal);
+  const core = coreAnalysis(profile, terms, config);
+  const { ctx, results, ranked, frontierIds, dev, scales } = core;
   const recommendation = ranked[0] ?? null;
   const alternatives = selectAlternatives(ranked, recommendation);
 
-  // Negotiation thresholds: for the recommendation and for a goal-preferred strategy that is blocked.
-  const negotiationTargets: NegotiationTarget[] = [...globalTargets(ctx, config)];
+  // --- Negotiation thresholds -------------------------------------------------
+  const negotiationTargets: NegotiationTarget[] = [...globalTargets(ctx, config), ...developerTargets(dev, ctx, config)];
   const focus = new Map<string, boolean>();
   if (recommendation) focus.set(recommendation.id, false);
-  const preferred = unconstrainedPreference(results, profile.goal);
+  const preferred = unconstrainedPreference(results, profile.goal, scales);
   if (preferred && preferred.id !== recommendation?.id && (preferred.feasibility === 'infeasible' || preferred.feasibility === 'unknown')) {
     focus.set(preferred.id, true);
   }
   for (const r of results) {
-    if (r.feasibility === 'infeasible' && r.plan.apartmentsBuilt > 0 && focus.size < 4 && !focus.has(r.id)) {
-      // Every blocked whole-apartment strategy explains what would make it feasible.
-      if (!results.some((o) => focus.has(o.id) && o.plan.apartmentsBuilt === r.plan.apartmentsBuilt)) focus.set(r.id, true);
+    if (r.feasibility === 'infeasible' && r.plan.apartmentsBuilt >= 1 && focus.size < 4 && !focus.has(r.id)) {
+      if (!results.some((o) => focus.has(o.id) && o.plan.wholeApartmentsRetained === r.plan.wholeApartmentsRetained)) focus.set(r.id, true);
     }
   }
   for (const [id, blocked] of focus) {
@@ -177,34 +237,55 @@ export function analyzeProfile(
     if (r) negotiationTargets.push(...strategyTargets(r, ctx, config, blocked));
   }
 
-  // Sensitivity: which assumptions, on their own, change the recommendation.
+  // Economic thresholds for every hybrid that sells surplus rights to fund a whole apartment.
+  const benchmark =
+    bestBy(results, (r) => COMBINATION_FAMILY.includes(r.strategyType) && eligibleForBenchmark(r)) ??
+    bestBy(results, (r) => COMBINATION_FAMILY.includes(r.strategyType));
+  if (benchmark) {
+    const seenTargets = new Set<number>();
+    for (const r of results) {
+      if (!['S05', 'S03'].includes(r.strategyType) || r.rightsSold <= 1e-6) continue;
+      if (seenTargets.has(r.plan.wholeApartmentsRetained)) continue;
+      seenTargets.add(r.plan.wholeApartmentsRetained);
+      negotiationTargets.push(breakevenSurplusPrice(r.candidate, benchmark.candidate, ctx, config));
+      negotiationTargets.push(conservativeSurplusPrice(r.candidate, benchmark.candidate, ctx, config));
+    }
+  }
+  const sale = results.find((r) => r.strategyType === 'S01M');
+  const bestOther = bestBy(results, (r) => r.strategyType !== 'S01M' && eligibleForBenchmark(r));
+  if (sale && bestOther) negotiationTargets.push(immediateSaleMinPrice(sale.candidate, bestOther.candidate, ctx, config));
+
+  // --- Sensitivity -------------------------------------------------------------
   const mainTop = recommendation?.id ?? null;
   const byScenario = { base: mainTop } as Record<ScenarioId, string | null>;
-  byScenario.favorable = topUnder(results, ctx, applyScenario(config, 'favorable'));
-  byScenario.adverse = topUnder(results, ctx, applyScenario(config, 'adverse'));
+  byScenario.favorable = topUnder(core, applyScenario(config, 'favorable'));
+  byScenario.adverse = topUnder(core, applyScenario(config, 'adverse'));
   const baseParams = scenarioParams(config, 'base');
   const adverseParams = scenarioParams(config, 'adverse');
   const drivers: string[] = [];
   if (mainTop) {
     for (const key of Object.keys(baseParams) as ScenarioParamKey[]) {
       const cfg = applyScenarioParams(config, { ...baseParams, [key]: adverseParams[key] });
-      if (topUnder(results, ctx, cfg) !== mainTop) drivers.push(PARAM_LABELS[key]);
+      if (topUnder(core, cfg) !== mainTop) drivers.push(PARAM_LABELS[key]);
     }
   }
 
+  const topFor = (p: UserProfile) => coreAnalysis(p, terms, config).ranked[0]?.id ?? null;
+
   return {
-    rights: info,
+    rights: ctx.info,
     results,
     ranked,
     frontierIds,
     recommendation,
     alternatives,
     negotiationTargets,
-    followUpQuestions: findMaterialUnknowns(results, profile),
+    followUpQuestions: findMaterialUnknowns(profile, ctx.info, mainTop, topFor, config),
     sensitivity: { byScenario, drivers },
     mortgageCapacity:
       profile.maxMonthlyRepayment === null
         ? null
         : mortgageCapacity(profile.maxMonthlyRepayment, config.financing.nominalAnnualInterest, config.financing.durationYears),
+    developer: dev,
   };
 }

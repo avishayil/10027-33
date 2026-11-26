@@ -20,36 +20,80 @@ Allocated per apartment-equivalent and assigned to exactly one payer:
 * purchased complementary rights → the seller.
 
 ## Capital-gains reserve
+Revenue-sharing deals: reserved at signing (assessed on expected consideration; conservative).
+Completed-apartment sales deduct construction cost, levy **and the original land basis** of the right used.
+
 `25% × max(0, consideration − costs − levy − basis share)`. Unknown basis → range: high = zero basis (used),
 low = table incoming value. Combination consideration = construction services received (without markup, incl. VAT).
 Sale of a completed apartment: gain over its allocated construction cost + levy.
 Purchase tax 6% on complementary rights and completion purchases. Rent: 10% maintenance/vacancy + 10% tax reserve.
 
-## Cash-flow simulation (`domain/cashflow.ts`)
-Uses are paid from cash; shortfalls are drawn as mortgage. Sale proceeds first repay debt. Interest-only until
-completion, then amortising over 25 years. Payments come from income and are carried as a future-valued outflow.
-Net rent (or rent saved) arrives only after completion. Cash earns 4% net.
+## Cash-flow simulation and staged financing (`domain/cashflow.ts`)
+* Sources go to cash. Each month, **non-financeable** obligations (capital-gains tax, purchase tax, betterment
+  levy, transaction costs) are paid first from cash. A shortfall there is an **unfunded obligation** — a strategy
+  with any unfunded amount is infeasible (or “חסר מידע” if capital is unknown). Lenders do not finance taxes.
+* Cash above a reserve (future non-financeable uses not covered by future sources) pays financeable uses; the
+  rest is borrowed by stage: **bridge** (before the permit, conditional), **construction financing** (permit →
+  completion, staged, conditional), **completed-property mortgage** (from completion).
+* Surplus cash above the reserve repays debt. Interest-only until completion, then amortising over 25 years.
+* Collateral is stage-specific: before completion, the land the owner still holds (built share, the share
+  retained in a combination, purchased rights) at the developer price **plus amounts already paid into the
+  asset**; from completion, whole retained apartments. Sold rights are never collateral. LTV > 75% fails,
+  > 50% is a financing condition.
+* Snapshots “at completion” are taken after the completion month’s transactions.
+
+## Fractional entitlements
+Only whole apartments are rentable. An unresolved fractional share (e.g. 0.7875 from a 35% combination) earns no
+rent and is valued at a 20% illiquidity discount. Settlement mechanisms are separate strategies: cash settlement
+by the developer at 80% of market value (S02C), paid completion to a whole apartment (S06), or a mixed structure
+that targets whole apartments exactly (S11).
+
+## S11 — combination plus construction services
+To end with N whole apartments from R rights at combination rate c, keep `R_build = (N − cR)/(1 − c)` rights for
+construction services and put the rest into combination. For 2.25 rights at 35%, N = 1: 0.326923 built,
+1.923077 in combination (→ 0.673077), proportional construction quote ₪498,607 before contingency and
+indexation. The owner pays the levy on the built share; the developer on the combination share.
+
+## Developer economics (`domain/developer.ts`)
+Revenue = apartment sales net of VAT. Developer costs: own direct cost ₪11,000/m², 12% soft costs, VAT on
+construction services delivered to the owner in a combination, the levy where the developer pays it, land plus
+6% purchase tax where it buys land. Outputs: implied combination value per original m², developer margin for
+combination / land purchase / revenue share, **cash price consistent with the combination offer**, residual land
+price and maximum combination % at a 15% target margin. A negative developer margin marks the strategy’s
+commercial certainty as “מוטל בספק” — it never changes affordability or hides the strategy.
 
 ## Comparable outcome
-`Net wealth(10y) = cash + apartments (₪25,000/m², +2%/y) + held land − debt − FV(mortgage payments) − deferred liabilities`.
-`Value created = Net wealth − starting capital × 1.04^10` — the comparison metric.
+`Net wealth(10y) = cash + whole apartments (₪25,000/m², +2%/y) + fractional share × (1 − 20%) − debt − FV(mortgage payments)`.
+`Value created = Net wealth − starting capital × 1.04^10`.
 
-## Feasibility
-Fails: debt with “no mortgage”; peak personal monthly payment (after rent for S08) above the stated maximum;
-debt above 75% of retained collateral. Missing: debt needed but capital unknown; immediate price unknown.
-Conditions: unverified developer price/revenue share, partial purchase, completion price, complementary seller,
-lender confirmation, unknown repayment, LTV above 50%, whole-unit allocation.
-Status: infeasible > חסר מידע > fragile (fails adverse) > conditional > estimated feasible.
+## Three assessments
+* **Affordability** — fits / fits with financing / does not fit / unknown (unfunded obligations, repayment, LTV).
+* **Resilience** — robust / fragile (fails the adverse scenario).
+* **Commercial certainty** — not developer-dependent / unverified / questionable (negative developer margin).
+The legacy single status is still derived for ranking: financing conditions make it “conditional”; commercial
+dependencies no longer do.
 
 ## Ranking
-Pareto filter on (value created, resilience, whole apartments, liquidity, simplicity, monthly income, −debt),
-then goal weights. Balanced: 40 / 30 / 15 / 10 / 5. Resilience = adverse value ÷ base value if the adverse case is
-feasible, else 0. Product preferences, not empirical rules.
+Pareto filter, then goal weights on **fixed reference scales** (entitlement value R × apartment value, land value,
+ceil(R) apartments, their net rent), so a candidate’s score never depends on which other candidates exist.
+Explicit constraints: minimise-risk prefers debt-free, immediate-cash prefers positive near-term cash,
+passive-income prefers positive income — whenever such an eligible strategy exists.
 
 ## Reverse optimisation
-Bisection on base-scenario financial feasibility: minimum surplus-rights price, latest acceptable developer
+Three different questions for the price of surplus rights, reported separately:
+* **מחיר מינימלי למימון** — lowest price at which the hybrid is affordable (base scenario).
+* **מחיר איזון כלכלי** — price at which the hybrid creates as much value as the best combination-family strategy.
+* **מחיר מומלץ** — price at which it is still at least as good under the adverse scenario (with the negotiated
+  price itself fixed) and affordable.
+Also: the open-market price today at which selling now matches the best alternative. Other bisections on base-scenario financial feasibility: minimum surplus-rights price, latest acceptable developer
 payment month, maximum construction cost per apartment, maximum markup, maximum completion payment, required
 additional capital; plus mortgage capacity `L = P(1 − (1+r)^−n)/r` and the combination % for the next whole apartment (`n / R`).
+
+## Waiting (S09) and selling now (S01M)
+Waiting sells on the open market two years from now at a post-approval land value (₪7,100/m² block reference;
+−25% / +10% in the scenarios), independent of developer offers. Selling now uses the parcel’s own transactions
+(₪1,916 base, ₪1,647 adverse, ₪2,739 favourable = table value net of levy); before approval the levy stays with
+the buyer.
 
 ## Intentional changes from the legacy simulator
 * No 18% “developer profit” deducted from the land price — a developer price already includes it.

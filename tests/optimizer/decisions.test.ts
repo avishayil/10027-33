@@ -40,7 +40,7 @@ describe('decision correctness', () => {
     const d = run(MODERATE);
     expect(byId(d, 'S05-1')).toBeDefined();
     expect(byId(d, 'S06-1').feasibility).not.toBe('infeasible');
-    const t = d.negotiationTargets.find((n) => n.code === 'MIN_SURPLUS_PRICE' && n.strategyId === 'S05-1');
+    const t = d.negotiationTargets.find((n) => n.code === 'BREAKEVEN_SURPLUS_PRICE' && n.strategyId === 'S05-1');
     expect(t?.value).toBeGreaterThan(C.market.developerRightsSaleScenario.pricePerOriginalSqm);
   });
 
@@ -80,7 +80,7 @@ describe('decision correctness', () => {
   });
 
   it('unknown mortgage capacity gives a conditional verdict, not a silent zero', () => {
-    const d = run(profile({ availableCapital: 200000, maxMonthlyRepayment: null }));
+    const d = run(profile({ availableCapital: 300000, maxMonthlyRepayment: null }));
     const s = byId(d, 'S06-1');
     expect(s.mortgageRequired).toBeGreaterThan(0);
     expect(s.feasibility).toBe('conditional');
@@ -101,8 +101,16 @@ describe('decision correctness', () => {
     expect(byId(d, 'S02').reasonCodes).toContain('COMBINATION_BELOW_WHOLE_UNIT');
   });
 
-  it('an immediate open-market sale is reported as missing information', () => {
-    expect(byId(run(), 'S01M').feasibility).toBe('unknown');
+  it('an immediate open-market sale is ranked across valuation scenarios with a break-even price', () => {
+    const d = run();
+    const s = byId(d, 'S01M');
+    expect(s.feasibility).not.toBe('unknown');
+    expect(s.requiredConditions).toContain('CURRENT_APPRAISAL');
+    const values = s.scenarioResults.map((x) => x.valueCreated);
+    expect(values[0]).toBeGreaterThan(values[1]);
+    expect(values[1]).toBeGreaterThan(values[2]);
+    const t = d.negotiationTargets.find((n) => n.code === 'IMMEDIATE_SALE_MIN_PRICE');
+    expect(t?.value).toBeGreaterThan(C.market.immediateSaleReferencePerSqm);
   });
 
   it('reports which scenario assumptions change the recommendation', () => {

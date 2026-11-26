@@ -70,6 +70,7 @@ describe('mathematical invariants', () => {
             annualRate: 0,
             mortgageYears: 25,
             alternativeReturn: 0,
+            permitMonth: 12,
             completionMonth: 30,
             horizonMonth: 60,
             liquidityMonth: 24,

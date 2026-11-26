@@ -9,7 +9,8 @@
 | 4 UI | Done — 4 personal inputs, 2 sliders, verdict, alternatives, 7 collapsible sections, legacy tab |
 | 5 Negotiation intelligence | Done — thresholds by bisection, print summary |
 | 6 Validation & deployment | Partly — automated tests, privacy/e2e browser check, CSP. **Professional review of the fixtures is still required.** |
-| 7 Advanced (P1) | Not started — S11 combination + services, S12 family consolidation, developer-offer comparison, alternative apartment sizes, detailed tax profiles, optional encrypted local save, offline cache, `scripts/update-market-snapshot.mjs` |
+| Iteration 2 | Done — golden fixture, staged financing & unfunded obligations, stage collateral, fractional entitlements (S02C), S11, developer economics, three thresholds, three-part assessment, stable ranking, sensitivity-driven questions, tax timing/basis fixes |
+| 7 Advanced (P1) | Not started — S12 family consolidation, developer-offer comparison, alternative apartment sizes, detailed tax profiles, optional encrypted local save, offline cache, `scripts/update-market-snapshot.mjs` |
 
 ## Commands
 ```

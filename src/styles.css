@@ -1307,3 +1307,43 @@ details.card[open] > summary {
     overflow: visible;
   }
 }
+
+/* Iteration 2 */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 6px 0 4px;
+}
+
+.chips-compact {
+  gap: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chip-title {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.kind-tag {
+  display: inline-block;
+  margin-inline-start: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--subtotal);
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.row-alert th,
+.row-alert td {
+  color: var(--danger);
+  font-weight: 700;
+}

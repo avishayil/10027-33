@@ -3,6 +3,9 @@ import { apartmentValueToday } from '../../domain/valuation';
 import { constructionQuotePerApartment } from '../../domain/construction';
 import { PROJECT_CONFIG } from '../../data/config';
 import {
+  AFFORDABILITY_LABELS,
+  COMMERCIAL_LABELS,
+  RESILIENCE_LABELS,
   CONDITION_TEXT,
   FEASIBILITY_HINTS,
   FEASIBILITY_LABELS,
@@ -13,6 +16,32 @@ import {
   strategyTitle,
 } from '../../optimizer/explain';
 import { formatCurrency } from '../../utils/format';
+
+const AFF_CLASS = { fits: 'estimated_feasible', fits_with_financing: 'conditional', does_not_fit: 'infeasible', unknown: 'unknown' } as const;
+const RES_CLASS = { robust: 'estimated_feasible', fragile: 'fragile' } as const;
+const COM_CLASS = { not_required: 'estimated_feasible', unverified: 'unknown', questionable: 'fragile' } as const;
+
+/** Three independent answers: can I fund it, does it survive bad scenarios, is the deal confirmed/plausible. */
+export function AssessmentChips({ r, compact = false }: { r: StrategyResult; compact?: boolean }) {
+  const a = r.assessment;
+  const items = [
+    { title: 'יכולת כלכלית', value: AFFORDABILITY_LABELS[a.affordability], cls: AFF_CLASS[a.affordability] },
+    { title: 'עמידות לשינויים', value: RESILIENCE_LABELS[a.resilience], cls: RES_CLASS[a.resilience] },
+    { title: 'היתכנות מול היזם', value: COMMERCIAL_LABELS[a.commercial], cls: COM_CLASS[a.commercial] },
+  ];
+  return (
+    <div className={compact ? 'chips chips-compact' : 'chips'}>
+      {items.map((i) => (
+        <span key={i.title} className="chip">
+          {!compact && <span className="chip-title">{i.title}</span>}
+          <span className={`status status-${i.cls}`} title={i.title}>
+            {i.value}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function StatusBadge({ r }: { r: StrategyResult }) {
   return (
@@ -65,7 +94,7 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
         המסלול המומלץ לבדיקה · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
       </p>
       <h2>{strategyTitle(rec)}</h2>
-      <StatusBadge r={rec} />
+      <AssessmentChips r={rec} />
       <p className="verdict-desc">{STRATEGY_DESCRIPTIONS[rec.strategyType]}</p>
 
       <div className="verdict-numbers">
@@ -130,7 +159,7 @@ export function Alternatives({ result }: { result: DecisionResult }) {
         {result.alternatives.map((r) => (
           <article key={r.id} className="card alt-card">
             <h3>{strategyTitle(r)}</h3>
-            <StatusBadge r={r} />
+            <AssessmentChips r={r} compact />
             <p>{STRATEGY_DESCRIPTIONS[r.strategyType]}</p>
             <dl className="alt-dl">
               <div>

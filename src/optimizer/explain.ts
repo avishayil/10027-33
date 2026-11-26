@@ -42,13 +42,15 @@ export function strategyTitle(r: StrategyResult): string {
     S01: 'מכירת כל הזכויות ליזם',
     S01M: 'מכירה מיידית בשוק הפתוח',
     S02: 'קומבינציה מלאה',
+    S02C: 'קומבינציה מלאה ופיצוי כספי על חלק הדירה',
+    S11: `קומבינציה על חלק מהזכויות ושירותי בנייה על השאר — ${k === 1 ? 'דירה שלמה' : `${k} דירות שלמות`}`,
     S03: `שירותי בנייה ל-${built} דירות ומכירת היתרה`,
     S04: 'עסקת תמורות (חלק מהכנסות המכירה)',
     S05: `מכירה חלקית ושירותי בנייה ${built === 1 ? 'לדירה אחת' : `ל-${built} דירות`}`,
     S06: `קומבינציה והשלמה בתשלום ${k === 1 ? 'לדירה שלמה' : `ל-${k} דירות שלמות`}`,
     S07: `בניית ${built} דירות ומכירת אחת במסירה`,
     S08: `בניית ${built === 1 ? 'דירה' : `${built} דירות`} והשכרה`,
-    S09: 'להמתין לאישור התכנית ולבחון שוב',
+    S09: 'להמתין לאישור התכנית ולמכור בשוק',
     S10: `רכישת זכויות משלימות ובניית ${built} דירות`,
   };
   return titles[r.strategyType];
@@ -57,14 +59,16 @@ export function strategyTitle(r: StrategyResult): string {
 export const STRATEGY_DESCRIPTIONS: Record<StrategyType, string> = {
   S01: 'מוכרים את כל הזכויות ליזם ומקבלים כסף. פשוט, בלי משכנתא — אבל בלי דירה.',
   S01M: 'מכירה היום לקונה פרטי. המחיר מבוסס על עסקאות עבר בחלקה לפני העדכון — דרושה שומה עדכנית.',
-  S02: 'היזם מקבל את רוב הזכויות, בונה, ומוסר לכם חלק מהדירות. כמעט בלי הון עצמי, אבל לרוב לא דירה שלמה.',
+  S02: 'היזם מקבל את רוב הזכויות, בונה, ומוסר לכם חלק מהדירות. החלק שאינו דירה שלמה נשאר בעלות משותפת — בלי שכירות ובשווי מופחת.',
+  S02C: 'קומבינציה רגילה, והיזם קונה מכם במסירה את החלק שאינו דירה שלמה, בכסף.',
+  S11: 'חלק מהזכויות בקומבינציה, ועל השאר משלמים ליזם רק את עלות הבנייה ורווח יזמי — כדי להגיע בדיוק לדירה שלמה בלי למכור זכויות ובלי לקנות השלמה במחיר שוק.',
   S03: 'בונים בעצמכם (דרך יזם בשירותי בנייה) את כל הדירות השלמות, ומוכרים רק את השארית.',
   S04: 'היזם בונה ומממן, ואתם מקבלים אחוז מהכנסות המכירה בסוף הפרויקט.',
   S05: 'מוכרים חלק מהזכויות ליזם, ובכסף מממנים בנייה של פחות דירות — אבל שלמות.',
   S06: 'קומבינציה רגילה, ובנוסף משלמים ליזם על החלק החסר כדי לקבל דירה שלמה.',
   S07: 'בונים כמה דירות, ובמסירה מוכרים אחת כדי להחזיר את רוב החוב.',
   S08: 'בונים, שומרים ומשכירים. שכר הדירה עוזר להחזיר את המשכנתא אחרי המסירה.',
-  S09: 'לא מתחייבים עכשיו. שומרים את הזכויות עד אישור התכנית ובודקים שוב עם הצעות בפועל.',
+  S09: 'לא מתחייבים עכשיו. מחכים לאישור התכנית (כשנתיים) ומוכרים בשוק — בסיכון שהאישור יתעכב.',
   S10: 'קונים את החלק החסר מבעלים אחרים כדי להגיע לדירה שלמה נוספת, ובונים.',
 };
 
@@ -80,6 +84,11 @@ export const CONDITION_TEXT: Record<ConditionCode, string> = {
   WHOLE_UNIT_ALLOCATION: 'שהזכויות יתורגמו בהסכם לדירה שלמה ומסוימת.',
   TAX_ALLOCATION: 'מי משלם את המסים בעסקה.',
   CURRENT_APPRAISAL: 'שומה עדכנית לשווי הזכויות היום.',
+  BRIDGE_FINANCING: 'הלוואת גישור לפני היתר הבנייה — לא מובטחת.',
+  CONSTRUCTION_FINANCING: 'מימון בנייה בשלבים מבנק (ליווי) — לפי התקדמות הבנייה ובכפוף להסכם.',
+  MIXED_STRUCTURE: 'שהיזם מסכים לשלב קומבינציה ושירותי בנייה באותה עסקה.',
+  FRACTION_SETTLEMENT: 'שהיזם מסכים לקנות מכם את חלק הדירה, ובאיזה מחיר.',
+  PLANNING_APPROVAL: 'אישור סופי של התכנית — מועד וודאות.',
 };
 
 export const REASON_TEXT: Record<ReasonCode, string> = {
@@ -95,6 +104,8 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   RENT_SUPPORTS_REPAYMENT: 'שכר הדירה מסייע בהחזר המשכנתא אחרי המסירה.',
   COMBINATION_BELOW_WHOLE_UNIT: 'באחוז הקומבינציה הנוכחי לא מגיעים לדירה שלמה.',
   NOT_ENOUGH_RIGHTS: 'הזכויות שלכם קטנות מדירה אחת.',
+  UNFUNDED_OBLIGATION: 'יש תשלומים שבנק לא מממן (מסים, היטל, עלויות) ואין מספיק כסף פנוי לכסות אותם במועד.',
+  FRACTION_UNRESOLVED: 'חלק הדירה שנשאר לא מוסדר — אין ממנו הכנסה.',
 };
 
 export const NEGOTIATION_LABELS: Record<NegotiationCode, string> = {
@@ -106,7 +117,28 @@ export const NEGOTIATION_LABELS: Record<NegotiationCode, string> = {
   REQUIRED_ADDITIONAL_CAPITAL: 'הון עצמי נוסף שנדרש',
   MAX_SUSTAINABLE_MORTGAGE: 'משכנתא מקסימלית לפי יכולת ההחזר',
   LATEST_SURPLUS_PAYMENT: 'המועד המאוחר ביותר לתשלום היזם על הזכויות',
+  BREAKEVEN_SURPLUS_PRICE: 'מחיר איזון כלכלי מול המסלול המשתלם ללא מכירה',
+  CONSERVATIVE_SURPLUS_PRICE: 'מחיר מומלץ למשא ומתן (עדיף גם בתרחיש השמרני)',
+  IMMEDIATE_SALE_MIN_PRICE: 'מחיר מינימלי למכירה היום כדי שתשתלם',
+  MAX_COMBINATION_AT_TARGET_MARGIN: 'אחוז קומבינציה מקסימלי שמשאיר ליזם רווח סביר',
+  DEVELOPER_RESIDUAL_LAND_PRICE: 'מחיר קרקע מקסימלי שמשאיר ליזם רווח סביר',
+  COMBINATION_CONSISTENT_PRICE: 'מחיר במזומן ששקול להצעת הקומבינציה מבחינת היזם',
 };
+
+export const AFFORDABILITY_LABELS = {
+  fits: 'מתאים',
+  fits_with_financing: 'מתאים עם מימון',
+  does_not_fit: 'לא מתאים',
+  unknown: 'חסר מידע',
+} as const;
+
+export const RESILIENCE_LABELS = { robust: 'עמיד', fragile: 'גבולי' } as const;
+
+export const COMMERCIAL_LABELS = {
+  not_required: 'לא תלוי ביזם',
+  unverified: 'טרם אומת',
+  questionable: 'מוטל בספק',
+} as const;
 
 /** Personalised "why" bullets for a strategy. */
 export function explainWhy(r: StrategyResult, goal: Goal, ranked: StrategyResult[]): string[] {
@@ -115,6 +147,9 @@ export function explainWhy(r: StrategyResult, goal: Goal, ranked: StrategyResult
   const best = (f: (x: StrategyResult) => number) => ranked.every((o) => f(r) >= f(o) - 1e-6);
   if (best((x) => x.metrics.valueCreated)) out.push('הערך הכלכלי הגבוה ביותר מבין המסלולים שמתאימים לכם.');
   if (m.wholeApartments > 0) out.push(`נשארות לכם ${m.wholeApartments === 1 ? 'דירה שלמה אחת' : `${m.wholeApartments} דירות שלמות`}.`);
+  if (r.assessment.commercial === 'questionable') {
+    out.push('שימו לב: לפי מודל צד היזם, העסקה כמעט לא משאירה לו רווח בהנחות הנוכחיות — ייתכן שלא תוצע.');
+  }
   if (r.mortgageRequired <= 1) out.push('לא נדרשת משכנתא.');
   else out.push(`נדרשת משכנתא של כ-${fmtN(Math.round(r.mortgageRequired / 1000))} אלף ₪.`);
   if (m.resilience >= 0.5) out.push('נשאר מתאים גם בתרחיש השמרני.');

@@ -57,6 +57,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   let apartmentsSold = 0;
   let constructionCost = 0;
   let rentCountsForRepayment = false;
+  let retainedLandRights = 0;
+  let settleFractionInCash = false;
   let heldLandValueAtHorizon = 0;
   let deferredLiabilities = 0;
 
@@ -81,7 +83,18 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
       case 'sell_rights': {
         if (leg.rights <= 0) break;
         rightsSold += leg.rights;
-        if (leg.market === 'open_market') {
+        if (leg.market === 'post_approval') {
+          // Wait for approval, then sell on the open market (independent of developer offers).
+          const month = Math.round(config.commercial.approvalYears * 12);
+          const gross = leg.rights * info.sqmPerRight * config.market.postApprovalLandValuePerSqm;
+          inflow(month, gross, 'מכירה בשוק אחרי אישור התכנית', 'sale_proceeds');
+          const costs = gross * costRate;
+          const levy = leg.rights * levyUnit;
+          out(month, costs, 'עלויות עסקה', 'transaction_costs', 'owner', { saleRelated: true });
+          out(month, levy, 'היטל השבחה (מכירה אחרי אישור)', 'betterment_levy', 'owner', { rightsPortion: leg.rights, saleRelated: true });
+          const tax = capitalGainsReserve({ consideration: gross, deductibleCosts: costs, deductibleLevy: levy, rightsPortion: leg.rights, info, profile, config });
+          out(month, addCg(tax), 'מס שבח (רזרבה)', 'capital_gains_tax', 'owner', { range: { low: tax.low, high: tax.high }, saleRelated: true });
+        } else if (leg.market === 'open_market') {
           // Sale before planning approval: no levy has arisen yet — the buyer inherits it (priced in).
           const gross = immediateRightsPrice(leg.rights, info, config);
           inflow(0, gross, 'מכירה מיידית בשוק הפתוח', 'sale_proceeds');
@@ -107,6 +120,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         rightsInCombination += leg.rights;
         const received = leg.rights * terms.combinationPct;
         retainedEq += received;
+        // The owner sells (1 − c) of the land and keeps c of it until the apartments are delivered.
+        retainedLandRights += leg.rights * terms.combinationPct;
         // The developer pays the levy. A developer-paid levy is part of the consideration and
         // also deductible — so it is added and deducted, net zero, rather than ignored.
         const levy = leg.rights * levyUnit;
@@ -140,6 +155,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         if (leg.apartments <= 0) break;
         apartmentsBuilt += leg.apartments;
         rightsBuilt += leg.ownRightsUsed + leg.purchasedRightsUsed;
+        retainedLandRights += leg.ownRightsUsed + leg.purchasedRightsUsed;
         retainedEq += leg.apartments;
         for (const i of constructionInstallments(config, terms.developerMarkup, leg.apartments)) {
           constructionCost += i.amount;
@@ -156,7 +172,9 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         const share = leg.rights * aptAtCompletion * config.commercial.revenueShare;
         inflow(completion, share, 'חלקכם בהכנסות המכירה', 'revenue_share');
         const tax = capitalGainsReserve({ consideration: share + levy, deductibleCosts: 0, deductibleLevy: levy, rightsPortion: leg.rights, info, profile, config });
-        out(completion, addCg(tax), 'מס שבח (רזרבה)', 'capital_gains_tax', 'owner', { range: { low: tax.low, high: tax.high }, saleRelated: true });
+        // Assessed on the expected consideration at signing (conservative) unless configured otherwise.
+        const taxMonth = config.taxation.revenueShareTaxAtSigning ? 0 : completion;
+        out(taxMonth, addCg(tax), 'מס שבח על התמורה הצפויה (רזרבה)', 'capital_gains_tax', 'owner', { range: { low: tax.low, high: tax.high }, saleRelated: true });
         break;
       }
       case 'sell_apartments': {
@@ -176,6 +194,9 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         deferredLiabilities += levy + tax.used + value * costRate;
         break;
       }
+      case 'settle_fraction_cash':
+        settleFractionInCash = true;
+        break;
       case 'rent_for_repayment':
         rentCountsForRepayment = true;
         break;
@@ -188,17 +209,42 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     inflow(completion, gross, 'מכירת דירה במסירה', 'apartment_sale');
     const costs = gross * costRate;
     out(completion, costs, 'עלויות מכירת דירה', 'transaction_costs', 'owner', { saleRelated: true });
-    const basisPerApt = constructionCost / apartmentsBuilt + levyUnit;
-    const gain = Math.max(0, gross - costs - basisPerApt * apartmentsSold);
-    const tax = gain * config.taxation.indicativeCapitalGainsRate;
-    cgRange.low += tax;
-    cgRange.high += tax;
-    out(completion, tax, 'מס שבח על מכירת הדירה (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
+    // Asset-level basis: construction cost + levy + the original land basis of the right used.
+    const constructionBasis = (constructionCost / apartmentsBuilt) * apartmentsSold;
+    const tax = capitalGainsReserve({
+      consideration: gross,
+      deductibleCosts: costs + constructionBasis,
+      deductibleLevy: levyUnit * apartmentsSold,
+      rightsPortion: apartmentsSold,
+      info,
+      profile,
+      config,
+    });
+    out(completion, addCg(tax), 'מס שבח על מכירת הדירה (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true, range: { low: tax.low, high: tax.high } });
     retainedEq -= apartmentsSold;
+    retainedLandRights = Math.max(0, retainedLandRights - apartmentsSold);
   }
 
-  const wholeApartmentsRetained = Math.floor(retainedEq + 1e-9);
-  const collateralValue = retainedEq * aptToday + rightsHeld * info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm;
+  let wholeApartmentsRetained = Math.floor(retainedEq + 1e-6);
+  let fractionalShare = Math.max(0, retainedEq - wholeApartmentsRetained);
+  if (fractionalShare < 1e-6) fractionalShare = 0;
+
+  if (settleFractionInCash && fractionalShare > 0) {
+    // The developer buys the fraction back in cash at delivery — further consideration for the land.
+    const amount = fractionalShare * aptAtCompletion * config.commercial.fractionCashSettlementFactor;
+    inflow(completion, amount, 'פיצוי כספי על חלק הדירה', 'fraction_settlement');
+    const tax = amount * config.taxation.indicativeCapitalGainsRate;
+    cgRange.low += tax;
+    cgRange.high += tax;
+    out(completion, tax, 'מס שבח על הפיצוי (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
+    retainedEq -= fractionalShare;
+    fractionalShare = 0;
+    wholeApartmentsRetained = Math.floor(retainedEq + 1e-6);
+  }
+
+  const landPrice = info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm;
+  const preCompletionLandCollateral = retainedLandRights * landPrice;
+  const postCompletionCollateral = wholeApartmentsRetained * aptToday + rightsHeld * landPrice;
 
   return {
     events,
@@ -211,17 +257,21 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     rightsHeld,
     retainedApartmentEquivalents: Math.max(0, retainedEq),
     wholeApartmentsRetained,
+    fractionalShare,
+    retainedLandRights,
     apartmentsBuilt,
     completionMonth: completion,
     rentCountsForRepayment,
     heldLandValueAtHorizon,
     deferredLiabilities,
-    collateralValue,
+    preCompletionLandCollateral,
+    postCompletionCollateral,
     constructionCost,
     capitalGainsRange: cgRange,
   };
 }
 
+/** Only whole apartments are rentable. Unresolved fractional shares earn nothing. */
 export function monthlyNetRentFor(plan: TransactionPlan, config: ProjectConfig): number {
-  return plan.retainedApartmentEquivalents * netMonthlyRentPerApartment(config);
+  return plan.wholeApartmentsRetained * netMonthlyRentPerApartment(config);
 }
