@@ -70,7 +70,7 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
   return (
     <Section title="השוואת מסלולים" sub={`${result.results.length} מסלולים נבדקו אוטומטית`}>
       <div className="table-scroll">
-        <table className="compare-table strategy-table">
+        <table className="compare-table strategy-table stack-on-mobile">
           <thead>
             <tr>
               <th>מסלול</th>
@@ -80,29 +80,32 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
               <th>משכנתא</th>
               <th>החזר חודשי</th>
               <th>כסף נטו תוך שנתיים</th>
-              <th>שווי נטו שנוצר (10 שנים)</th>
+              <th>רווח כלכלי (10 שנים)</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className={r.id === result.recommendation?.id ? 'row-recommended' : ''}>
-                <td>{strategyTitle(r)}</td>
-                <td>
+                <td className="cell-title">
+                  {strategyTitle(r)}
+                  {r.id === result.recommendation?.id && <span className="kind-tag">מומלץ</span>}
+                </td>
+                <td data-label="יכולת · עמידות · יזם">
                   <AssessmentChips r={r} compact />
                 </td>
-                <td>{r.metrics.wholeApartments}</td>
-                <td>{formatRights(r.rightsSold)}</td>
-                <td>{r.mortgageRequired > 1 ? formatCurrency(r.mortgageRequired) : '—'}</td>
-                <td>{r.monthlyRepayment > 1 ? formatCurrency(r.monthlyRepayment) : '—'}</td>
-                <td>{formatCurrency(r.metrics.liquidity)}</td>
-                <td>{formatCurrency(r.metrics.valueCreated)}</td>
+                <td data-label="דירות שלמות">{r.metrics.wholeApartments}</td>
+                <td data-label="זכויות שנמכרות">{formatRights(r.rightsSold)}</td>
+                <td data-label="משכנתא">{r.mortgageRequired > 1 ? formatCurrency(r.mortgageRequired) : '—'}</td>
+                <td data-label="החזר חודשי">{r.monthlyRepayment > 1 ? formatCurrency(r.monthlyRepayment) : '—'}</td>
+                <td data-label="כסף נטו תוך שנתיים">{formatCurrency(r.metrics.liquidity)}</td>
+                <td data-label="רווח כלכלי (10 שנים)">{formatCurrency(r.metrics.valueCreated)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="field-hint">
-        ״שווי נטו שנוצר״ = הון בעוד 10 שנים (דירות, כסף, קרקע) פחות חובות, החזרי משכנתא ומסים עתידיים — מעבר למה
+        ״רווח כלכלי״ = הון בעוד 10 שנים (דירות, כסף, קרקע) פחות חובות, החזרי משכנתא ומסים עתידיים — מעבר למה
         שהכסף הפנוי שלכם היה צובר בלאו הכי. כולל שכר דירה (או חיסכון בשכר דירה) מהדירות שנשארות.
       </p>
     </Section>
@@ -361,7 +364,7 @@ export function NegotiationPanel({ result }: { result: DecisionResult }) {
                       <span className="muted"> (לעומת: {titleOf(t.note).replace(' — כרגע לא מתאים', '')})</span>
                     )}
                     {t.code === 'MIN_COMBINATION_PCT' && t.note && (
-                      <span className="muted"> (ל-{t.note === '1' ? 'דירה שלמה אחת' : `${t.note} דירות`})</span>
+                      <span className="muted"> ({t.note === '1' ? 'לדירה שלמה אחת' : `ל-${t.note} דירות`})</span>
                     )}
                   </th>
                   <td>
