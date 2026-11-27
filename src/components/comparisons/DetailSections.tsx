@@ -1,3 +1,6 @@
+import { useId, useState } from 'react';
+import { PROJECT_CONFIG } from '../../data/config';
+import { getLot } from '../../data/parcel33';
 import { SCENARIO_LABELS } from '../../data/scenarios';
 import type { DecisionResult, Goal, LedgerEntry, NegotiationTarget, StrategyResult } from '../../domain/types';
 import {
@@ -158,10 +161,62 @@ function LedgerRows({ entries }: { entries: LedgerEntry[] }) {
   );
 }
 
-export function CostLedger({ r }: { r: StrategyResult }) {
+/** The holding in the official allocation table (106(ב), 23.11.2026) — what the retired calculator showed. */
+export function AllocationTable({ result }: { result: DecisionResult }) {
+  const info = result.rights;
+  const t = info.table;
+  const lot = getLot(PROJECT_CONFIG.rights.tableVersion, info.lotId);
+  const rows: [string, string][] = [
+    ['מגרש', `${info.lotId}${info.lotAssumed ? ' (הנחה — לא הוזן)' : ''}`],
+    ['חלק במגרש', `${formatNumber(t.lotShare * 100, 3)}%`],
+    ['יחידות לפי הטבלה', formatNumber(t.units, 2)],
+    ['שטח מגורים לפי החלק במגרש', `${formatNumber(t.lotShare * lot.residentialArea, 1)} מ״ר`],
+    ['שווי במצב הנכנס', formatCurrency(t.incomingValue)],
+    ['שווי הזכויות (מצב יוצא)', formatCurrency(t.allocationValue)],
+    ['זכויות בסימולציה (2.25 ל-167 מ״ר)', formatNumber(info.apartmentEquivalents, 2)],
+  ];
+  return (
+    <Section title="הזכויות שלכם לפי טבלת ההקצאה" sub={`${formatArea(info.landAreaSqm)} מ״ר בחלקה`}>
+      <table className="kv-table">
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k}>
+              <th>{k}</th>
+              <td>{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="field-hint">
+        הטבלה הרשמית מראה כ-{formatNumber(t.units, 2)} יחידות; הסימולציה מחשבת {formatNumber(info.apartmentEquivalents, 2)} זכויות (ההנחה שלכם). ההפרש מוצג
+        בפירוט ההמלצה בשורה ״לפי הטבלה הרשמית — לא נספר לטובתכם״.
+      </p>
+    </Section>
+  );
+}
+
+/**
+ * The full ledger of any evaluated route (iteration 9 / D6 — replaces the retired four-track calculator): who pays what
+ * and when, including the developer's, buyers' and sellers' lines.
+ */
+export function CostLedger({ result, initial }: { result: DecisionResult; initial: StrategyResult }) {
+  const [id, setId] = useState(initial.id);
+  const routes = [...result.ranked, ...result.results.filter((x) => !result.ranked.includes(x))];
+  const r = routes.find((x) => x.id === id) ?? initial;
+  const selectId = useId();
   const entries = r.ledger.filter((e) => e.amount > 0 || e.payer !== 'owner');
   return (
     <Section title="פירוט עלויות ומסים" sub={strategyTitle(r)}>
+      <div className="field">
+        <label htmlFor={selectId}>מסלול להצגה</label>
+        <select id={selectId} value={r.id} onChange={(e) => setId(e.target.value)}>
+          {routes.map((x) => (
+            <option key={x.id} value={x.id}>
+              {strategyTitle(x)}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="table-scroll">
         <table className="kv-table ledger-table">
           <tbody>
