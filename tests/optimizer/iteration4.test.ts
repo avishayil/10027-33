@@ -143,3 +143,67 @@ describe('evidence first', () => {
     expect(line.amount).toBeCloseTo(-0.02353 * 325 * 8000, 6);
   });
 });
+
+describe('regression: no cash, ₪5K/month, owns another property (reported scenario)', () => {
+  // 167 m², lot 150, ₪0 free cash, ₪5,000/month, balanced, 32.5% / 17.5%, basis ₪200,000.
+  const base = { landAreaSqm: 167, availableCapital: 0, maxMonthlyRepayment: 5000, goal: 'balanced' as Goal, lotId: '150', acquisitionBasis: 200000 };
+  const terms = { combinationPct: 0.325, developerMarkup: 0.175 };
+
+  it('owning another property: the tax can be financed by a loan secured on it → a real (conditional) recommendation', () => {
+    const d = analyzeProfile({ ...base, soleHome: false }, terms, C);
+    const r = d.recommendation!;
+    expect(r).not.toBeNull();
+    expect(r.simulation.unfunded).toBe(0);
+    expect(r.simulation.taxesFinancedBySecuredLoan).toBeGreaterThan(200000);
+    expect(r.requiredConditions).toContain('SECURED_LOAN_OTHER_PROPERTY');
+    expect(r.monthlyRepayment).toBeLessThanOrEqual(5000);
+  });
+
+  it('no other property: the verdict still gives a direction — conditional on the developer bearing the taxes', () => {
+    for (const soleHome of [true, null]) {
+      const d = analyzeProfile({ ...base, soleHome }, terms, C);
+      expect(d.recommendation).toBeNull();
+      expect(d.conditionalRecommendation).not.toBeNull();
+      expect(d.conditionalRecommendation!.arrangement).toBe('net');
+      expect(d.conditionalRecommendation!.result.simulation.unfunded).toBe(0);
+    }
+  });
+
+  it('the tax loan is secured on the other property, so it does not count against the project’s LTV', () => {
+    const d = analyzeProfile({ ...base, soleHome: false }, terms, C);
+    const s13 = d.results.find((r) => r.id === 'S13-3r')!;
+    expect(s13.reasonCodes).not.toContain('LTV_EXCEEDED');
+    expect(s13.simulation.taxesFinancedBySecuredLoan).toBeGreaterThan(200000);
+    expect(s13.simulation.peakPostCompletionLtv).toBeLessThan(0.75);
+  });
+
+  it('with the goal "as many apartments as possible" the household gets a whole apartment within its ₪5K/month', () => {
+    const d = analyzeProfile({ ...base, soleHome: false, goal: 'maximize_apartments' }, terms, C);
+    const r = d.recommendation!;
+    expect(r.metrics.wholeApartments).toBeGreaterThanOrEqual(1);
+    expect(r.monthlyRepayment).toBeLessThanOrEqual(5000);
+  });
+
+  it('without the secured loan the project LTV is unchanged (no other property)', () => {
+    const r = analyzeProfile({ ...base, availableCapital: 300000, soleHome: true }, terms, C).results.find((x) => x.id === 'S06-1')!;
+    expect(r.simulation.taxesFinancedBySecuredLoan).toBe(0);
+  });
+
+  it('never finances taxes with a loan when the household ruled out borrowing', () => {
+    const d = analyzeProfile({ ...base, soleHome: false, maxMonthlyRepayment: 0 }, terms, C);
+    for (const r of d.results) expect(r.simulation.taxesFinancedBySecuredLoan).toBe(0);
+  });
+});
+
+describe('selling the fractional share is a disposal of retained property', () => {
+  it('pool / buy-back tax is on the gain over the services value already taxed — not on the gross amount', () => {
+    const d = analyzeProfile(profile({ availableCapital: 1_000_000, maxMonthlyRepayment: 10000 }), TERMS, C);
+    const r = d.results.find((x) => x.id === 'S02P')!;
+    const e = 2.25 * 0.35;
+    const basis = e * 100 * 11000 * 1.175 * 1.18; // taxable services value received
+    const amount = e * 2_500_000 * 0.98; // pool sale net of 2% costs (today's prices)
+    const tax = r.ledger.find((x) => x.label.includes('הפיצוי'))!.amount;
+    expect(tax).toBeCloseTo(0.25 * (amount - basis), 2);
+    expect(tax).toBeLessThan(0.25 * amount);
+  });
+});

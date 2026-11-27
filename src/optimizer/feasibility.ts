@@ -53,6 +53,7 @@ export function assessEvaluation(
       fails.push('REPAYMENT_EXCEEDED');
     }
     if (sim.drawsByStage.bridge > EPS) conditions.add('BRIDGE_FINANCING');
+    if (sim.taxesFinancedBySecuredLoan > EPS) conditions.add('SECURED_LOAN_OTHER_PROPERTY');
     if (sim.drawsByStage.construction > EPS) conditions.add('CONSTRUCTION_FINANCING');
     conditions.add('LENDER_CONFIRMATION');
     // Without the user's capital the borrowing need itself is unknown, so collateral cannot be judged either.

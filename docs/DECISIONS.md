@@ -118,3 +118,20 @@
 47. **Developer P&L includes the lot's public-building obligation** (appraisal ₪8,000/m² × 325 m² × lot share).
 48. The appraisal PDF was not available in the session; its figures come from the review's transcription and are
     flagged for verification.
+
+## Reported scenario — no free cash, monthly capacity, another property (2026-11-27)
+
+49. **Taxes can be financed by a loan secured on another property** the household owns (answer "לא, יש לנו דירה
+    נוספת") when borrowing was not ruled out. Construction finance still never funds taxes; this is a separate,
+    conditional loan (bank approval, value of the existing home) shown as a condition. Without another property,
+    taxes the cash cannot cover remain unfunded.
+50. **The verdict always gives a direction.** If nothing fits under the headline (mixed) terms but a route fits under
+    other terms, it is shown as a conditional recommendation: "X — on condition the developer bears the taxes", with
+    the near-misses as the fallback.
+51. **Selling the fractional share (pool / buy-back / smaller-apartment excess) is a disposal of retained property**:
+    capital gains are on the proceeds minus its basis (the services value already taxed when received + the retained
+    land basis), not on the gross amount.
+52. **A tax loan secured on another property does not count against the project's LTV.** Project LTV uses only the
+    debt secured on the project; repayments are attributed to the secured tax loan first (conservative for the
+    project). In the reported scenario this makes "combination + whole 3-room apartment" (₪651K total loans,
+    ₪3,806/month) the recommendation for the balanced goal.

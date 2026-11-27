@@ -131,13 +131,20 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
         <p className="verdict-kicker">
           {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
         </p>
-        <h2 id="verdict-title">אין מסלול מבוסס-ראיות שמתאים לנתונים שהזנתם — כרגע</h2>
-        <p>
-          כל מסלול שאפשר לחשב בלי להמציא מחירים חורג מהיכולת הכלכלית בתנאים שהנחנו. הנה מה שיכול לשנות את התמונה:
-        </p>
+        {result.conditionalRecommendation ? (
+          <ConditionalDirection result={result} />
+        ) : (
+          <>
+            <h2 id="verdict-title">אין מסלול מבוסס-ראיות שמתאים לנתונים שהזנתם — כרגע</h2>
+            <p>
+              כל מסלול שאפשר לחשב בלי להמציא מחירים חורג מהיכולת הכלכלית בתנאים שהנחנו. הנה מה שיכול לשנות את
+              התמונה:
+            </p>
+          </>
+        )}
         {result.nearMiss.length > 0 && (
           <div className="check-first">
-            <h3>הכי קרוב להתאים</h3>
+            <h3>{result.conditionalRecommendation ? 'ובלי השגת התנאי — הכי קרוב להתאים' : 'הכי קרוב להתאים'}</h3>
             <ul>
               {result.nearMiss.map((n) => (
                 <li key={n.result.id}>
@@ -150,7 +157,7 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
             </ul>
           </div>
         )}
-        <LevyCard result={result} r={null} />
+        <LevyCard result={result} r={result.conditionalRecommendation?.result ?? null} />
         <ArrangementTree result={result} />
         <p className="verdict-note">מכירה ומסלולים שתלויים במחיר שעוד לא ידוע — ראו ״מסלולים שתלויים במחיר״ למטה.</p>
       </section>
@@ -375,5 +382,45 @@ export function ArrangementTree({ result }: { result: DecisionResult }) {
         ההמלצה הראשית מניחה עסקה מעורבת. בפועל זה נקבע בחוזה — אף הסדר אינו ״ברירת המחדל של השוק״.
       </p>
     </div>
+  );
+}
+
+const CONDITION_FOR: Record<TaxArrangement, string> = {
+  gross: '',
+  mixed: 'שהיזם נושא בהיטל ההשבחה (עסקה מעורבת)',
+  net: 'שהיזם נושא גם במס השבח וגם בהיטל ההשבחה (עסקת נטו)',
+};
+
+/** Nothing fits under the headline terms, but a route fits under other contract terms — say so plainly. */
+function ConditionalDirection({ result }: { result: DecisionResult }) {
+  const c = result.conditionalRecommendation!;
+  const r = c.result;
+  const debt = r.mortgageRequired > 1;
+  return (
+    <>
+      <h2 id="verdict-title">
+        {strategyTitle(r)} — בתנאי {CONDITION_FOR[c.arrangement]}
+      </h2>
+      <p className="verdict-desc">
+        בתנאים שהנחנו כבסיס (אתם משלמים את מס השבח) אין לכם מספיק כסף פנוי לשלם את המס במועד. אבל אם תשיגו את התנאי
+        הזה בחוזה — המסלול הזה מתאים ליכולת שלכם. זה הדבר הראשון לבדוק מול היזם. חלופה: בקשת דחיית תשלום המס לפי סעיף
+        91א (לא מובטחת).
+      </p>
+      <p className="verdict-desc">{STRATEGY_DESCRIPTIONS[r.strategyType]}</p>
+      <div className="verdict-numbers">
+        <div className="big-num">
+          <strong>{r.metrics.wholeApartments}</strong>
+          <span>דירות שלמות{r.plan.apartmentRooms.length > 0 && <> ({ROOMS_LABEL(r.plan.apartmentRooms)})</>}</span>
+        </div>
+        <div className="big-num">
+          <strong>{r.personalCapitalRequired > 1 ? formatCompactCurrency(r.personalCapitalRequired) : '₪0'}</strong>
+          <span>כסף מכיסכם</span>
+        </div>
+        <div className="big-num">
+          <strong>{debt ? formatCompactCurrency(r.mortgageRequired) : 'ללא'}</strong>
+          <span>משכנתא{debt ? ` · ${formatCurrency(r.monthlyRepayment)} לחודש` : ''}</span>
+        </div>
+      </div>
+    </>
   );
 }
