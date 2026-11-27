@@ -4,7 +4,7 @@
  * assumes a requested apartment size. Everything else lives in advanced mode.
  */
 import type { DecisionResult, Goal, TaxArrangement } from '../../domain/types';
-import { FAMILY_LABELS, priorityRoutes, type PriorityRoute } from '../../optimizer/families';
+import { FAMILY_LABELS, PAYMENT_METHOD, priorityRoutes, type RouteOption } from '../../optimizer/families';
 import {
   AFFORDABILITY_LABELS,
   formatRights,
@@ -35,9 +35,52 @@ function pocketNote(r: DecisionResult['results'][number]): string | null {
   return parts.length ? `מה משלמים: ${parts.join(' · ')}` : null;
 }
 
+function shortStatus(v: RouteOption): string | null {
+  switch (v.kind) {
+    case 'fits':
+      return null;
+    case 'price':
+      return 'תלוי במחיר שעוד לא ידוע';
+    case 'short':
+      return v.additionalCapital === null ? 'לא מתאים ליכולת' : `חסרים כ-${formatCompactCurrency(v.additionalCapital)}`;
+    case 'none':
+      return v.r.assessment.commercial === 'negotiable' ? 'היזם צפוי לא להציע' : 'לא מתאים ליכולת';
+  }
+}
+
+/** Other ways to pay for the same apartments, compared with the card's main route in one line each. */
+function Variants({ main, variants }: { main: RouteOption; variants: RouteOption[] }) {
+  if (!variants.length) return null;
+  return (
+    <div className="priority-variants">
+      <p className="priority-variants-title">דרכים אחרות לשלם על אותה דירה</p>
+      <ul>
+        {variants.map((v) => {
+          const r = v.r;
+          const status = shortStatus(v);
+          const diff = r.delivery.netPosition - main.r.delivery.netPosition;
+          const risk = riskLevel(r);
+          return (
+            <li key={r.id}>
+              <strong>{PAYMENT_METHOD[r.strategyType] ?? strategyTitle(r)}</strong>
+              {status && <span className="priority-note-inline"> · {status}</span>}
+              <span className="sub">
+                {r.mortgageRequired > 1 ? `משכנתא ${formatCompactCurrency(r.mortgageRequired)} (${formatCurrency(r.monthlyRepayment)} לחודש)` : 'בלי משכנתא'}
+                {' · '}
+                {RISK_LABELS[risk.level]}
+                {v.kind !== 'price' && !r.priceDependency && Math.abs(diff) >= 5000 && <> · משאיר לכם {formatCompactCurrency(Math.abs(diff))} {diff > 0 ? 'יותר' : 'פחות'} בסוף</>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 const RANK_LABELS = ['עדיפות ראשונה', 'עדיפות שנייה', 'עדיפות שלישית', 'עדיפות רביעית'];
 
-function noteFor(p: PriorityRoute): string | null {
+function noteFor(p: RouteOption): string | null {
   switch (p.kind) {
     case 'fits':
       return p.condition ? CONDITION_FOR[p.condition] || null : null;
@@ -83,6 +126,7 @@ export function TopPriorities({ result, goal, combinationPct }: { result: Decisi
                 {RANK_LABELS[i]} · {FAMILY_LABELS[p.family]}
               </p>
               <h3>{strategyTitle(r)}</h3>
+              {PAYMENT_METHOD[r.strategyType] && <p className="priority-method">דרך התשלום: {PAYMENT_METHOD[r.strategyType]}</p>}
               {note && <p className="priority-note">{note}</p>}
               <p className="priority-desc">{plainExplanation(r, R, combinationPct)}</p>
               <div className="chips chips-compact">
@@ -116,12 +160,13 @@ export function TopPriorities({ result, goal, combinationPct }: { result: Decisi
                   </dd>
                 </div>
               </dl>
+              <Variants main={p} variants={p.variants} />
             </li>
           );
         })}
       </ol>
       <p className="verdict-note">
-        עסקה אחת מכל סוג, בלי הנחה על גודל דירה מבוקש. כיוון לבדיקה, לא אישור — הפירוט המלא, המסים והתנאים בתצוגה
+        עסקה אחת מכל סוג; דרכים שונות לשלם על אותה דירה מוצגות יחד. בלי הנחה על גודל דירה מבוקש. כיוון לבדיקה, לא אישור — הפירוט המלא, המסים והתנאים בתצוגה
         המתקדמת.
       </p>
     </section>

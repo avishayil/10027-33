@@ -244,7 +244,7 @@ export function plainExplanation(r: StrategyResult, R: number, combinationPct: n
     case 'S02P':
       return `${combLine}. את החלק שאינו דירה שלמה (${n2(frac)}) מצרפים לחלקים של בעלים אחרים ל״יחידת סל״ שנמכרת, והכסף מתחלק.`;
     case 'S06':
-      return `${combLine}. משלמים ליזם על עוד ${n2(Math.max(0, k - fromComb))} דירה במחיר שוק, ומקבלים ${apts(k)} שלמות.`;
+      return `${combLine}. משלמים ליזם על עוד ${n2(Math.max(0, k - fromComb))} דירה במחיר שוק, ומקבלים ${k === 1 ? 'דירה אחת שלמה' : `${k} דירות שלמות`}.`;
     case 'S11':
       return `${n2(p.rightsInCombination)} זכויות הולכות לקומבינציה, ועל השאר משלמים ליזם רק עלות בנייה ורווח יזמי. כך מגיעים ל${apts(k)} שלמה — זול מקנייה במחיר שוק.`;
     case 'S05':
