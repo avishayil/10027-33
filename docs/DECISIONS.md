@@ -5,7 +5,7 @@
 3. **2.25 is a simulation unit**, kept separate from the official table (~2.4 units per 167 m²).
 4. **Contingency vs overrun** use `max()`, never sum.
 5. **Whole retained apartments earn net rent (or rent saved)** in the wealth comparison, so selling and keeping compare fairly; fractional shares earn nothing (iteration 2). S08 differs only in that rent counts toward repayment capacity; when its build-and-hold twin is eligible the duplicate is hidden from ranking.
-6. **Combination capital-gains tax is paid by the owner** at signing (conservative; flagged as negotiable).
+6. ~~Combination capital-gains tax is paid by the owner at signing~~ — superseded by #29 (net deal).
 7. **Developer purchases are assumed post-approval** (seller pays the levy). Open-market sales now are pre-approval (levy priced in for the buyer).
 8. **Unknown inputs never become zero silently**: unknown capital → “חסר מידע”, unknown repayment → conditional. Reverse targets treat unknowns as zero and say so.
 9. ~~Whole-unit targets make a strategy conditional~~ — superseded in iteration 2 by the three-part assessment: commercial dependencies affect *commercial certainty*, not affordability.
@@ -47,3 +47,30 @@
     שנוצר”) renamed to “רווח כלכלי משוער” with an explanation; follow-up questions link to the relevant step;
     comparison table becomes stacked cards on phones; 44 px touch targets, visible focus, skip link, focus moved to
     each wizard step heading, labelled inputs and `aria-invalid` / `role="alert"` errors.
+
+## Developer policy for construction services
+
+27. **Lot-level policy** (owner’s domain input): ~100 units per lot; the developer releases 20–30% for construction
+    services, one apartment per owner, none for owners whose full combination already gives a whole apartment
+    (≈ 3 rights). Out-of-policy strategies are shown as “לא צפוי שיוצע” and excluded from ranking. All three
+    parameters are configurable planning assumptions (`developerPolicy`).
+28. ~~Open point: who pays the combination tax~~ — resolved by research, see #29.
+
+## Who pays the capital-gains tax in a combination (researched 2026-11-27)
+
+29. **Base case: a "net" combination (עסקת נטו).** By law the landowner owes the capital-gains tax on the share sold
+    (and the levy, and VAT on the services), assessed around signing. In practice many combination deals are
+    "net": the developer undertakes in the contract to pay the owner’s capital-gains tax — grossed up, since the
+    payment is itself consideration — and often the levy too; some deals split them. The engine therefore:
+    * charges the grossed-up tax `T = t / (1 − 25%)` to the developer in combination legs (≈ ₪340,725 for 167 m² at 35%);
+    * adds `T` to the developer-side P&L (35% combination margin ≈ −14%; consistent cash price ≈ ₪13,680/m²;
+      max combination at a 15% margin ≈ 19%);
+    * adds a commercial condition: confirm the net term **with security** in the contract — the legal liability
+      stays with the owner; otherwise an administrative deferral under section 91א may be requested (discretionary,
+      with interest and indexation, typically up to ~3 years);
+    * keeps owner-paid taxes for sales, revenue sharing, fraction cash settlement and completion purchases;
+    * keeps the owner-pays path available (`combinationTaxBorneByDeveloper: false`) with its own golden fixture
+      (₪515,041 / ₪3,011 for the moderate household). The net-deal fixture: no construction-stage debt, a
+      ₪235,276 mortgage at completion.
+    Effect on the owner’s examples: 3 rights → full combination for every household tested; 4 rights → full
+    combination or combination + paid completion; 1–2.86 rights → depends on finances and goal.

@@ -129,7 +129,16 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         const consideration = received * constructionServiceValuePerApartment(config) + levy;
         const soldPortion = leg.rights * (1 - terms.combinationPct);
         const tax = capitalGainsReserve({ consideration, deductibleCosts: 0, deductibleLevy: levy, rightsPortion: soldPortion, info, profile, config });
-        out(0, addCg(tax), 'מס שבח על שירותי הבנייה שמתקבלים (רזרבה)', 'capital_gains_tax', 'owner', { range: { low: tax.low, high: tax.high } });
+        if (config.commercial.combinationTaxBorneByDeveloper) {
+          // "Net" deal: the developer pays the owner's tax. The payment is itself consideration, so it is grossed
+          // up: T = rate × (gain + T) → T = t / (1 − rate). Legal liability stays with the owner.
+          const g = 1 / (1 - config.taxation.indicativeCapitalGainsRate);
+          out(0, tax.used * g, 'מס שבח — משולם ע״י היזם (עסקת נטו, כולל גילום)', 'capital_gains_tax', 'developer', {
+            range: { low: tax.low * g, high: tax.high * g },
+          });
+        } else {
+          out(0, addCg(tax), 'מס שבח על שירותי הבנייה שמתקבלים (רזרבה)', 'capital_gains_tax', 'owner', { range: { low: tax.low, high: tax.high } });
+        }
         break;
       }
       case 'completion': {

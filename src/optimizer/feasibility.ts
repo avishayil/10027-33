@@ -61,6 +61,7 @@ export function assessEvaluation(
   }
 
   const hasCombination = candidate.legs.some((l) => l.kind === 'combination');
+  if (hasCombination && config.commercial.combinationTaxBorneByDeveloper) commercial.add('TAX_ALLOCATION');
   for (const leg of candidate.legs) {
     if (leg.kind === 'sell_rights' && leg.market === 'developer') {
       if (!config.market.developerRightsSaleScenario.confirmedOffer) commercial.add('DEVELOPER_PRICE_UNVERIFIED');
@@ -74,6 +75,7 @@ export function assessEvaluation(
     if (leg.kind === 'settle_fraction_cash') commercial.add('FRACTION_SETTLEMENT');
     if (leg.kind === 'build' && hasCombination) commercial.add('MIXED_STRUCTURE');
     if (leg.kind === 'build' || leg.kind === 'completion') commercial.add('WHOLE_UNIT_ALLOCATION');
+    if (leg.kind === 'build') commercial.add('SERVICES_CAPACITY');
   }
 
   return { fails, conditions: [...conditions], commercial: [...commercial], missing };
@@ -92,11 +94,17 @@ export function classify(base: ScenarioAssessment, adverse: ScenarioAssessment):
   return 'estimated_feasible';
 }
 
-export function assess(base: ScenarioAssessment, adverse: ScenarioAssessment, developerMargin: number | null): Assessment {
+export function assess(
+  base: ScenarioAssessment,
+  adverse: ScenarioAssessment,
+  developerMargin: number | null,
+  blockedByPolicy = false,
+): Assessment {
   const affordability: Affordability =
     base.fails.length > 0 ? 'does_not_fit' : base.missing.length > 0 ? 'unknown' : base.conditions.length > 0 ? 'fits_with_financing' : 'fits';
-  const commercial: CommercialCertainty =
-    developerMargin !== null && developerMargin < 0 ? 'questionable' : base.commercial.length > 0 ? 'unverified' : 'not_required';
+  const commercial: CommercialCertainty = blockedByPolicy
+    ? 'not_offered'
+    : developerMargin !== null && developerMargin < 0 ? 'questionable' : base.commercial.length > 0 ? 'unverified' : 'not_required';
   return { affordability, resilience: adverse.fails.length > 0 ? 'fragile' : 'robust', commercial };
 }
 

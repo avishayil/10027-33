@@ -82,13 +82,15 @@ export const CONDITION_TEXT: Record<ConditionCode, string> = {
   MORTGAGE_CAPACITY_UNKNOWN: 'כמה תוכלו להחזיר בחודש — לא הוזן.',
   LTV_ABOVE_COMFORT: 'שיעור מימון מעל 50% — תלוי בסיווג אצל הבנק.',
   WHOLE_UNIT_ALLOCATION: 'שהזכויות יתורגמו בהסכם לדירה שלמה ומסוימת.',
-  TAX_ALLOCATION: 'מי משלם את המסים בעסקה.',
+  TAX_ALLOCATION:
+    'שהעסקה ״נטו״: היזם מתחייב בחוזה לשלם את מס השבח (בגילום) ואת היטל ההשבחה, עם ביטחונות — החבות כלפי רשות המסים נשארת עליכם. אם לא, אפשר לבקש דחיית תשלום לפי סעיף 91א (לא מובטח).',
   CURRENT_APPRAISAL: 'שומה עדכנית לשווי הזכויות היום.',
   BRIDGE_FINANCING: 'הלוואת גישור לפני היתר הבנייה — לא מובטחת.',
   CONSTRUCTION_FINANCING: 'מימון בנייה בשלבים מבנק (ליווי) — לפי התקדמות הבנייה ובכפוף להסכם.',
   MIXED_STRUCTURE: 'שהיזם מסכים לשלב קומבינציה ושירותי בנייה באותה עסקה.',
   FRACTION_SETTLEMENT: 'שהיזם מסכים לקנות מכם את חלק הדירה, ובאיזה מחיר.',
   PLANNING_APPROVAL: 'אישור סופי של התכנית — מועד וודאות.',
+  SERVICES_CAPACITY: 'שיש מקום פנוי לשירותי בנייה במגרש — היזם צפוי להקצות רק 20%–30% מהדירות, וייתכן שיהיו יותר מבקשים ממקומות.',
 };
 
 export const REASON_TEXT: Record<ReasonCode, string> = {
@@ -104,6 +106,10 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   RENT_SUPPORTS_REPAYMENT: 'שכר הדירה מסייע בהחזר המשכנתא אחרי המסירה.',
   COMBINATION_BELOW_WHOLE_UNIT: 'באחוז הקומבינציה הנוכחי לא מגיעים לדירה שלמה.',
   NOT_ENOUGH_RIGHTS: 'הזכויות שלכם קטנות מדירה אחת.',
+  DEVELOPER_POLICY_WHOLE_FROM_COMBINATION:
+    'הקומבינציה המלאה כבר נותנת לכם דירה שלמה — יזם צפוי להציע לכם קומבינציה מלאה, לא שירותי בנייה.',
+  DEVELOPER_POLICY_PER_OWNER_CAP:
+    'יזם צפוי להגביל שירותי בנייה לדירה אחת לבעל זכויות (המקומות במגרש מוגבלים).',
   UNFUNDED_OBLIGATION: 'יש תשלומים שבנק לא מממן (מסים, היטל, עלויות) ואין מספיק כסף פנוי לכסות אותם במועד.',
   FRACTION_UNRESOLVED: 'חלק הדירה שנשאר לא מוסדר — אין ממנו הכנסה.',
 };
@@ -138,6 +144,7 @@ export const COMMERCIAL_LABELS = {
   not_required: 'לא תלוי ביזם',
   unverified: 'טרם אומת',
   questionable: 'מוטל בספק',
+  not_offered: 'לא צפוי שיוצע',
 } as const;
 
 /** Personalised "why" bullets for a strategy. */

@@ -21,8 +21,19 @@ range and verification level, shown in the app under “הנחות החישוב 
 | Immediate-sale scenarios | ₪1,916 | 1,647–2,739 | reported / derived | parcel 33 deals; table value − levy |
 | Fraction illiquidity / cash settlement | 20% / 80% | — | assumed | — |
 | Approval timing | 2 years | — | assumed | — |
+| Combination tax borne by developer (net deal) | yes, grossed up | owner-pays as alternative | reported practice | law-firm tax guides (see below) |
+| Construction-services cap per lot / per owner | 25% (20–30%) / 1 apartment | — | assumed (owner’s assessment) | — |
 | Developer direct cost / soft costs / target margin | ₪11,000 / 12% / 15% | — | assumed | — |
 
 Review cadence is in `src/data/sources.ts`. Updates are made by editing the data files, bumping
 `CONFIG_VERSION`, and opening a PR whose description lists old/new values and the changed recommendations for
 the representative profiles in `tests/fixtures/profiles.ts`. Never publish unreviewed market estimates.
+
+## Combination taxation — sources consulted (2026-11-27)
+Secondary sources (law-firm guides, not rulings); verify with a tax lawyer before signing:
+* [TASA — מיסוי עסקת קומבינציה](https://tasalaw.co.il/%D7%9E%D7%99%D7%A1%D7%95%D7%99-%D7%A2%D7%A1%D7%A7%D7%AA-%D7%A7%D7%95%D7%9E%D7%91%D7%99%D7%A0%D7%A6%D7%99%D7%94-%D7%94%D7%9E%D7%93%D7%A8%D7%99%D7%9A/) — many deals are “net”, the developer pays the owner’s capital-gains tax.
+* [גבאי עמיאל — מס שבח על מגרש בעסקת קומבינציה](https://www.gatax.co.il/%D7%9E%D7%A1-%D7%A9%D7%91%D7%97-%D7%A2%D7%9C-%D7%9E%D7%92%D7%A8%D7%A9-%D7%91%D7%A2%D7%A1%D7%A7%D7%AA-%D7%A7%D7%95%D7%9E%D7%91%D7%99%D7%A0%D7%A6%D7%99%D7%94/) — tax only on the share sold.
+* [Taxo — מחשבון קומבינציה](https://www.taxo.co.il/realestate/LandValueMrCombination.asp) — legal liability stays with the owner; full gross-up when the developer pays.
+* [יגאל גולד — מיסוי עסקת קומבינציה](https://ygoldlaw.co.il/real-estate-lawyer/tax/combination/) — consideration = construction services incl. developer profit and VAT (Kamhi).
+* [יוני לוי — הסכם קומבינציה](https://yonilevy.co.il/combination-agreement-landowners-advantages/) — developers commonly bear the levy, sometimes split.
+* [אהרון צ׳יסמדיה — סעיף 91א](https://www.atz-law.co.il/%D7%93%D7%97%D7%99%D7%99%D7%AA-%D7%AA%D7%A9%D7%9C%D7%95%D7%9D-%D7%94%D7%9E%D7%A1-%D7%9C%D7%A4%D7%99-%D7%A1%D7%A2%D7%99%D7%A3-91%D7%90-%D7%9C%D7%97%D7%95%D7%A7-%D7%9E%D7%99%D7%A1%D7%95%D7%99-%D7%9E/) and [כל זכות — דחיית תשלום מס שבח](https://www.kolzchut.org.il/he/%D7%93%D7%97%D7%99%D7%99%D7%AA_%D7%AA%D7%A9%D7%9C%D7%95%D7%9D_%D7%9E%D7%A1_%D7%A9%D7%91%D7%97) — administrative deferral for owners without cash.

@@ -22,7 +22,9 @@ const cand = (id: string) => cands.find((c) => c.id === id)!;
 const ctx = (p: UserProfile = MODERATE) => ({ info: calculateRights(p.landAreaSqm, C), profile: p, terms: TERMS });
 const run = (p: UserProfile = MODERATE) => analyzeProfile(p, TERMS, C);
 
-describe('golden fixture: 167 m², ₪300K, ₪5K/month, 35%, 17.5% — combination + completion (S06-1)', () => {
+const OWNER_PAYS = { ...C, commercial: { ...C.commercial, combinationTaxBorneByDeveloper: false } };
+
+describe('golden fixture (owner pays the combination tax): 167 m², ₪300K, ₪5K/month, 35%, 17.5% — S06-1', () => {
   // Independent arithmetic.
   const received = 2.25 * 0.35; // 0.7875
   const serviceValue = 100 * 11000 * 1.18; // 1,298,000 per apartment
@@ -36,7 +38,7 @@ describe('golden fixture: 167 m², ₪300K, ₪5K/month, 35%, 17.5% — combinat
   const r = 0.05 / 12;
   const payment = (peak * r) / (1 - Math.pow(1 + r, -300));
 
-  const ev = evaluateCandidate(cand('S06-1'), ctx(), C);
+  const ev = evaluateCandidate(cand('S06-1'), ctx(), OWNER_PAYS);
   const byCat = (cat: string) => ev.plan.ledger.filter((e) => e.category === cat && e.payer === 'owner').reduce((s, e) => s + e.amount, 0);
 
   it('reconciles every ledger line', () => {
@@ -65,11 +67,43 @@ describe('golden fixture: 167 m², ₪300K, ₪5K/month, 35%, 17.5% — combinat
     expect(ev.sim.peakPreCompletionLtv).toBeCloseTo(constructionDraw / (land + completion / 2), 6);
     expect(ev.sim.peakPostCompletionLtv).toBeCloseTo(peak / 2_500_000, 6);
   });
+});
 
-  it('the moderate household can afford it, with construction financing still to be confirmed', () => {
+describe('golden fixture (base case, net deal — developer pays the grossed-up tax): same household, S06-1', () => {
+  const received = 2.25 * 0.35;
+  const serviceValue = 100 * 11000 * 1.18;
+  const grossedUpTax = (0.25 * received * serviceValue) / 0.75; // T = 25% × (gain + T)
+  const completion = (1 - received) * 2_500_000;
+  const purchaseTax = 0.06 * completion;
+  const g = Math.pow(1.04, 1 / 12);
+  const cashAfterPermit = 300000 * Math.pow(g, 24) - purchaseTax - completion / 2; // first half paid from own cash
+  const mortgage = completion / 2 - cashAfterPermit * Math.pow(g, 36); // second half, after 36 more months of growth
+  const r = 0.05 / 12;
+  const payment = (mortgage * r) / (1 - Math.pow(1 + r, -300));
+  const ev = evaluateCandidate(cand('S06-1'), ctx(), C);
+
+  it('the owner pays no capital-gains tax; the developer pays it grossed up', () => {
+    const owner = ev.plan.ledger.filter((e) => e.category === 'capital_gains_tax' && e.payer === 'owner');
+    expect(owner).toHaveLength(0);
+    const dev = ev.plan.ledger.find((e) => e.category === 'capital_gains_tax' && e.payer === 'developer')!;
+    expect(dev.amount).toBeCloseTo(grossedUpTax, 4);
+    expect(Math.round(grossedUpTax)).toBe(340725);
+  });
+
+  it('reconciles the financing: own cash at permit, mortgage only at completion', () => {
+    expect(cashAfterPermit).toBeGreaterThan(0);
+    expect(ev.sim.unfunded).toBe(0);
+    expect(ev.sim.drawsByStage.bridge).toBe(0);
+    expect(ev.sim.drawsByStage.construction).toBe(0);
+    expect(ev.sim.drawsByStage.mortgage).toBeCloseTo(mortgage, 2);
+    expect(ev.sim.peakDebt).toBeCloseTo(mortgage, 2);
+    expect(ev.sim.postCompletionMonthly).toBeCloseTo(payment, 4);
+  });
+
+  it('the moderate household can afford it; the net-deal term must be confirmed in the contract', () => {
     const s = run().results.find((x) => x.id === 'S06-1')!;
     expect(s.assessment.affordability).toBe('fits_with_financing');
-    expect(s.requiredConditions).toEqual(expect.arrayContaining(['CONSTRUCTION_FINANCING', 'LENDER_CONFIRMATION']));
+    expect(s.requiredConditions).toEqual(expect.arrayContaining(['LENDER_CONFIRMATION', 'TAX_ALLOCATION']));
   });
 });
 
@@ -105,7 +139,7 @@ describe('S11 — combination plus construction services', () => {
 
 describe('financing availability', () => {
   it('taxes due at signing are never financed: unfunded obligations are infeasible', () => {
-    const s = run(NO_MEANS).results.find((x) => x.id === 'S02')!;
+    const s = analyzeProfile(NO_MEANS, TERMS, OWNER_PAYS).results.find((x) => x.id === 'S02')!;
     expect(s.simulation.unfunded).toBeGreaterThan(250000);
     expect(s.feasibility).toBe('infeasible');
     expect(s.reasonCodes).toContain('UNFUNDED_OBLIGATION');
@@ -202,9 +236,11 @@ describe('developer economics', () => {
     const build = 1_100_000 * 1.12;
     const L = info.bettermentLevy;
     const rev = 0.65 * 2.25 * a;
-    const margin = (rev - 2.25 * build - 0.7875 * 1_100_000 * 0.18 - L) / rev;
+    const T = (0.25 / 0.75) * 0.7875 * 1_100_000 * 1.18; // net deal: grossed-up tax paid for the owner
+    expect(dev.combinationTaxCost).toBeCloseTo(T, 6);
+    const margin = (rev - 2.25 * build - 0.7875 * 1_100_000 * 0.18 - L - T) / rev;
     expect(dev.combinationMargin).toBeCloseTo(margin, 9);
-    const consistent = (0.7875 * a + 0.7875 * 1_100_000 * 0.18 + L) / 1.06 / 167;
+    const consistent = (0.7875 * a + 0.7875 * 1_100_000 * 0.18 + L + T) / 1.06 / 167;
     expect(dev.consistentCashPricePerSqm).toBeCloseTo(consistent, 6);
     // A 35% combination is worth more to the owner than the ₪6,900 cash scenario implies.
     expect(dev.consistentCashPricePerSqm).toBeGreaterThan(6900);

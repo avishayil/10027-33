@@ -8,7 +8,7 @@ import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-26.2';
+export const CONFIG_VERSION = '2026-11-27.2';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,
@@ -38,6 +38,12 @@ export const PROJECT_CONFIG: ProjectConfig = {
     completionPriceFactor: COMMERCIAL.completionPriceFactor.value,
     approvalYears: COMMERCIAL.approvalYears.value,
     fractionCashSettlementFactor: COMMERCIAL.fractionCashSettlementFactor.value,
+    combinationTaxBorneByDeveloper: COMMERCIAL.combinationTaxBorneByDeveloper.value === 1,
+  },
+  developerPolicy: {
+    servicesCapShareOfLot: COMMERCIAL.servicesCapShareOfLot.value,
+    maxServiceApartmentsPerOwner: COMMERCIAL.maxServiceApartmentsPerOwner.value,
+    noServicesWhenCombinationYieldsWhole: COMMERCIAL.noServicesWhenCombinationYieldsWhole.value === 1,
   },
   developer: {
     directCostPerSqm: COMMERCIAL.developerDirectCostPerSqm.value,

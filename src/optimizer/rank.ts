@@ -46,6 +46,8 @@ function dominates(a: Metrics, b: Metrics): boolean {
 
 export function isEligible(r: StrategyResult, goal: Goal): boolean {
   if (r.feasibility === 'infeasible' || r.feasibility === 'unknown') return false;
+  // The developer is not expected to offer it (lot policy for construction services).
+  if (r.assessment.commercial === 'not_offered') return false;
   if (goal === 'minimize_risk' && r.feasibility === 'fragile') return false;
   return true;
 }
@@ -152,7 +154,7 @@ export function rankStrategies(results: StrategyResult[], goal: Goal, s: Scales)
 
 /** Best candidate under the goal if financial constraints are ignored (to detect a blocked preference). */
 export function unconstrainedPreference(results: StrategyResult[], goal: Goal, s: Scales): StrategyResult | null {
-  const pool = results.filter((r) => r.strategyType !== 'S01M');
+  const pool = results.filter((r) => r.strategyType !== 'S01M' && r.assessment.commercial !== 'not_offered');
   const scores = goalScores(pool, goal, s);
   let best: StrategyResult | null = null;
   for (const r of pool) if (!best || (scores.get(r.id) ?? 0) > (scores.get(best.id) ?? 0)) best = r;

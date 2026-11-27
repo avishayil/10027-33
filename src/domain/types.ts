@@ -108,6 +108,17 @@ export interface ProjectConfig {
     approvalYears: number;
     /** Price at which a developer settles a fractional entitlement in cash, as a share of market value. */
     fractionCashSettlementFactor: number;
+    /** "Net" combination (עסקת נטו): the developer pays the owner's capital-gains tax, grossed up. */
+    combinationTaxBorneByDeveloper: boolean;
+  };
+  /** Expected developer policy for construction services (שירותי בנייה) inside a lot. Planning assumption. */
+  developerPolicy: {
+    /** Share of a lot's units the developer is expected to release for construction services (20–30%). */
+    servicesCapShareOfLot: number;
+    /** Most apartments one owner can build through construction services. */
+    maxServiceApartmentsPerOwner: number;
+    /** No construction services for owners whose full combination already yields a whole apartment. */
+    noServicesWhenCombinationYieldsWhole: boolean;
   };
   developer: {
     /** Developer's own direct construction cost per m² (no markup). */
@@ -325,7 +336,7 @@ export type Affordability = 'fits' | 'fits_with_financing' | 'does_not_fit' | 'u
 /** Does it survive the adverse scenario? */
 export type Resilience = 'robust' | 'fragile';
 /** Have the commercial terms it relies on been confirmed, and are they plausible for a developer? */
-export type CommercialCertainty = 'not_required' | 'unverified' | 'questionable';
+export type CommercialCertainty = 'not_required' | 'unverified' | 'questionable' | 'not_offered';
 
 export interface Assessment {
   affordability: Affordability;
@@ -349,6 +360,8 @@ export type ReasonCode =
   | 'COMBINATION_BELOW_WHOLE_UNIT'
   | 'NOT_ENOUGH_RIGHTS'
   | 'UNFUNDED_OBLIGATION'
+  | 'DEVELOPER_POLICY_WHOLE_FROM_COMBINATION'
+  | 'DEVELOPER_POLICY_PER_OWNER_CAP'
   | 'FRACTION_UNRESOLVED';
 
 export type ConditionCode =
@@ -367,7 +380,8 @@ export type ConditionCode =
   | 'CONSTRUCTION_FINANCING'
   | 'MIXED_STRUCTURE'
   | 'FRACTION_SETTLEMENT'
-  | 'PLANNING_APPROVAL';
+  | 'PLANNING_APPROVAL'
+  | 'SERVICES_CAPACITY';
 
 export interface ScenarioAssessment {
   fails: ReasonCode[];
@@ -499,6 +513,23 @@ export interface DecisionResult {
   sensitivity: Sensitivity;
   mortgageCapacity: number | null;
   developer: DeveloperEconomics;
+  lotPolicy: LotPolicy;
+}
+
+/** How scarce construction-services slots are expected to be in the user's lot. */
+export interface LotPolicy {
+  lotId: string;
+  lotUnits: number;
+  capShare: number;
+  /** Units the developer is expected to release for construction services in the lot. */
+  capUnits: number;
+  /** Rough number of owners in the lot who would want one slot (assumes typical 167 m² holdings). */
+  estimatedDemand: number;
+  /** Rights at or above which full combination already yields a whole apartment (1 / c). */
+  wholeFromCombinationThreshold: number;
+  maxServiceApartmentsPerOwner: number;
+  /** Whether this owner is expected to be offered construction services at all. */
+  servicesOffered: boolean;
 }
 
 export interface DeveloperEconomics {
@@ -515,6 +546,8 @@ export interface DeveloperEconomics {
   /** Highest cash price per original m² that leaves the developer its target margin. */
   residualLandValuePerSqm: number;
   revenueShareMargin: number;
+  /** Grossed-up capital-gains tax the developer pays for the owner in a net combination (0 if not net). */
+  combinationTaxCost: number;
   /** Cash price per original m² that leaves the developer as well off as the selected combination offer. */
   consistentCashPricePerSqm: number;
 }
