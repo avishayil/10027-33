@@ -125,7 +125,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   await page.reload();
   await page.waitForSelector('.answers-bar');
   await page.getByRole('switch', { name: /תצוגה מתקדמת/ }).check();
-  await page.getByRole('radio', { name: 'מחשבון ידני' }).click();
+  await page.getByRole('radio', { name: 'מחשבון ישן (להשוואה)' }).click();
   await page.waitForSelector('.legacy-intro');
   if (errors.length) failures.push(`${viewport.width}px: errors on advanced tab: ${errors.join(' | ')}`);
   await page.close();

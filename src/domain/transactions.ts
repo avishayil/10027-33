@@ -258,7 +258,17 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         out(0, price, 'רכישת זכויות משלימות (מבעלים אחרים)', 'rights_purchase');
         out(0, price * buyerPurchaseTax, 'מס רכישה', 'purchase_tax');
         out(0, price * costRate, 'עלויות עסקה', 'transaction_costs');
-        out(0, 0, 'היטל השבחה על הזכויות שנרכשו — על המוכר', 'betterment_levy', 'seller', { rightsPortion: leg.rights });
+        // Iteration 9 / F05: bought at signing, before the plan is approved — the buyer owns the rights at approval and
+        // bears the levy on them by default (a contract may put it on the seller: the low end of the range).
+        if (0 < approval) {
+          const levy = leg.rights * levyUnit;
+          out(permit, levy, 'היטל השבחה על הזכויות שנרכשו (נקנו לפני אישור התכנית — עליכם, אלא אם סוכם אחרת)', 'betterment_levy', 'owner', {
+            rightsPortion: leg.rights,
+            range: { low: 0, high: levy },
+          });
+        } else {
+          out(0, 0, 'היטל השבחה על הזכויות שנרכשו — על המוכר (נקנו אחרי אישור התכנית)', 'betterment_levy', 'seller', { rightsPortion: leg.rights });
+        }
         break;
       }
       case 'build': {

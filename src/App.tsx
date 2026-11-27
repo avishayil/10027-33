@@ -110,7 +110,7 @@ export default function App() {
           <SegmentedToggle
             options={[
               { value: 'smart', label: 'סימולציית עסקאות' },
-              { value: 'advanced', label: 'מחשבון ידני' },
+              { value: 'advanced', label: 'מחשבון ישן (להשוואה)' },
             ]}
             value={tab}
             onChange={setTab}

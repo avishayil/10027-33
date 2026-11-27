@@ -83,7 +83,7 @@ export function findParetoFrontier(results: StrategyResult[]): StrategyResult[] 
 export interface Scales {
   /** R × today's apartment value. */
   entitlementValue: number;
-  /** R × land price per right (developer scenario). */
+  /** The holding's allocation value in the planning appraisal (106(ב) table) — evidence, not an offer. */
   landValue: number;
   /** Whole apartments achievable at most (ceil R, ≥ 1). */
   maxApartments: number;

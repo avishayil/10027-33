@@ -99,7 +99,8 @@ export function buildScales(ctx: EngineContext, config: ProjectConfig): Scales {
   const maxApartments = Math.max(1, Math.ceil(R - 1e-6));
   return {
     entitlementValue: R * apartmentValueToday(config),
-    landValue: R * ctx.info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm,
+    // Iteration 9 / F07: the appraisal's allocation value of this holding — never a hypothetical offer price.
+    landValue: ctx.info.table.allocationValue,
     maxApartments,
     monthlyRent: maxApartments * netMonthlyRentPerApartment(config),
   };
