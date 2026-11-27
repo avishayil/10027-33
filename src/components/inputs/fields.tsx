@@ -28,6 +28,8 @@ export const GOAL_HINTS: Record<Goal, string> = {
 /** Presets chosen from the engine's own thresholds for 167 m² (2.25 rights) — see DECISIONS #53. */
 export const CAPITAL_PRESETS = [0, 250_000, 500_000, 750_000, 1_000_000];
 export const REPAYMENT_PRESETS = [2_500, 4_000, 6_000, 8_000, 10_000];
+/** Common holdings in the original parcel (m²). */
+export const AREA_PRESETS = [167, 334, 500];
 
 const pct = (x: number) => `${formatNumber(x * 100, (x * 100) % 1 === 0 ? 0 : 1)}%`;
 
@@ -115,6 +117,21 @@ export function LandFields({ engine }: { engine: DecisionEngine }) {
               aria-describedby={errors.area ? ids.err : undefined}
             />
           )}
+        {i.areaMode === 'sqm' && (
+          <div className="chip-row" role="group" aria-label="שטחים נפוצים">
+            {AREA_PRESETS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={i.areaText === String(v)}
+                className={`btn-chip ${i.areaText === String(v) ? 'active' : ''}`}
+                onClick={() => i.setAreaText(String(v))}
+              >
+                {v} מ״ר
+              </button>
+            ))}
+          </div>
+        )}
         </div>
         <div className="rights-badge" aria-live="polite">
           <span>זכויות משוערות לדירה</span>
