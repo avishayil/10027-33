@@ -150,3 +150,44 @@ What changed and why:
 - **Owner capital-gains reserves fall** (e.g. ₪322,746 → ₪276,943): VAT the owner pays is not consideration (#60).
 - **Developer margin −7.6% → −2.2%**: the owner, not the developer, pays the services VAT in a mixed deal.
 - Arrangement outcomes are now at their developer-equivalent % (≈ 25.7% net / 40.5% gross for 35% mixed, #61).
+
+## Iteration 6 — review of c482315 (2026-11-27)
+
+Before = `main` at `c482315`; after = this change (headline mixed, 35%). "none → X if developer_loan" = no route fits
+without financing the household must still obtain; X fits with a developer/bank tax loan (#71).
+
+### Before
+| R | Cash | Repay | Goal | Decision | Status | Cash at signing | Tax reserve (owner) | Peak debt | Monthly | Dev. margin | Adverse value | S06 / S11 / S05 peak / monthly |
+|---|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| 2.25 | 300,000 | 5,000 | balanced | S02P | conditional/questionable | 0 | 459,023 | 194,896 | 0 | -2.2% | 986,255 | 727,242 / 4,251 · 659,464 / 3,855 · 1,118,686 / 6,540 |
+| 2.25 | 0 | 0 | balanced | none | — | — | — | — | — | — | — | 531,250 / 3,106 · 545,293 / 3,188 · 1,418,686 / 8,293 |
+| 2.25 | 800,000 | 5,000 | balanced | S13-3r | estimated_feasible/questionable | 0 | 276,943 | 0 | 0 | -2.2% | 1,173,464 | 233,905 / 1,367 · 175,921 / 1,028 · 618,686 / 3,617 |
+| 1.125 | 300,000 | 5,000 | balanced | S02P | estimated_feasible/questionable | 0 | 229,511 | 0 | 0 | -2.2% | 524,997 | 1,515,625 / 8,860 · 1,401,527 / 8,193 · — |
+| 1.5 | 300,000 | 5,000 | maximize_apartments | S02P | conditional/questionable | 0 | 306,015 | 8,239 | 0 | -2.2% | 695,953 | 1,195,785 / 6,990 · 1,159,659 / 6,779 · — |
+| 3 | 600,000 | 8,000 | balanced | S02 | conditional/questionable | 0 | 369,258 | 16,570 | 97 | -2.2% | 1,550,862 | 2,391,570 / 13,981 · 2,319,317 / 13,558 · 600,607 / 3,511 |
+| 3 | 300,000 | 5,000 | balanced | S02 | conditional/questionable | 0 | 369,258 | 383,699 | 2,243 | -2.2% | 1,368,348 | 2,758,699 / 16,127 · 2,455,691 / 14,356 · 900,607 / 5,265 |
+| 4 | 3,000,000 | 20,000 | maximize_apartments | S13-3r | estimated_feasible/questionable | 0 | 492,343 | 0 | 0 | -2.2% | 2,032,344 | 0 / 0 · 0 / 0 · 0 / 0 |
+| 2.25 | ? | ? | balanced | none | — | — | — | — | — | — | — | 1,094,372 / 6,398 · 1,026,594 / 6,001 · 1,418,686 / 8,293 |
+
+### After
+| R | Cash | Repay | Goal | Decision | Status | Cash at signing | Tax reserve (owner) | Peak debt | Monthly | Dev. margin | Adverse value | S06 / S11 / S05 peak / monthly |
+|---|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| 2.25 | 300,000 | 5,000 | balanced | none → S02P if developer_loan | — | — | — | — | — | — | — | 531,250 / 3,106 · 545,293 / 3,188 · 1,118,686 / 6,540 |
+| 2.25 | 0 | 0 | balanced | none → S02P if net | — | — | — | — | — | — | — | 531,250 / 3,106 · 545,293 / 3,188 · 1,418,686 / 8,293 |
+| 2.25 | 800,000 | 5,000 | balanced | S13-3r | estimated_feasible/questionable | 0 | 276,943 | 0 | 0 | -5.0% | 1,173,464 | 233,905 / 1,367 · 175,921 / 1,028 · 618,686 / 3,617 |
+| 1.125 | 300,000 | 5,000 | balanced | S02P | estimated_feasible/questionable | 0 | 229,511 | 0 | 0 | -5.0% | 524,997 | 1,515,625 / 8,860 · 1,401,527 / 8,193 · — |
+| 1.5 | 300,000 | 5,000 | maximize_apartments | none → S02P if developer_loan | — | — | — | — | — | — | — | 1,187,500 / 6,942 · 1,159,659 / 6,779 · — |
+| 3 | 600,000 | 8,000 | balanced | none → S02 if developer_loan | — | — | — | — | — | — | — | 2,375,000 / 13,884 · 2,319,317 / 13,558 · 600,607 / 3,511 |
+| 3 | 300,000 | 5,000 | balanced | none → S02 if developer_loan | — | — | — | — | — | — | — | 2,375,000 / 13,884 · 2,437,780 / 14,251 · 900,607 / 5,265 |
+| 4 | 3,000,000 | 20,000 | maximize_apartments | S13-3r | estimated_feasible/questionable | 0 | 492,343 | 0 | 0 | -5.0% | 2,032,344 | 0 / 0 · 0 / 0 · 0 / 0 |
+| 2.25 | ? | ? | balanced | none → S02P if net | — | — | — | — | — | — | — | 531,250 / 3,106 · 545,293 / 3,188 · 1,418,686 / 8,293 |
+
+Reproduced against the review's independent figures: owner obligations at 35% gross ₪652,860 / mixed ₪460,155 / net ₪0;
+tax loan ₪160,155 → ₪203,223 at 7.965% (₪43,068 interest); VAT-reconciled standalone net-equivalent ≈ 25.44%.
+What changed and why:
+- Households that fitted only by assuming a tax loan (2.25 / ₪300K; 1.5 / ₪300K; 3 rights / ₪300K and ₪600K) now get a
+  conditional direction with the loan's cost — the loan is no longer assumed (#71).
+- Developer margin −2.2% → −5.0%: the lot-level model adds financing and the timing of the taxes it bears (#75).
+- Peak debt is measured before same-month repayment; delivery value deducts the tax-loan interest (#66).
+- Not done this round: two smaller apartments instead of one; project-wide P&L across all three lots; professional
+  review of VAT, levy deduction and capital-gains treatment.

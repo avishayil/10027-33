@@ -42,8 +42,11 @@ export function matrix(config: ProjectConfig): string {
     const d = analyzeProfile({ landAreaSqm: (R / 2.25) * 167, availableCapital: cap, maxMonthlyRepayment: P, goal }, { combinationPct: 0.35, developerMarkup: 0.175 }, config);
     const r = d.recommendation;
     const adv = r?.scenarioResults.find((s) => s.scenarioId === 'adverse');
+    // A direction that depends on terms still to obtain (iteration 6: funding is never assumed).
+    const c = (d as { conditionalRecommendation?: { result: StrategyResult; kind?: string; method?: string | null; arrangement: string } | null }).conditionalRecommendation;
+    const decision = r?.id ?? (c ? `none → ${c.result.id} if ${c.kind === 'funding' ? (c.method ?? 'funding') : c.arrangement}` : 'none');
     lines.push(
-      `| ${R} | ${cap === null ? '?' : fmt(cap)} | ${P === null ? '?' : fmt(P)} | ${goal} | ${r?.id ?? 'none'} | ${r ? `${r.feasibility}/${r.assessment.commercial}` : '—'} | ${r ? fmt(cashNow(r)) : '—'} | ${fmt(r?.capitalGainsTaxReserve)} | ${fmt(r?.mortgageRequired)} | ${fmt(r?.monthlyRepayment)} | ${pct(r?.developerMargin)} | ${adv ? `${fmt(adv.valueCreated)}${adv.feasible ? '' : ' (fails)'}` : '—'} | ${ids.map((p) => lookup(d, p)).join(' · ')} |`,
+      `| ${R} | ${cap === null ? '?' : fmt(cap)} | ${P === null ? '?' : fmt(P)} | ${goal} | ${decision} | ${r ? `${r.feasibility}/${r.assessment.commercial}` : '—'} | ${r ? fmt(cashNow(r)) : '—'} | ${fmt(r?.capitalGainsTaxReserve)} | ${fmt(r?.mortgageRequired)} | ${fmt(r?.monthlyRepayment)} | ${pct(r?.developerMargin)} | ${adv ? `${fmt(adv.valueCreated)}${adv.feasible ? '' : ' (fails)'}` : '—'} | ${ids.map((p) => lookup(d, p)).join(' · ')} |`,
     );
   }
   return lines.join('\n');

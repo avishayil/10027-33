@@ -7,6 +7,10 @@
 
 All values nominal ₪; rates as fractions; time in months from signing. Everything is an **estimate**.
 
+> **Iteration 6:** funding for the owner's taxes is conditional (never assumed); per-tax contract terms behind the
+> gross / mixed / net templates; explicit milestone timeline; ranking on delivery economics; lot-level developer P&L.
+> See the sections at the end and DECISIONS #66–#79.
+
 ## Rights
 `R = A / 167 × 2.25`. One apartment-equivalent = 74.2 original m². The official allocation table
 (`parcel33.js`, lot 149/150/153) is computed separately and used only for the betterment-levy proxy.
@@ -186,3 +190,35 @@ the buyer.
 * No 18% “developer profit” deducted from the land price — a developer price already includes it.
 * Capital gains on the gain only, never on gross; developer-paid levy counted in consideration.
 * Units from the 2.25 assumption, not the table’s ~2.4.
+
+## Iteration 6 additions
+
+### Contract terms (`domain/arrangements.ts`)
+Each owner-side tax (levy, capital gains, services VAT) has a developer share `s` and an optional cap. The developer pays
+`min(s × tax, cap)` of the levy and VAT; of the capital-gains tax it pays `x = s·t₀ / (1 − s·r)` (its payment is itself
+consideration; s = 1 is the full gross-up `t₀ / (1 − r)`). The owner pays the rest. Templates: gross 0/0/0, mixed 1/0/0,
+net 1/1/1. Actual offer overrides: levy cap, developer bears the tax-loan interest.
+
+### Funding (`domain/cashflow.ts`, `optimizer/analyze.ts`)
+Shortfall on a combination tax: cash → loan on another property (only up to a stated limit) → tax loan (only in the
+conditional funding run) → unfunded. Tax loan: prime + 2% plus VAT on interest (7.965%), capped at 50% of the
+apartment entitlement, interest capitalised to delivery, then repaid from cash or refinanced on the apartment.
+Reported: drawn, interest, balance at delivery, refinanced amount, saving if the developer bears the interest,
+highest rate that still fits.
+
+### Timeline (`domain/construction.ts`)
+`permit = approval + lag`, `delivery = permit + construction`; payments: signing, permit, then fractions of the
+construction period. Base 24 / +0 / 36. Favourable 18 / +0 / 30. Adverse 36 / +12 / 48, pool sale +12 months,
+tax-loan rate + (stress − base mortgage rate).
+
+### Delivery value (`optimizer/evaluate.ts`)
+`netPosition = apartments + fraction (discounted) + owner cash in − owner cash out − interest to delivery (incl. the
+capitalised tax-loan interest)`; ranking value = `netPosition − interest after delivery within the horizon`.
+
+### Lot-level developer P&L (`domain/lotDeveloper.ts`)
+Lot units U (102 / 96 / 100); services quota 25% × U; combination rights U − quota: owners c, developer 1 − c.
+Revenue: developer units × apartment ex VAT (15% presales across construction, rest at delivery) + services fees
+(ex VAT) on the owners' schedule. Costs: U × 100 m² × ₪11,000 × 1.12, public buildings 325 m² × ₪8,000, and the
+developer-borne taxes per right of this owner's own ledger × combination rights, on their dates. Financing: equity
+20% of costs first, then an escort loan at prime + 1.5% on the balance, repaid from revenue. Equivalent % = equal lot
+profit; viable % = margin at the 15% target. Route margin = lot − this owner's S02 slice + the route's slice.

@@ -69,6 +69,20 @@ Rothstein Rehovot 05/2022 (40%), Holon 03/2022 (47%, developer pays the new-plan
 (43%), Karden Be'er Ya'akov 05/2009 (19%, developer pays the levy; owner credit guaranteed). Different land, years
 and rights — evidence of how deals split the taxes, not a % to expect here.
 
+## Iteration 6 — financing and lot-model assumptions (2026-11-27)
+
+| Value | Base | Range | Status | Source |
+|---|---|---|---|---|
+| Tax-loan rate (developer) | prime + 2% + VAT on interest = 7.965% | 4.75–8.75% before VAT | reported | Rothstein 2024 periodic report, note 10 ([PDF](https://mayafiles.tase.co.il/rpdf/1653001-1654000/P1653109-00.pdf)); prime 4.75% (BoI 23.11.2026, confirmed by the review) |
+| Tax-loan cap | 50% of the apartment entitlement | — | planning assumption | per-owner facility sizes not published |
+| Developer equity | 20% of costs | 15–25% | planning assumption | — |
+| Escort loan | prime + 1.5% = 6.25% | 5.25–7.75% | planning assumption | — |
+| Presales during construction | 15% of developer sales | 10–40% | planning assumption | — |
+| Timeline | approval 24, permit +0, construction 36 months | see scenarios | planning assumption | permit lag 0 is optimistic |
+
+Other reported Rothstein arrangements (per the independent review of the 2024 report): 32.5% residential / 45%
+commercial with a ₪46M advance whose interest the joint venture bears; ₪27M owner tax loans at prime + 1.9%.
+
 ## Iteration 4 — evidence registry
 
 See `src/data/evidence.ts` and `docs/validation/market-evidence-2026-11-27.md`. The developer price (₪6,900),

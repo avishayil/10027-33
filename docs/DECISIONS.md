@@ -225,3 +225,47 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
     project-specific deal % or levy entered as fact. The reported deals are shown as evidence, never as inputs.
 65. **Build version in the footer**: the short commit id (`GITHUB_SHA` in CI, `git rev-parse` locally), injected at
     build time.
+
+## Iteration 6 — review of c482315 (2026-11-27)
+
+66. **Tax-loan cost and exposure.** The delivery value deducts the capitalised tax-loan interest (it was omitted); the
+    balance due at delivery and peak exposure are measured before same-month repayment (₪160,155 → ₪195,992 at 6.75%,
+    ₪203,223 at 7.965%).
+67. **Developer barter VAT = the ledger's services VAT** (services incl. contractor profit), not direct cost × VAT.
+68. **Fallbacks keep their own terms.** The gross fallback is the gross run's result, labelled with its arrangement and
+    equivalent %; never a same-id result from the headline run.
+69. **Thresholds have a direction.** Prices you receive: the lowest acceptable; prices you pay (complementary rights,
+    own knob): the highest affordable. Revenue share follows the arrangement's capital-gains payer.
+70. **No unverified price in collateral.** Pre-delivery collateral uses the appraisal allocation value per right; a
+    property test checks that the hypothetical developer price changes no evidence-based result.
+71. **Funding is conditional, not assumed** (amends #49, #62). The headline assumes no tax financing. A developer/bank tax
+    loan (prime + 2% + VAT on interest = 7.965%, capped at 50% of the apartment entitlement) is evaluated automatically,
+    with its interest, balance at delivery, the saving if the developer bears the interest, and the highest rate that
+    still fits. A loan on another property is assumed only up to a limit the household states. When nothing fits, the
+    direction is financing under the offer's own terms first, then other tax terms. New conditions: refinancing at
+    delivery needs a mortgage commitment; repayment from the pool / buy-back sale. §91א: subject to approval, with
+    interest and indexation.
+72. **Per-tax contract terms** behind the gross / mixed / net templates: developer share and cap per tax; the
+    developer's share of capital-gains tax is grossed up (x = s·t₀ / (1 − s·r)). An actual offer can cap the levy
+    contribution (Rothstein Holon) and put the tax-loan interest on the developer (optional advanced inputs).
+73. **Explicit milestone timeline**: approval → permit → construction → delivery; the permit never precedes approval
+    (favourable previously had it at month 14 against approval at 24). Base unchanged (24 / 24 / 60). Adverse: approval
+    36, permit 48, delivery 96, tax-loan rate +2%, pool sale a year after delivery. Owner money paid before approval is
+    reported as at risk if the plan is not approved and raises the risk level.
+74. **Ranking on delivery economics** (amends #44): position at delivery (today's prices, after financing to delivery)
+    minus interest after delivery within the horizon. Resilience, reverse benchmarks and best-route picks use the same
+    value; the 10-year wealth stays in the optional projection.
+75. **Lot-level developer P&L**, monthly: services quota (25%), owners' combination units, developer units (15%
+    presales, rest at delivery), direct + soft costs, the lot's public buildings, developer-borne taxes on their dates,
+    20% equity then an escort loan at prime + 1.5%. It drives the equivalent % (renamed "אחוז שקול לפי המודל הכלכלי" —
+    same modelled developer result, not "what the developer will offer"), a new viable % at the 15% target margin
+    (≈ 16% mixed / 23% gross / 11% net under the base costs — the tension of #18), the developer panel, and commercial
+    certainty (a route's margin is the lot with this owner on that route).
+76. **A smaller whole apartment on the summary card** (amends #57): S13 joins the combination + payment card, always
+    marked "תלוי במלאי הדירות ובהקצאה". A "מה כדאי לבקש מהיזם?" card appears when the direction depends on terms.
+77. **Slider stays 25–45%** (owner decision, against the review's suggestion to restore 30–40%).
+78. **Evidence provenance**: each transaction row names its own source; the appraisal p.63 lists only the 2024
+    parcel-33 deals (checked against the local PDF). Further Rothstein variants recorded (₪46M advance with JV-borne
+    interest; ₪27M owner tax loans at prime + 1.9%).
+79. **CI** on current action majors (checkout v7, setup-node v7, upload-pages-artifact v5, deploy-pages v5) — removes
+    the Node 20 deprecation warnings.
