@@ -490,6 +490,10 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
             <td>{formatCurrency(d.consistentCashPricePerSqm)} למ״ר</td>
           </tr>
           <tr>
+            <th>מס שבח שהיזם משלם עבורכם בעסקת נטו (כולל גילום)</th>
+            <td>{formatCurrency(d.combinationTaxCost)}</td>
+          </tr>
+          <tr>
             <th>רווח משוער ליזם בקומבינציה של {pctFmt(combinationPct)}</th>
             <td className={d.combinationMargin < 0 ? 'cell-fail' : ''}>{pctFmt(d.combinationMargin)}</td>
           </tr>

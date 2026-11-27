@@ -61,6 +61,7 @@ export function assessEvaluation(
   }
 
   const hasCombination = candidate.legs.some((l) => l.kind === 'combination');
+  if (hasCombination && config.commercial.combinationTaxBorneByDeveloper) commercial.add('TAX_ALLOCATION');
   for (const leg of candidate.legs) {
     if (leg.kind === 'sell_rights' && leg.market === 'developer') {
       if (!config.market.developerRightsSaleScenario.confirmedOffer) commercial.add('DEVELOPER_PRICE_UNVERIFIED');

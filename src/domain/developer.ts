@@ -28,8 +28,13 @@ export function developerEconomics(info: RightsInfo, config: ProjectConfig, comb
 
   const safeDiv = (x: number, y: number) => (y > 0 ? x / y : 0);
 
+  // Net combination: the developer also pays the owner's grossed-up capital-gains tax (zero basis — indicative).
+  const s = d * (1 + vat);
+  const rate = config.taxation.indicativeCapitalGainsRate;
+  const k = config.commercial.combinationTaxBorneByDeveloper ? rate / (1 - rate) : 0;
+  const combinationTaxCost = k * c * R * s;
   const combRevenue = (1 - c) * R * a;
-  const combCost = R * build + c * R * d * vat + L;
+  const combCost = R * build + c * R * d * vat + L + combinationTaxCost;
   const combinationMargin = safeDiv(combRevenue - combCost, combRevenue);
 
   const landCost = A * price * (1 + purchaseTax);
@@ -43,10 +48,10 @@ export function developerEconomics(info: RightsInfo, config: ProjectConfig, comb
   const residualLandValuePerSqm = Math.max(0, safeDiv(residualLand, A));
 
   const perRightLevy = safeDiv(L, R);
-  const maxC = safeDiv(a * (1 - m) - build - perRightLevy, a * (1 - m) + d * vat);
+  const maxC = safeDiv(a * (1 - m) - build - perRightLevy, a * (1 - m) + d * vat + k * s);
 
   // Cash price that leaves the developer exactly as well off as the combination offer.
-  const consistent = (c * R * a + c * R * d * vat + L) / (1 + purchaseTax);
+  const consistent = (c * R * a + c * R * d * vat + L + combinationTaxCost) / (1 + purchaseTax);
 
   return {
     impliedCombinationValuePerSqm: safeDiv(c * R * gross, A),
@@ -57,6 +62,7 @@ export function developerEconomics(info: RightsInfo, config: ProjectConfig, comb
     maxCombinationAtTargetMargin: Math.max(0, Math.min(1, maxC)),
     residualLandValuePerSqm,
     revenueShareMargin,
+    combinationTaxCost,
     consistentCashPricePerSqm: safeDiv(consistent, A),
   };
 }

@@ -149,7 +149,8 @@ describe('transactions', () => {
     const comb = plan('S02');
     expect(comb.preCompletionLandCollateral).toBeCloseTo(2.25 * 0.35 * landPerRight, 4);
     const ev = evaluateCandidate(cand('S02'), { info, profile: MODERATE, terms: TERMS }, C);
-    expect(ev.sim.cashAtHorizon).toBeLessThan(300000 * Math.pow(1.04, 10));
+    // In a net combination nothing is paid from cash and nothing is received in cash.
+    expect(ev.sim.cashAtHorizon).toBeCloseTo(300000 * Math.pow(1.04, 10), 0);
   });
 
   it('rent never funds construction-stage payments', () => {

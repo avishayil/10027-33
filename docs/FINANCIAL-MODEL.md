@@ -20,6 +20,9 @@ Allocated per apartment-equivalent and assigned to exactly one payer:
 * purchased complementary rights → the seller.
 
 ## Capital-gains reserve
+**Combination: net deal by default** — the developer pays the owner’s tax, grossed up `T = t / (1 − 25%)`; the
+owner pays none, and the term is a condition to confirm in the contract (legal liability stays with the owner).
+Configurable back to owner-paid at signing.
 Revenue-sharing deals: reserved at signing (assessed on expected consideration; conservative).
 Completed-apartment sales deduct construction cost, levy **and the original land basis** of the right used.
 
@@ -75,7 +78,8 @@ Examples (35% / 17.5%):
 
 ## Developer economics (`domain/developer.ts`)
 Revenue = apartment sales net of VAT. Developer costs: own direct cost ₪11,000/m², 12% soft costs, VAT on
-construction services delivered to the owner in a combination, the levy where the developer pays it, land plus
+construction services delivered to the owner in a combination, the grossed-up owner tax in a net combination,
+the levy where the developer pays it, land plus
 6% purchase tax where it buys land. Outputs: implied combination value per original m², developer margin for
 combination / land purchase / revenue share, **cash price consistent with the combination offer**, residual land
 price and maximum combination % at a 15% target margin. A negative developer margin marks the strategy’s

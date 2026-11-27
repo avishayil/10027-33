@@ -108,6 +108,8 @@ export interface ProjectConfig {
     approvalYears: number;
     /** Price at which a developer settles a fractional entitlement in cash, as a share of market value. */
     fractionCashSettlementFactor: number;
+    /** "Net" combination (עסקת נטו): the developer pays the owner's capital-gains tax, grossed up. */
+    combinationTaxBorneByDeveloper: boolean;
   };
   /** Expected developer policy for construction services (שירותי בנייה) inside a lot. Planning assumption. */
   developerPolicy: {
@@ -544,6 +546,8 @@ export interface DeveloperEconomics {
   /** Highest cash price per original m² that leaves the developer its target margin. */
   residualLandValuePerSqm: number;
   revenueShareMargin: number;
+  /** Grossed-up capital-gains tax the developer pays for the owner in a net combination (0 if not net). */
+  combinationTaxCost: number;
   /** Cash price per original m² that leaves the developer as well off as the selected combination offer. */
   consistentCashPricePerSqm: number;
 }
