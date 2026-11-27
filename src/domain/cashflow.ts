@@ -83,6 +83,8 @@ export interface SimulationInput {
   securedLoanLimit?: number;
   /** Real annual discount rate for pvInterest (default 0). */
   discountRate?: number;
+  /** A month at which to measure a developer failure during construction: interest paid and debt outstanding then. */
+  failureMonth?: number;
   /** Plan approval month: interest paid up to it is what a cancellation would cost in financing. */
   approvalMonth?: number;
   /** Inflation to deflate the (nominal) financing flows in pvFinancing (default 0). */
@@ -154,6 +156,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let taxLoanSubsidy = 0;
   let pvInterest = 0;
   let interestToApproval = 0;
+  let interestToFailure = 0;
+  let debtAtFailure = 0;
   // Financing flows in nominal terms, deflated and discounted to today: + proceeds, − debt service, − debt at the end.
   let pvFinancing = 0;
   const dfNominal = (m: number) => Math.pow((1 + (input.inflation ?? 0)) * (1 + (input.discountRate ?? 0)), -m / 12);
@@ -338,6 +342,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       else interestAfterCompletion += interest;
       pvInterest += interest * dfMonth(m);
       if (input.approvalMonth !== undefined && m <= input.approvalMonth) interestToApproval += interest;
+      if (input.failureMonth !== undefined && m <= input.failureMonth) interestToFailure += interest;
       if (!afterCompletion) {
         payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
@@ -358,6 +363,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       else interestAfterCompletion += interest;
       pvInterest += interest * dfMonth(m);
       if (input.approvalMonth !== undefined && m <= input.approvalMonth) interestToApproval += interest;
+      if (input.failureMonth !== undefined && m <= input.failureMonth) interestToFailure += interest;
       const p = Math.min(securedPayment, secured + interest);
       secured = Math.max(0, secured - (p - interest));
       payment += p;
@@ -378,6 +384,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       debtAtCompletion = debt + secured;
       referenceAtCompletion = reference;
     }
+    if (m === input.failureMonth) debtAtFailure = debt + secured + taxLoanBalance;
     if ((m + 1) % 12 === 0) yearly.push({ year: (m + 1) / 12, cash, debt });
   }
   if (input.liquidityMonth >= H) cashAtLiquidity = cash;
@@ -416,6 +423,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanSubsidy,
     pvInterest,
     interestToApproval,
+    interestToFailure,
+    debtAtFailure,
     pvFinancing,
     facilities: [
       { type: 'project_loan', drawn: drawsByStage.bridge + drawsByStage.construction + drawsByStage.mortgage - taxLoanAtMaturity, peak: projectPeak, annualRate: input.annualRate, repayment: 'interest_only_then_amortising', termMonths: input.mortgageYears * 12, monthsUsed: mortgageMonthsUsed },

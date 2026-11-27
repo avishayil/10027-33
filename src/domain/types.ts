@@ -494,6 +494,9 @@ export interface SimulationResult {
   interestAfterCompletion: number;
   /** Tax-loan balance that had to be refinanced as a mortgage at delivery (not repaid from cash). */
   taxLoanRefinanced: number;
+  /** Interest paid up to, and all debt outstanding at, the modelled mid-construction developer-failure month. */
+  interestToFailure: number;
+  debtAtFailure: number;
   /** Largest tax-loan balance left after cash and the refinance facility at/after maturity (0 = fully covered). */
   taxLoanMaturityGap: number;
   /** Tax-loan interest the developer bears on the owner's behalf (a developer cost, not the owner's). */
@@ -665,6 +668,23 @@ export interface StrategyResult {
     apartments: 0;
     rent: 0;
   };
+  /**
+   * Iteration 9 / D3: the developer fails half-way through construction. The owner keeps the land (and what was built
+   * on it, of unknown value); what was paid to the developer for building or completion is refunded only if the
+   * contract secures it (a Sale Law–type guarantee or escrow). Debt drawn so far stays the owner's.
+   */
+  developerFailure: {
+    month: number;
+    paidToDeveloper: number;
+    interest: number;
+    debtOutstanding: number;
+    /** Payments refunded by a guarantee: interest lost. */
+    protected: number;
+    /** No guarantee: payments and interest lost. */
+    unprotected: number;
+  };
+  /** Iteration 9 / D3: approval two years later than assumed (computed for the routes shown; null elsewhere). */
+  delayedApproval: { months: number; feasible: boolean; extraInterest: number; valueChange: number } | null;
   capitalGainsRange: { low: number; high: number };
   purchaseTax: number;
   additionalCosts: number;

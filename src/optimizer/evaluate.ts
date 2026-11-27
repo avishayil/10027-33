@@ -125,6 +125,11 @@ export function transactionValueOf(plan: TransactionPlan, config: ProjectConfig)
   return pv;
 }
 
+/** The modelled developer-failure month: half-way between the permit and delivery. */
+export function failureMonthOf(config: ProjectConfig, completionMonth: number): number {
+  return Math.round((permitMonth(config) + completionMonth) / 2);
+}
+
 export function liquidityYears(profile: UserProfile, config: ProjectConfig): number {
   return profile.liquidityDeadlineYears ?? config.analysis.liquidityDeadlineYears;
 }
@@ -158,6 +163,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     workInProgressRecognition: config.financing.workInProgressRecognition,
     discountRate: config.analysis.discountRate,
     approvalMonth: approvalMonthOf(config),
+    failureMonth: failureMonthOf(config, plan.completionMonth),
     inflation: config.analysis.inflation,
     // Only when the household said it owns another property and has not ruled out borrowing.
     // A loan on another property only up to the limit the household stated (or in the conditional funding run);

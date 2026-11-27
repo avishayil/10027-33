@@ -363,6 +363,40 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
           </tbody>
         </table>
       </div>
+      <h3>מה קורה אם… (לפי מצב החוזה)</h3>
+      <div className="table-scroll">
+        <table className="compare-table">
+          <thead>
+            <tr>
+              <th>מסלול</th>
+              <th>האישור מתעכב בשנתיים</th>
+              <th>היזם קורס באמצע הבנייה</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>{strategyTitle(r)}</td>
+                <td className={r.delayedApproval && !r.delayedApproval.feasible ? 'cell-fail' : ''}>
+                  {r.delayedApproval
+                    ? `${r.delayedApproval.feasible ? 'עדיין מתאים' : 'כבר לא מתאים'} · ${r.delayedApproval.valueChange >= 0 ? '+' : '−'}${formatCurrency(Math.abs(r.delayedApproval.valueChange))} בערך${r.delayedApproval.extraInterest > 1000 ? ` · עוד ${formatCurrency(r.delayedApproval.extraInterest)} ריבית` : ''}`
+                    : '—'}
+                </td>
+                <td className={r.developerFailure.unprotected > 1000 ? 'cell-fail' : ''}>
+                  {r.developerFailure.paidToDeveloper > 1000
+                    ? `שולם ליזם ${formatCurrency(r.developerFailure.paidToDeveloper)} — מוגן בערבות: הפסד ${formatCurrency(r.developerFailure.protected)} · בלי ערבות: ${formatCurrency(r.developerFailure.unprotected)}${r.developerFailure.debtOutstanding > 1000 ? ` · חוב פתוח ${formatCurrency(r.developerFailure.debtOutstanding)}` : ''}`
+                    : `לא שולם ליזם על בנייה${r.developerFailure.debtOutstanding > 1000 ? ` · חוב פתוח ${formatCurrency(r.developerFailure.debtOutstanding)}` : ''}`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="field-hint">
+        בכל המצבים הקרקע (ומה שנבנה עליה) נשארת שלכם — בשווי לא ידוע במצב כזה, ולכן לא נזקף. ״קורס באמצע הבנייה״: מה ששולם
+        ליזם על בנייה והשלמה עד אמצע תקופת הבנייה, הריבית עד אז והחוב שנשאר. ערבות חוק המכר או חשבון נאמנות מחזירים את
+        התשלומים רק אם החוזה מחייב אותם — לבדוק. אלה מצבי חוזה, לא הסתברויות.
+      </p>
       <p className="field-hint">
         הערך: ערך נוכחי ביום החתימה, במחירי היום, בהיוון ריאלי של 3% — כל תשלום ותקבול במועדו והדירה במועד המסירה, פחות
         הריבית. כך דירה שמתקבלת מאוחר יותר שווה פחות גם בלי עליית מחירים. אופטימי: דירה
