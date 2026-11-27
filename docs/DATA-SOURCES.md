@@ -83,6 +83,13 @@ and rights — evidence of how deals split the taxes, not a % to expect here.
 Other reported Rothstein arrangements (per the independent review of the 2024 report): 32.5% residential / 45%
 commercial with a ₪46M advance whose interest the joint venture bears; ₪27M owner tax loans at prime + 1.9%.
 
+## Iteration 7 assumptions (2026-11-27)
+
+| Value | Base | Range | Status | Source |
+|---|---|---|---|---|
+| Real discount rate (comparison) | 3% | 0–5% | owner decision / planning assumption | ≈ mortgage rate − inflation |
+| Mortgage LTV on delivered homes | 75% sole / 50% additional / 50% unknown | — | statutory | [BoI directive 329](https://boi.org.il/roles/supervisionregulation/nbt/nbt329/) |
+
 ## Iteration 4 — evidence registry
 
 See `src/data/evidence.ts` and `docs/validation/market-evidence-2026-11-27.md`. The developer price (₪6,900),

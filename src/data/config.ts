@@ -9,7 +9,7 @@ import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-27.6';
+export const CONFIG_VERSION = '2026-11-27.7';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,

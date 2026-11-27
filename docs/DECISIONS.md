@@ -269,3 +269,37 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
     interest; ₪27M owner tax loans at prime + 1.9%).
 79. **CI** on current action majors (checkout v7, setup-node v7, upload-pages-artifact v5, deploy-pages v5) — removes
     the Node 20 deprecation warnings.
+
+## Iteration 7 — review of c32bb73 (2026-11-27)
+
+80. **Developer cash is conserved.** The lot model carries a cash balance month to month; receipts fund later costs
+    before equity or the escort loan (financing at 35% mixed ₪5.69M → ₪4.52M). Invariant tested: ending cash − equity
+    = Σ flows − financing.
+81. **The lot does not depend on one user.** It is built from a typical 167 m² holding (unknown basis, template
+    terms), scaled by ownership shares (2353/100000 per holding in lot 149). Physical units drive revenue and
+    construction, ownership shares drive taxes, simulation rights only translate the user's route. A personal levy
+    cap or basis changes only the user's own delta.
+82. **A route is a delta with its own financing**: the typical slice for the user's share is replaced by the route and
+    the financing is recomputed. Purchased rights replace the seller's slice — no new apartments. The selected markup
+    reaches the services fees; services participation = expected demand capped at the quota (sensitivity 0/50/100%).
+83. **Developer-borne tax-loan interest is a developer cost** (simple interest as it accrues); the owner's saving stays
+    the avoided capitalised interest.
+84. **Developer thresholds, not new defaults**: the 2-D matrix (developer direct cost ₪8–11K × apartment ₪23–32K →
+    viable %), and at the offer's % the highest developer cost (≈ ₪8,870/m²) and lowest apartment price (≈ ₪32,106/m²)
+    for a 15% margin on revenue (= 17.6% on cost). The ₪11,000/m² owners' construction price is unchanged; the
+    developer's own direct cost is a separate quantity. Project total over the three lots (−4.0% at 35% mixed).
+85. **Ranking on present value** (owner decision: 3% real; amends #74): every owner flow at its month and the apartments
+    at delivery, discounted to signing, less the present value of all interest. The position at delivery counts only
+    what happened by delivery; later receipts / payments are receivables / payables.
+86. **Owner break-even** carries taxes paid from the household's cash at the discount rate, the borrowed part at the
+    tax-loan rate.
+87. **Mortgage limits by status** (owner decision; Bank of Israel directive 329): a delivered sole home 75%, an
+    additional home 50%, unknown status 50% until answered; two apartments value-weighted.
+88. **Apartment mixes**: for an entitlement of at least one standard apartment, mixes of 3/4/5-room apartments within one
+    standard apartment of its value are candidates (e.g. two 3-room apartments), the gap paid or received. Inventory is
+    not established.
+89. **No approval**: conditional contracts lapse, no apartments, the land stays with the owner; the possible loss is the
+    advances paid before approval plus interest to then (bought rights credited at the incoming value). Drives the risk
+    level; shown with the questions to ask (guarantees, conditions precedent, approval deadline, liens, trust).
+90. **Consistent hints**: the 3-room hint uses the same funding run as the direction; for the no-risk / cash goal a sale
+    is named as a possible direction with the price to ask for, measured against the conditional direction.

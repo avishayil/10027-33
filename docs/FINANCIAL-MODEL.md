@@ -9,7 +9,8 @@ All values nominal ₪; rates as fractions; time in months from signing. Everyth
 
 > **Iteration 6:** funding for the owner's taxes is conditional (never assumed); per-tax contract terms behind the
 > gross / mixed / net templates; explicit milestone timeline; ranking on delivery economics; lot-level developer P&L.
-> See the sections at the end and DECISIONS #66–#79.
+> See the sections at the end and DECISIONS #66–#79. **Iteration 7:** present-value ranking (3% real), BoI mortgage
+> limits, apartment mixes, cancellation outcome, corrected lot model (#80–#90).
 
 ## Rights
 `R = A / 167 × 2.25`. One apartment-equivalent = 74.2 original m². The official allocation table
@@ -222,3 +223,22 @@ Revenue: developer units × apartment ex VAT (15% presales across construction, 
 developer-borne taxes per right of this owner's own ledger × combination rights, on their dates. Financing: equity
 20% of costs first, then an escort loan at prime + 1.5% on the balance, repaid from revenue. Equivalent % = equal lot
 profit; viable % = margin at the 15% target. Route margin = lot − this owner's S02 slice + the route's slice.
+
+## Iteration 7 changes
+
+### Present value (`optimizer/evaluate.ts`, `presentValueOf`)
+`PV = Σ owner flows × (1 + d)^(−m/12) + (apartments + discounted fraction) × (1 + d)^(−delivery/12) − PV(interest)`,
+d = 3% real; interest discounted month by month, capitalised tax-loan interest at maturity. Principal is counted when
+the payment it funds is made. The delivery position (display) counts flows by delivery; later ones are receivables.
+
+### Lot model (`domain/lotDeveloper.ts`)
+`financeFlows`: cash balance carried forward; shortfalls from equity (20% of costs) then the escort loan; repayments
+from cash. Lot = typical holding × holdings by ownership share; route delta = route − typical slice for the user's
+share (+ purchased rights), financing recomputed. `profitabilityMatrix`, `developerBreakEvens`, `projectDeveloperPnL`.
+
+### Mortgage limit (`optimizer/feasibility.ts`, `mortgageLtvLimit`)
+Sole home 75%, additional 50%, unknown 50%; value-weighted over several apartments (the most valuable is the sole home).
+
+### Apartment mix (`generate.ts`, `apartment_mix` leg)
+Mix value `V = Σ relative values`; gap `V − E` paid as completion (purchase tax on it) or, if negative, paid out by the
+developer at the buy-back factor (price-dependent).
