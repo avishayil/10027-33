@@ -456,6 +456,8 @@ export interface SimulationResult {
   interestAfterCompletion: number;
   /** Tax-loan balance that had to be refinanced as a mortgage at delivery (not repaid from cash). */
   taxLoanRefinanced: number;
+  /** Tax-loan interest the developer bears on the owner's behalf (a developer cost, not the owner's). */
+  taxLoanSubsidy: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -604,6 +606,8 @@ export interface StrategyResult {
   delivery: DeliverySnapshot;
   /** The ranking value: delivery position minus interest after delivery (= metrics.valueCreated). */
   deliveryValue: number;
+  /** The lot-level developer P&L with this owner on this route (null when the route involves no developer). */
+  developerLot: LotPnLSummary | null;
   /** Betterment levy on the owner's original rights: total proxy and who pays it. */
   levy: LevyBreakdown;
   /** Non-null when the outcome depends on a price or term nobody has verified (excluded from the ranking). */
@@ -744,6 +748,17 @@ export interface Projection {
   total: number;
   /** Non-cash: rent saved by living in the apartment(s) after delivery (not included in total). */
   housingBenefit: number;
+}
+
+export interface LotPnLSummary {
+  units: number;
+  servicesUnits: number;
+  revenue: number;
+  costs: number;
+  financingCost: number;
+  profit: number;
+  margin: number;
+  profitOnCost: number;
 }
 
 export type FundingMethod = 'developer_loan' | 'other_property';

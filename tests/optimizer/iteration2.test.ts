@@ -266,7 +266,9 @@ describe('developer economics', () => {
     expect(Math.abs(m('S11-1') - m('S02'))).toBeGreaterThan(1e-5);
     // Completion sold at full market value is margin-neutral to the developer (same as selling that share);
     // at any other completion price S06 differs (next test).
-    expect(m('S06-1')).toBeCloseTo(m('S02'), 9);
+    // Since iteration 7 financing is recomputed per route, so S06 differs from S02 only by payment timing (half of
+    // the completion price arrives at the permit, earlier than the developer's own sale of that share).
+    expect(Math.abs(m('S06-1') - m('S02'))).toBeLessThan(0.001);
   });
 
   it('changing the completion price changes the S06 developer margin; changing the settlement factor changes S02C', () => {

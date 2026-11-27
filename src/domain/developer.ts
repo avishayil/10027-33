@@ -83,7 +83,13 @@ const withPrice = (config: ProjectConfig, price: number): ProjectConfig => ({
 });
 
 /** Summary figures for the developer panel, derived from candidate P&Ls (headline tax arrangement). */
-export function developerEconomics(info: RightsInfo, config: ProjectConfig, combinationPct: number, profile: UserProfile = { landAreaSqm: info.landAreaSqm, availableCapital: 0, maxMonthlyRepayment: 0, goal: 'balanced' }): DeveloperEconomics {
+export function developerEconomics(
+  info: RightsInfo,
+  config: ProjectConfig,
+  combinationPct: number,
+  profile: UserProfile = { landAreaSqm: info.landAreaSqm, availableCapital: 0, maxMonthlyRepayment: 0, goal: 'balanced' },
+  markup: number = config.commercial.developerMarkup.default,
+): DeveloperEconomics {
   const R = info.apartmentEquivalents;
   const A = info.landAreaSqm;
   const terms: CommercialTerms = { combinationPct, developerMarkup: config.commercial.developerMarkup.default };
@@ -108,8 +114,8 @@ export function developerEconomics(info: RightsInfo, config: ProjectConfig, comb
   // Combination margin and the highest % at the target margin come from the lot-level P&L (financing and timing
   // included); the land-purchase and revenue-share figures stay per owner.
   const lotCtx = { info, profile, config };
-  const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, combinationPct);
-  const maxC = lotViablePct(lotCtx, config.commercial.taxArrangement) ?? 0;
+  const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, combinationPct, { markup });
+  const maxC = lotViablePct(lotCtx, config.commercial.taxArrangement, { markup }) ?? 0;
 
   return {
     impliedCombinationValuePerSqm: A > 0 ? (combinationPct * R * apartmentValueToday(config)) / A : 0,

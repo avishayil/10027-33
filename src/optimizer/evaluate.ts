@@ -1,6 +1,6 @@
 import { simulateCashflow } from '../domain/cashflow';
 import { permitMonth } from '../domain/construction';
-import { taxLoanRate } from '../domain/taxation';
+import { taxLoanRate, taxLoanSubsidyRate } from '../domain/taxation';
 import { buildTransactionPlan, monthlyNetRentFor } from '../domain/transactions';
 import type {
   Candidate,
@@ -125,6 +125,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
       config.financing.taxLoan.available && ctx.profile.maxMonthlyRepayment !== 0
         ? {
             annualRate: taxLoanRate(config),
+            subsidyRate: taxLoanSubsidyRate(config),
             limit:
               config.financing.taxLoan.maxShareOfEntitlement === null
                 ? undefined

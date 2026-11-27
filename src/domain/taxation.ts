@@ -55,8 +55,18 @@ export function capitalGainsReserve(args: {
  */
 export function taxLoanRate(config: ProjectConfig): number {
   if (config.commercial.offer.developerPaysTaxLoanInterest) return 0;
+  return taxLoanCostRate(config);
+}
+
+/** The loan's full cost rate (prime + spread, plus VAT on interest for a developer loan), whoever bears it. */
+export function taxLoanCostRate(config: ProjectConfig): number {
   const t = config.financing.taxLoan;
   return t.annualRate * (t.vatOnInterest ? 1 + config.taxation.vatRate : 1);
+}
+
+/** Rate at which the developer bears the owner's tax-loan interest (0 unless the offer says so). */
+export function taxLoanSubsidyRate(config: ProjectConfig): number {
+  return config.commercial.offer.developerPaysTaxLoanInterest ? taxLoanCostRate(config) : 0;
 }
 
 /** Net monthly rent per apartment-equivalent after maintenance/vacancy and the rental-tax reserve. */

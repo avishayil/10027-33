@@ -63,7 +63,12 @@ export interface SimulationInput {
    * pay. Interest is capitalised until completion (no payments before it); the balance is then refinanced as a
    * mortgage on the delivered apartment, where the LTV test applies (not against the pre-delivery land price).
    */
-  taxLoan?: { annualRate: number; limit?: number };
+  taxLoan?: {
+    annualRate: number;
+    limit?: number;
+    /** Interest the developer bears instead of the owner (the owner's rate is then 0): accrued as a subsidy. */
+    subsidyRate?: number;
+  };
   /** Most that can be borrowed against the other property (default: no limit). */
   securedLoanLimit?: number;
 }
@@ -119,6 +124,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let taxLoanDrawn = 0;
   let taxLoanInterest = 0;
   let taxLoanAtMaturity = 0;
+  let taxLoanSubsidy = 0;
+  const subsidyMonthly = input.taxLoan?.subsidyRate ? input.taxLoan.subsidyRate / 12 : 0;
   let taxLoanRefinanced = 0;
   const taxLoanLimit = input.taxLoan?.limit ?? Infinity;
   const securedLimit = input.securedLoanLimit ?? Infinity;
@@ -159,6 +166,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const accrued = taxLoanBalance * taxLoanMonthly;
       taxLoanBalance += accrued;
       taxLoanInterest += accrued;
+      // Interest the developer pays on the owner's behalf (it accrues on the developer, not on the balance).
+      taxLoanSubsidy += taxLoanBalance * subsidyMonthly;
     }
 
     for (const e of events) if (e.amount >= 0) cash += e.amount;
@@ -318,6 +327,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanAtMaturity,
     interestAfterCompletion,
     taxLoanRefinanced,
+    taxLoanSubsidy,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

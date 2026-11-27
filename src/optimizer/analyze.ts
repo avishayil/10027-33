@@ -6,11 +6,11 @@ import { PROJECT_CONFIG } from '../data/config';
 import { applyScenario, applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
 import { TAX_ARRANGEMENTS, withArrangement } from '../domain/arrangements';
 import { candidatePnL, developerEconomics } from '../domain/developer';
-import { lotDeveloperPnL, lotViablePct } from '../domain/lotDeveloper';
+import { lotDeveloperPnL, lotViablePct, routeDelta } from '../domain/lotDeveloper';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
-import { approvalMonthOf, buildTransactionPlan } from '../domain/transactions';
+import { approvalMonthOf } from '../domain/transactions';
 import { levyPerRight, netMonthlyRentPerApartment, taxLoanRate } from '../domain/taxation';
 import type {
   Candidate,
@@ -101,11 +101,8 @@ export function buildResult(
   evals: ScenarioEvaluations,
   ctx: EngineContext,
   config: ProjectConfig,
-  /**
-   * Lot-level developer P&L on the offer's terms, and this owner's standalone full-combination slice of it: a route's
-   * margin is the lot with this owner taking the route instead of the full combination.
-   */
-  lotBase: { profit: number; revenue: number; s02Profit: number; s02Revenue: number } | null = null,
+  /** Compute the lot-level developer P&L with this owner on the route (iteration 7). */
+  withLot = true,
 ): StrategyResult {
   const R = ctx.info.apartmentEquivalents;
   const base = evals.base;
@@ -117,12 +114,26 @@ export function buildResult(
   };
   const feasibility = classify(assessments.base, assessments.adverse);
   const developerPnL = candidatePnL(candidate, plan, ctx.info, config, ctx.terms);
-  // Commercial plausibility from the lot-level P&L (a combination is a lot-wide deal), adjusted for this owner's
-  // route: lot − this owner's full-combination slice + this route's slice.
+  // Commercial plausibility from the lot-level P&L (a combination is a lot-wide deal): the lot of typical owners with
+  // this owner's share replaced by this route, financing recomputed on the combined monthly flows. Developer-borne
+  // tax-loan interest for this owner is part of the route.
   let developerMargin = developerPnL ? developerPnL.marginOnRevenue : null;
-  if (developerPnL && lotBase) {
-    const revenue = lotBase.revenue - lotBase.s02Revenue + developerPnL.revenue;
-    developerMargin = revenue > 0 ? (lotBase.profit - lotBase.s02Profit + developerPnL.profit) / revenue : 0;
+  let developerLot: StrategyResult['developerLot'] = null;
+  if (developerPnL && withLot) {
+    const lotCtx = { info: ctx.info, profile: ctx.profile, config };
+    const delta = routeDelta(lotCtx, plan, ctx.terms, sim.taxLoanSubsidy);
+    const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, ctx.terms.combinationPct, { markup: ctx.terms.developerMarkup, delta });
+    developerMargin = lot.margin;
+    developerLot = {
+      units: lot.units,
+      servicesUnits: lot.servicesUnits,
+      revenue: lot.revenue,
+      costs: lot.costs,
+      financingCost: lot.financingCost,
+      profit: lot.profit,
+      margin: lot.margin,
+      profitOnCost: lot.profitOnCost,
+    };
   }
   const blocked = policyBlock(candidate, R, config);
   const reasonCodes = [
@@ -202,6 +213,7 @@ export function buildResult(
     cashAtSigning: 0,
     delivery,
     deliveryValue: base.deliveryValue,
+    developerLot,
     levy,
     priceDependency: priceDependencyOf(candidate, plan),
     netCashAtDelivery: sim.cashAtCompletion - sim.referenceAtCompletion,
@@ -241,13 +253,9 @@ export interface CoreAnalysis {
 export function coreAnalysis(profile: UserProfile, terms: CommercialTerms, config: ProjectConfig): CoreAnalysis {
   const info = calculateRights(profile.landAreaSqm, config, profile.lotId);
   const ctx: EngineContext = { info, profile, terms };
-  const dev = developerEconomics(info, config, terms.combinationPct, profile);
+  const dev = developerEconomics(info, config, terms.combinationPct, profile, terms.developerMarkup);
   const scales = buildScales(ctx, config);
-  const lot = lotDeveloperPnL({ info, profile, config }, config.commercial.taxArrangement, terms.combinationPct);
-  const s02: Candidate = { id: 'S02', type: 'S02', targetApartments: 0, legs: [{ kind: 'combination', rights: info.apartmentEquivalents }] };
-  const s02Pnl = candidatePnL(s02, buildTransactionPlan(s02, { info, profile, terms, config }), info, config, terms);
-  const lotBase = s02Pnl ? { profit: lot.profit, revenue: lot.revenue, s02Profit: s02Pnl.profit, s02Revenue: s02Pnl.revenue } : null;
-  const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config, lotBase));
+  const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
   for (const r of results) r.cashAtSigning = cashAtSigning(r);
   const { ranked, frontierIds } = rankStrategies(results, profile.goal, scales);
   return { ctx, scales, dev, results, ranked, frontierIds };
