@@ -207,3 +207,19 @@ describe('selling the fractional share is a disposal of retained property', () =
     expect(tax).toBeLessThan(0.25 * amount);
   });
 });
+
+describe('purchase tax on completion when the plan has two apartments', () => {
+  it('a sole-home answer does not exempt the completed second apartment', () => {
+    const d = analyzeProfile(profile({ landAreaSqm: 334, availableCapital: 1_000_000, maxMonthlyRepayment: 8000, soleHome: true }), TERMS, C);
+    for (const id of ['S13-3r', 'S06-2']) {
+      const r = d.results.find((x) => x.id === id)!;
+      expect(r.metrics.wholeApartments).toBe(2);
+      // Completion price × 8% (additional home), not 0%.
+      expect(r.purchaseTax).toBeCloseTo(r.delivery.constructionAndCompletionPaid * 0.08, 0);
+    }
+  });
+  it('a single completed apartment that will be the only home stays at 0%', () => {
+    const d = analyzeProfile(profile({ landAreaSqm: 167, availableCapital: 600000, maxMonthlyRepayment: 8000, soleHome: true }), TERMS, C);
+    expect(d.results.find((x) => x.id === 'S13-3r')!.purchaseTax).toBe(0);
+  });
+});

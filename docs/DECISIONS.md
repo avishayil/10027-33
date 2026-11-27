@@ -158,3 +158,7 @@
     not this. Rates: 0% for a sole home within the exemption band, ~8% for an additional home, 8% while unknown. The
     same extra apartment structured as construction services on more retained land (sell less to the developer)
     carries no purchase tax — that is the mixed combination + services route. Label and source note clarified.
+56. **"Sole home" applies to at most one apartment.** A completion that finishes a second apartment (the plan already
+    has another whole apartment) is taxed at the additional-home rate (~8%) even when the household answered that
+    the apartment will be its only home. Found while comparing two-apartment routes at 334 m²: with the sole-home
+    answer the second apartment had been charged 0%.

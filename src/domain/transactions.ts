@@ -201,9 +201,10 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         const price = leg.apartmentEquivalents * aptToday * config.commercial.completionPriceFactor;
         out(permit, price / 2, 'תשלום השלמה ליזם (50%)', 'completion_payment');
         out(completion, price / 2, 'תשלום השלמה ליזם (יתרה)', 'completion_payment');
-        // Classification depends on the contract; the rate depends on whether it will be the only home.
+        // Classification depends on the contract; the rate depends on whether it will be the only home. With more
+        // than one apartment in the plan, the completed one is an additional home whatever the household owns today.
         const pt = config.taxation.completionPurchaseTax;
-        const rate = profile.soleHome === true ? pt.soleHome : pt.additionalHome;
+        const rate = profile.soleHome === true && retainedEq <= 1 + 1e-6 ? pt.soleHome : pt.additionalHome;
         out(permit, price * rate, 'מס רכישה על החלק שאתם קונים מהיזם (לא על הקרקע שלכם)', 'purchase_tax', 'owner', {
           range: { low: price * pt.soleHome, high: price * pt.additionalHome },
         });
@@ -325,7 +326,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
       out(permit, price / 2, `תשלום השלמה לדירת ${tierSize} מ״ר (50%)`, 'completion_payment');
       out(completion, price / 2, `תשלום השלמה לדירת ${tierSize} מ״ר (יתרה)`, 'completion_payment');
       const pt = config.taxation.completionPurchaseTax;
-      const rate = profile.soleHome === true ? pt.soleHome : pt.additionalHome;
+      // The upgraded apartment is the only home only if the plan has no other whole apartment.
+      const rate = profile.soleHome === true && wholeApartmentsRetained === 0 ? pt.soleHome : pt.additionalHome;
       out(permit, price * rate, 'מס רכישה על החלק שאתם קונים מהיזם (לא על הקרקע שלכם)', 'purchase_tax', 'owner', {
         range: { low: price * pt.soleHome, high: price * pt.additionalHome },
       });
