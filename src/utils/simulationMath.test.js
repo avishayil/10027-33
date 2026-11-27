@@ -17,13 +17,6 @@ describe('computeTableRights — anchors from the published tables', () => {
     expect(r.units).toBeCloseTo(2.365, 3);
   });
 
-  it('v1, lot 44, 167 m² (deposited version)', () => {
-    const r = computeTableRights(167, 'v1', '44');
-    expect(r.allocationValue).toBeCloseTo(727290, 0);
-    expect(r.units).toBeCloseTo(1.44, 6);
-    expect(Math.abs(r.incomingValue - 199458)).toBeLessThan(1);
-  });
-
   it('betterment levy is the given rate of the value increase', () => {
     const r = computeTableRights(167, 'v2', '149', 50);
     expect(r.bettermentLevy).toBeCloseTo((r.allocationValue - r.incomingValue) / 2, 6);
@@ -54,10 +47,10 @@ describe('computeSimulationTracks', () => {
     computeSimulationTracks(area, computeTableRights(area, version, lot, config.bettermentLevyPct), config);
 
   it('cash exit gross value depends on land area, not the unit count', () => {
-    const v1 = tracks('v1', '44');
-    const v2 = tracks('v2', '149');
-    expect(v1.cashExit.grossLandValue).toBe(v2.cashExit.grossLandValue);
-    expect(v2.cashExit.grossLandValue).toBe(167 * DEFAULT_CONFIG.landValuePerSqm);
+    const a = tracks('v2', '149');
+    const b = tracks('v2', '153');
+    expect(a.cashExit.grossLandValue).toBe(b.cashExit.grossLandValue);
+    expect(a.cashExit.grossLandValue).toBe(167 * DEFAULT_CONFIG.landValuePerSqm);
   });
 
   it('cash exit deducts the per-owner levy, developer profit and tax', () => {

@@ -65,7 +65,7 @@ export function Assumptions() {
         </div>
       ))}
       <div className="assumption-group">
-        <h3>עסקאות מדווחות בחלקה 33 (167 מ״ר כל אחת, לפני עדכון 106(ב))</h3>
+        <h3>עסקאות מדווחות בחלקה 33 (167 מ״ר כל אחת, 10/2024–04/2026)</h3>
         <table className="compare-table">
           <thead>
             <tr>
