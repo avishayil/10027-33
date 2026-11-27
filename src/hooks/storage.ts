@@ -3,6 +3,7 @@
  * Data stays in this browser's localStorage; it is never sent anywhere. Every access is guarded,
  * because storage can be unavailable (private mode, blocked site data).
  */
+import { PROJECT_CONFIG } from '../data/config';
 import type { Goal, TaxArrangement } from '../domain/types';
 
 export const STORAGE_KEY = 'mimush-chacham:answers:v1';
@@ -21,6 +22,8 @@ export interface SavedInputs {
   developerMarkup: number;
   basisText: string;
   deadlineYears: number;
+  /** Set on load when a retired goal was mapped to a current one (never saved). */
+  migratedGoalFrom?: Goal;
   /** Added in iteration 3; older saved answers without it are migrated to 'unknown'. */
   soleHome?: 'unknown' | 'yes' | 'no' | 'replacement';
   /** What the developer pays at the offered combination %. Older saves without it load as 'mixed'. */
@@ -59,10 +62,13 @@ export function loadInputs(): SavedInputs | null {
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isValid(parsed)) return null;
-    // The wizard now offers three goals; the two retired ones map to their nearest successor.
+    // The wizard now offers three goals; the two retired ones map to their nearest successor — and the app says so once.
     const goal: Goal =
       parsed.goal === 'passive_income' ? 'maximize_apartments' : parsed.goal === 'immediate_cash' ? 'minimize_risk' : parsed.goal;
-    return { soleHome: 'unknown', taxArrangement: 'mixed', levyCapText: '', developerPaysInterest: false, otherPropertyLimitText: '', ...parsed, goal };
+    const migratedGoalFrom = goal !== parsed.goal ? parsed.goal : undefined;
+    // A saved lot the current tables no longer have is dropped (the default lot is then assumed and flagged).
+    const lotId = PROJECT_CONFIG.rights.lotIds.includes(parsed.lotId) ? parsed.lotId : '';
+    return { soleHome: 'unknown', taxArrangement: 'mixed', levyCapText: '', developerPaysInterest: false, otherPropertyLimitText: '', ...parsed, goal, lotId, migratedGoalFrom };
   } catch {
     return null;
   }

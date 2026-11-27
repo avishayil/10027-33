@@ -19,6 +19,7 @@ import {
 import { lotPolicy, policyBlock, serviceApartments } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
+import { validateInputs } from '../domain/validation';
 import { approvalMonthOf } from '../domain/transactions';
 import { levyPerRight, netMonthlyRentPerApartment, taxLoanRate } from '../domain/taxation';
 import type {
@@ -43,7 +44,7 @@ import type {
 import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
 import { LAND_TRANSACTIONS } from '../data/evidence';
 import { developerEquivalentPct, ownerBreakEvenPct } from './arrangementEquivalence';
-import { evaluateCandidate, type EngineContext, type Evaluation } from './evaluate';
+import { evaluateCandidate, failureMonthOf, type EngineContext, type Evaluation } from './evaluate';
 import { assess, assessEvaluation, classify, informationalReasons, isFeasible } from './feasibility';
 import { generateStrategies } from './generate';
 import { findMaterialUnknowns } from './questions';
@@ -215,6 +216,8 @@ export function buildResult(
     servicesVat: sum(ledger, (e) => owner(e) && e.category === 'services_vat'),
     approvalRisk: sum(ledger, (e) => ownerOut(e) && e.month < approvalMonthOf(config)),
     noApproval: noApprovalOutcome(ledger, ownerOut, sim, config),
+    developerFailure: developerFailureOutcome(ledger, ownerOut, sim, plan.completionMonth, config),
+    delayedApproval: null,
     capitalGainsRange: plan.capitalGainsRange,
     purchaseTax: sum(ledger, (e) => owner(e) && e.category === 'purchase_tax'),
     additionalCosts: sum(ledger, (e) => owner(e) && ['transaction_costs', 'completion_payment', 'rights_purchase'].includes(e.category)),
@@ -285,6 +288,37 @@ function noApprovalOutcome(
   };
 }
 
+/** The same route with approval 24 months later than assumed. */
+function delayedApprovalOutcome(r: StrategyResult, ctx: EngineContext, config: ProjectConfig): StrategyResult['delayedApproval'] {
+  const months = 24;
+  const late: ProjectConfig = { ...config, timeline: { ...config.timeline, approvalMonths: config.timeline.approvalMonths + months } };
+  const base = evaluateCandidate(r.candidate, ctx, config);
+  const ev = evaluateCandidate(r.candidate, ctx, late);
+  const interest = (e: Evaluation) => e.sim.interestPaidToCompletion + e.sim.taxLoanInterest;
+  return {
+    months,
+    feasible: isFeasible(assessEvaluation(r.candidate, ev, ctx.profile, late, ctx.info.apartmentEquivalents)),
+    extraInterest: interest(ev) - interest(base),
+    valueChange: ev.comparisonValue - base.comparisonValue,
+  };
+}
+
+/** Developer failure half-way through construction (see StrategyResult.developerFailure). */
+function developerFailureOutcome(
+  ledger: LedgerEntry[],
+  ownerOut: (e: LedgerEntry) => boolean,
+  sim: StrategyResult['simulation'],
+  completionMonth: number,
+  config: ProjectConfig,
+): StrategyResult['developerFailure'] {
+  const month = failureMonthOf(config, completionMonth);
+  const paidToDeveloper = ledger
+    .filter((e) => ownerOut(e) && e.month <= month && (e.category === 'construction' || e.category === 'completion_payment'))
+    .reduce((s, e) => s + e.amount, 0);
+  const interest = sim.interestToFailure;
+  return { month, paidToDeveloper, interest, debtOutstanding: sim.debtAtFailure, protected: interest, unprotected: paidToDeveloper + interest };
+}
+
 export interface CoreAnalysis {
   ctx: EngineContext;
   scales: Scales;
@@ -350,10 +384,14 @@ export function analyzeProfile(
   terms: CommercialTerms,
   config: ProjectConfig = PROJECT_CONFIG,
 ): DecisionResult {
+  const invalid = validateInputs(profile, terms, config);
+  if (invalid.length) throw new Error(invalid.join(' '));
   const core = coreAnalysis(profile, terms, config);
   const { ctx, results, ranked, frontierIds, dev, scales } = core;
   const recommendation = ranked[0] ?? null;
   const alternatives = selectAlternatives(ranked, recommendation);
+  // Iteration 9 / D3: approval two years late — for the routes shown (one more evaluation each).
+  for (const r of [recommendation, ...alternatives]) if (r) r.delayedApproval = delayedApprovalOutcome(r, ctx, config);
 
   // --- Negotiation thresholds -------------------------------------------------
   const negotiationTargets: NegotiationTarget[] = [...globalTargets(ctx, config), ...developerTargets(dev, ctx, config)];

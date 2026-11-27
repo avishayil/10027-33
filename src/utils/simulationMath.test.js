@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeSimulationTracks, computeTableRights, parseParcelFraction } from './simulationMath';
-import { DEFAULT_CONFIG } from '../hooks/useSimulation';
+import { DEFAULT_CONFIG } from './legacyDefaults';
 
 describe('computeTableRights — anchors from the published tables', () => {
   it('v2, lot 149, 167 m² matches the printed rights value', () => {

@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Assumptions } from './components/assumptions/Assumptions';
 import {
+  AllocationTable,
   CostLedger,
   DeveloperPanel,
   Financing,
@@ -15,7 +16,6 @@ import {
 import { AnswersBar, TermsCard } from './components/inputs/AnswersBar';
 import { Wizard, type WizardStep } from './components/inputs/Wizard';
 import { PrintHeader } from './components/print/PrintHeader';
-import { SegmentedToggle } from './components/SegmentedToggle';
 import { FollowUps } from './components/verdict/FollowUps';
 import { TopPriorities } from './components/verdict/TopPriorities';
 import { Alternatives, Verdict } from './components/verdict/Verdict';
@@ -24,9 +24,6 @@ import { MAVAT_URL } from './data/parcel33';
 import { useDecisionEngine } from './hooks/useDecisionEngine';
 import { clearInputs, loadInputs, saveInputs } from './hooks/storage';
 
-const LegacySimulator = lazy(() => import('./components/legacy/LegacySimulator'));
-
-type Tab = 'smart' | 'advanced';
 
 const ADVANCED_KEY = 'mimush-chacham:advanced-view';
 const readAdvanced = () => {
@@ -41,7 +38,6 @@ export default function App() {
   const [saved] = useState(() => loadInputs());
   const engine = useDecisionEngine(saved);
   const { result, profile, terms, values } = engine;
-  const [tab, setTab] = useState<Tab>('smart');
   const [view, setView] = useState<'wizard' | 'main'>(saved ? 'main' : 'wizard');
   const [wizardStart, setWizardStart] = useState<WizardStep>('welcome');
   const [onboarded, setOnboarded] = useState(saved !== null);
@@ -51,7 +47,6 @@ export default function App() {
   const [advanced, setAdvancedState] = useState(readAdvanced);
   const setAdvanced = (on: boolean) => {
     setAdvancedState(on);
-    if (!on) setTab('smart');
     try {
       window.localStorage.setItem(ADVANCED_KEY, on ? '1' : '0');
     } catch {
@@ -92,7 +87,7 @@ export default function App() {
   };
 
   const focus = result?.recommendation ?? result?.ranked[0] ?? null;
-  const inWizard = tab === 'smart' && view === 'wizard';
+  const inWizard = view === 'wizard';
 
   return (
     <div className={`app ${inWizard ? 'app-wizard' : ''}`}>
@@ -105,26 +100,8 @@ export default function App() {
         <p className="subtitle subtitle-small">חדרה · גוש 10027 חלקה 33</p>
       </header>
 
-      {!inWizard && advanced && (
-        <nav className="tabs no-print" aria-label="מצב תצוגה">
-          <SegmentedToggle
-            options={[
-              { value: 'smart', label: 'סימולציית עסקאות' },
-              { value: 'advanced', label: 'מחשבון ישן (להשוואה)' },
-            ]}
-            value={tab}
-            onChange={setTab}
-            label="מצב תצוגה"
-          />
-        </nav>
-      )}
-
       <div id="content">
-        {tab === 'advanced' ? (
-          <Suspense fallback={<p className="card">טוען…</p>}>
-            <LegacySimulator />
-          </Suspense>
-        ) : view === 'wizard' ? (
+        {view === 'wizard' ? (
           <Wizard
             key={wizardStart + String(onboarded)}
             engine={engine}
@@ -134,10 +111,16 @@ export default function App() {
             onFinish={finish}
           />
         ) : (
-          <main className="main-view">
+          <main className={`main-view ${engine.updating ? 'results-updating' : ''}`} aria-busy={engine.updating || undefined}>
             {profile && <PrintHeader profile={profile} terms={terms} />}
             {result && profile && <TopPriorities result={result} goal={profile.goal} combinationPct={terms.combinationPct} availableCapital={profile.availableCapital} basisKnown={typeof profile.acquisitionBasis === 'number'} />}
-            <AnswersBar engine={engine} saved={remember} onEdit={edit} onForget={forget} />
+            <AnswersBar
+              engine={engine}
+              saved={remember}
+              migratedGoalFrom={saved?.migratedGoalFrom && saved.goal === engine.inputs.goal ? saved.migratedGoalFrom : undefined}
+              onEdit={edit}
+              onForget={forget}
+            />
             <label className="advanced-toggle no-print">
               <input type="checkbox" role="switch" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} />
               <span>
@@ -161,7 +144,8 @@ export default function App() {
                 <h2 className="section-title section-divider">פירוט ובדיקה</h2>
                 <WhyFits result={result} goal={profile!.goal} />
                 <StrategyComparison result={result} />
-                {focus && <CostLedger r={focus} />}
+                {focus && <CostLedger result={result} initial={focus} />}
+                <AllocationTable result={result} />
                 {focus && <Financing result={result} r={focus} />}
                 <ScenarioComparison result={result} />
                 <NegotiationPanel result={result} />

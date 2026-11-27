@@ -9,7 +9,7 @@ import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-27.10';
+export const CONFIG_VERSION = '2026-11-27.11';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,
@@ -78,6 +78,8 @@ export const PROJECT_CONFIG: ProjectConfig = {
     apartmentValueAnnualGrowth: MARKET.apartmentValueAnnualGrowth.value,
     monthlyRentPerApartment: MARKET.monthlyRentPerApartment.value,
     rentalExpenseReserve: MARKET.rentalExpenseReserve.value,
+    rentStartDelayMonths: MARKET.rentStartDelayMonths.value,
+    lenderRentRecognition: MARKET.lenderRentRecognition.value,
     immediateLandSalePricePerSqm: null,
     immediateSaleReferencePerSqm: MARKET.immediateSaleReferencePerSqm.value,
     postApprovalLandValuePerSqm: MARKET.postApprovalLandValuePerSqm.value,

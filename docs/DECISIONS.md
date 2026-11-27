@@ -374,3 +374,23 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
      10/2024–04/2026, median ₪1,916); the appraisal's allocation value (≈ ₪2,739) is no longer mixed into it nor used as
      the favourable sale scenario. The block-wide post-approval value is labelled an assumption (its source is a
      reported statistic; its use for parcel 33 is not).
+113. **Apartment-mix search keeps the extremes** (phase D): per apartment count, the cheapest mix (most balancing money
+     back), the most valuable one and the most valuable mix needing no payment are always evaluated, then the closest to
+     the entitlement, up to seven; counts up to two above the whole entitlement. Replaces "the closest six".
+114. **Rent**: a lender counts 80% of net rent toward repayment capacity (assumption, range 50–100%, to verify with the
+     bank); rent starts at delivery in the base case and three months later in the adverse scenario (a 3-month base delay
+     flipped the reported no-cash household's whole-apartment route on a ₪133/month excess — an assumption should not
+     decide that). Rental variants are kept when the goal is rental income. A fraction earns no rent.
+115. **Contract states**: besides "plan not approved", every route shows "developer fails half-way through construction"
+     (paid to the developer for building/completion, interest, debt left; protected = interest only, unprotected =
+     payments + interest), and the routes shown add "approval two years late" (still fits?, value change, extra
+     interest). States, not probabilities; land and what was built stay the owner's at unknown value.
+116. **Domain validation**: the engine refuses areas that are zero, negative, non-finite, larger than the parcel
+     (21,258 m²) or than one lot (167 ÷ lot share, e.g. ≈ 7,097 m² on lot 149 — multi-lot holdings are not supported),
+     unknown lots, negative money and percentages outside 0–100%. Unknown (null) stays distinct from zero. A saved
+     unknown lot is dropped; a saved fraction converts to m² without rounding; a retired goal is mapped and said once.
+117. **Responsiveness**: measured at a 4× CPU slowdown (a mid-range phone): one analysis ≈ 300 ms. Analysis now runs 250 ms
+     after inputs settle, on a deferred render, with the previous result dimmed — a slider step paints in ≈ 40 ms
+     (was ≈ 300 ms). A Web Worker is not needed at this size.
+118. **The old four-track calculator is gone from the app.** The advanced view shows any route's full ledger (all payers)
+     and the holding in the official allocation table. The old math stays as `simulationMath.test.js` regression fixture.

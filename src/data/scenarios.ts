@@ -13,6 +13,8 @@ export interface ScenarioParams {
   timeline: Timeline;
   developerPriceFactor: number;
   monthlyRent: number;
+  /** Months from delivery until a tenant pays (iteration 9 / D2). */
+  rentStartDelayMonths: number;
   levyFactor: number;
   annualIndexation: number;
   /** Open-market price today (pre-approval), per original m². */
@@ -35,6 +37,7 @@ export const PARAM_LABELS: Record<ScenarioParamKey, string> = {
   timeline: 'לוח זמנים (אישור, היתר, בנייה, מכירת יחידת סל)',
   developerPriceFactor: 'מחיר שהיזם ישלם על זכויות',
   monthlyRent: 'שכר דירה',
+  rentStartDelayMonths: 'זמן עד שהשכירות מתחילה',
   levyFactor: 'שומת היטל ההשבחה',
   annualIndexation: 'הצמדת עלויות בנייה',
   immediateSalePricePerSqm: 'מחיר מכירה מיידית בשוק',
@@ -50,6 +53,7 @@ export function scenarioParams(config: ProjectConfig, id: ScenarioId): ScenarioP
       timeline: { approvalMonths: 18, permitAfterApprovalMonths: 0, constructionMonths: 30, settlementDelayMonths: 0 },
       developerPriceFactor: 1.1,
       monthlyRent: 6500,
+      rentStartDelayMonths: 0,
       levyFactor: 0.85,
       annualIndexation: 0.01,
       // Highest reported parcel-33 deal in 10/2024–04/2026 (₪400,000 / 167 m²) — not the appraisal's allocation value.
@@ -67,6 +71,7 @@ export function scenarioParams(config: ProjectConfig, id: ScenarioId): ScenarioP
       timeline: { approvalMonths: 36, permitAfterApprovalMonths: 12, constructionMonths: 48, settlementDelayMonths: 12 },
       developerPriceFactor: 0.75,
       monthlyRent: 4500,
+      rentStartDelayMonths: 3,
       levyFactor: 1.25,
       annualIndexation: 0.05,
       immediateSalePricePerSqm: 1647,
@@ -80,6 +85,7 @@ export function scenarioParams(config: ProjectConfig, id: ScenarioId): ScenarioP
     timeline: config.timeline,
     developerPriceFactor: 1,
     monthlyRent: config.market.monthlyRentPerApartment,
+    rentStartDelayMonths: config.market.rentStartDelayMonths,
     levyFactor: 1,
     annualIndexation: config.construction.annualIndexation,
     immediateSalePricePerSqm: config.market.immediateLandSalePricePerSqm ?? config.market.immediateSaleReferencePerSqm,
@@ -101,6 +107,7 @@ export function applyScenarioParams(config: ProjectConfig, p: ScenarioParams): P
       ...config.market,
       apartmentValuePerSqm: p.apartmentValuePerSqm,
       monthlyRentPerApartment: p.monthlyRent,
+      rentStartDelayMonths: p.rentStartDelayMonths,
       immediateSaleReferencePerSqm: p.immediateSalePricePerSqm,
       postApprovalLandValuePerSqm: p.postApprovalLandValuePerSqm,
       developerRightsSaleScenario: {

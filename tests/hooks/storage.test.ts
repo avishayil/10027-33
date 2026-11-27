@@ -48,3 +48,20 @@ describe('saved answers and the offer’s tax arrangement', () => {
     expect(l.otherPropertyLimitText).toBe('');
   });
 });
+
+describe('iteration 9 / D4: migration and invalid saved values', () => {
+  it('a retired goal is migrated and the original preference is reported (not saved)', () => {
+    withStorage({ ...saved, goal: 'passive_income' });
+    const s = loadInputs()!;
+    expect(s.goal).toBe('maximize_apartments');
+    expect(s.migratedGoalFrom).toBe('passive_income');
+  });
+  it('a current goal is not flagged', () => {
+    withStorage(saved);
+    expect(loadInputs()!.migratedGoalFrom).toBeUndefined();
+  });
+  it('a saved lot the tables do not have is dropped (no crash)', () => {
+    withStorage({ ...saved, lotId: '999' });
+    expect(loadInputs()!.lotId).toBe('');
+  });
+});

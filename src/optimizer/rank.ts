@@ -61,9 +61,11 @@ export function isEligible(r: StrategyResult, goal: Goal): boolean {
 
 /**
  * S08 (keep & rent) only differs from its build-and-hold sibling in that rent counts toward repayment.
- * When the sibling is itself eligible they are economically identical, so the duplicate is dropped.
+ * When the sibling is itself eligible they have the same value, so the duplicate is dropped — except when the goal
+ * values rental income (iteration 9 / D2): then the rental variant is what the household asked for.
  */
 export function dropRedundantRentals(results: StrategyResult[], goal: Goal): StrategyResult[] {
+  if (goal === 'passive_income') return results;
   const eligibleIds = new Set(results.filter((r) => isEligible(r, goal)).map((r) => r.id));
   return results.filter((r) => {
     if (r.strategyType !== 'S08') return true;

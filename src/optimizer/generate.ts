@@ -8,6 +8,28 @@ const EPS = 1e-6;
 const MAX_APARTMENTS = 20;
 
 /** Rights to keep for construction services so that combination + construction yields N apartments. */
+/**
+ * Iteration 9 / D1: which apartment mixes of one count to evaluate. Not only the closest to the entitlement — those can
+ * all require a payment. Always kept: the cheapest mix (most balancing money back), the most valuable one, and the most
+ * valuable mix that needs no payment; then the closest ones, up to seven in all.
+ */
+export function keepMixes(mixes: number[][], value: (m: number[]) => number, finished: number, cap = 7): number[][] {
+  if (mixes.length <= cap) return [...mixes].sort((a, b) => Math.abs(value(a) - finished) - Math.abs(value(b) - finished));
+  const byValue = [...mixes].sort((a, b) => value(a) - value(b));
+  const noPayment = byValue.filter((m) => value(m) <= finished + EPS);
+  const picks: number[][] = [byValue[0], byValue[byValue.length - 1]];
+  if (noPayment.length) picks.push(noPayment[noPayment.length - 1]);
+  const key = (m: number[]) => m.join(',');
+  const seen = new Set(picks.map(key));
+  for (const m of [...mixes].sort((a, b) => Math.abs(value(a) - finished) - Math.abs(value(b) - finished))) {
+    if (picks.length >= cap) break;
+    if (seen.has(key(m))) continue;
+    seen.add(key(m));
+    picks.push(m);
+  }
+  return picks.sort((a, b) => Math.abs(value(a) - finished) - Math.abs(value(b) - finished));
+}
+
 export function mixedSplit(N: number, R: number, c: number): number {
   return (N - c * R) / (1 - c);
 }
@@ -54,7 +76,7 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, con
     const value = (rooms: number[]) => rooms.reduce((s, r) => s + (config.market.apartmentTypes.find((t) => t.rooms === r)?.relativeValue ?? 0), 0);
     const hasFraction = fraction > 0.01;
     const used = new Set(out.map((c) => c.id));
-    for (let n = Math.max(1, whole - 1); n <= Math.min(MAX_APARTMENTS, whole + 1); n += 1) {
+    for (let n = Math.max(1, whole - 1); n <= Math.min(MAX_APARTMENTS, whole + 2); n += 1) {
       const mixes: number[][] = [];
       const build = (start: number, acc: number[]) => {
         if (acc.length === n) {
@@ -64,16 +86,14 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, con
         for (let i = start; i < types.length; i += 1) build(i, [...acc, types[i]]);
       };
       build(0, []);
-      const kept = mixes
-        .filter((mix) => {
+      const candidates = mixes.filter((mix) => {
           const standard = mix.filter((r) => r === 4).length;
           const allStandard = standard === n;
           if (allStandard && (n === whole || (hasFraction && n === whole + 1))) return false; // S02 / S06
           if (hasFraction && n === whole + 1 && standard === whole) return false; // single-tier S13
           return Math.abs(value(mix) - finished) <= 1 + EPS;
-        })
-        .sort((a, b) => Math.abs(value(a) - finished) - Math.abs(value(b) - finished))
-        .slice(0, 6);
+        });
+      const kept = keepMixes(candidates, value, finished);
       for (const mix of kept) {
         let id = `S13-${mix.map((r) => `${r}r`).join('+')}`;
         if (used.has(id)) id = `${id}-mix`;
