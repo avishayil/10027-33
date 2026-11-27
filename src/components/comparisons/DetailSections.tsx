@@ -353,10 +353,10 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
                     {!s.feasible && <span className="muted"> · לא עומד</span>}
                   </td>
                 ))}
-                <td className={r.noApproval.loss > 1000 ? 'cell-fail' : ''}>
-                  {r.noApproval.loss > 1000
-                    ? `הפסד אפשרי ${formatCurrency(r.noApproval.loss)} (מקדמות ${formatCurrency(r.noApproval.advances)}, ריבית ${formatCurrency(r.noApproval.interest)})`
-                    : 'בלי הפסד — הקרקע נשארת שלכם'}
+                <td className={r.noApproval.unprotected > 1000 ? 'cell-fail' : ''}>
+                  {r.noApproval.unprotected > 1000
+                    ? `מוגן ${formatCurrency(r.noApproval.protected)} · חלקית ${formatCurrency(r.noApproval.partial)} · בלי הגנה ${formatCurrency(r.noApproval.unprotected)}${r.noApproval.purchasedRights > 1 ? ` (וזכויות שנקנו ב-${formatCurrency(r.noApproval.purchasedRights)} — שווי מכירה לא ידוע)` : ''}`
+                    : 'בלי חשיפה — הקרקע נשארת שלכם'}
                 </td>
               </tr>
             ))}
@@ -368,8 +368,10 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
         הריבית. כך דירה שמתקבלת מאוחר יותר שווה פחות גם בלי עליית מחירים. אופטימי: דירה
         ₪28,000 למ״ר, ריבית 4%, אישור בעוד 18 חודשים ומסירה בעוד 4 שנים. שמרני: דירה ₪21,000 למ״ר, חריגה של 15% בבנייה,
         ריבית 7% (וגם הלוואת המסים יקרה ב-2%), אישור בעוד 3 שנים, היתר שנה אחריו, מסירה בעוד 8 שנים, מכירת יחידת הסל שנה
-        אחרי המסירה, מחיר זכויות −25%, היטל +25%. ״אם התכנית לא תאושר״: חוזה מותנה בטל, לא נבנות דירות והקרקע נשארת שלכם;
-        מקדמות שכבר שולמו והריבית עד אז עלולות לאבוד (זכויות שנקנו נשארות קרקע שלכם, בשווי המצב הנכנס בשמאות). אחוז
+        אחרי המסירה, מחיר זכויות −25%, היטל +25%. ״אם התכנית לא תאושר״: חוזה מותנה בטל, לא נבנות דירות, אין שכירות
+        והקרקע נשארת שלכם. ההפסד תלוי בחוזה: מוגן (ערבויות מחזירות את המקדמות — נשארים הריבית ועלויות שלא מוחזרות), חלקית
+        (כמחצית המקדמות), בלי הגנה (כל המקדמות והריבית — החשיפה המקסימלית). זכויות שנקנו נשארות שלכם, אבל שווי המכירה
+        שלהן לא ידוע. אחוז
         הקומבינציה והרווח היזמי נשארים כפי שבחרתם. אלה תרחישי לחץ — לא תחזית.
       </p>
       <p className="field-hint">
@@ -658,6 +660,7 @@ function DeveloperThresholdsView({ result, combinationPct }: { result: DecisionR
         שהבעלים משלמים (₪11,000 למ״ר) נשארת ההנחה שלכם; עלות הבנייה הישירה של היזם (כרגע כ-{formatCurrency(t.budget.perSaleableSqm)} למ״ר מכר
         לפי התקציב) היא גודל נפרד.
       </p>
+      <NegotiationRange result={result} combinationPct={combinationPct} />
       <h3>תקציב הבנייה של היזם — לפי שטחי התכנית ואומדן השמאים</h3>
       <p className="field-hint">
         שטחי הבנייה במגרש לפי טבלה 5 בהוראות התכנית, בתעריפי אומדן עלויות הבנייה של לשכת שמאי המקרקעין (יוני 2026,
@@ -750,6 +753,48 @@ function DeveloperThresholdsView({ result, combinationPct }: { result: DecisionR
           </tr>
         </tbody>
       </table>
+    </>
+  );
+}
+
+/**
+ * Is there a % both sides can accept? The developer's highest viable % (lot model, target margin) against the offer
+ * and the % this owner needs for a whole apartment — and, if they do not meet, what would have to change.
+ */
+function NegotiationRange({ result, combinationPct }: { result: DecisionResult; combinationPct: number }) {
+  const pctFmt = (x: number) => `${formatNumber(x * 100, 1)}%`;
+  const headline = result.arrangements.find((a) => a.combinationPct === combinationPct) ?? result.arrangements[1];
+  const devMax = headline?.viablePct ?? null;
+  const R = result.rights.apartmentEquivalents;
+  const forWhole = R > 0 ? Math.min(1, Math.ceil(R * combinationPct + 1e-9) / R) : null;
+  const t = result.developerThresholds;
+  const overlap = devMax !== null && devMax >= combinationPct;
+  return (
+    <>
+      <h3>טווח משא ומתן על אחוז הקומבינציה</h3>
+      <table className="kv-table">
+        <tbody>
+          <tr>
+            <th>המקסימום שהיזם יכול לפי המודל (רווח {pctFmt(t.targetMarginOnRevenue)})</th>
+            <td>{devMax === null ? 'אין אחוז כזה' : pctFmt(devMax)}</td>
+          </tr>
+          <tr>
+            <th>ההצעה שהזנתם</th>
+            <td>{pctFmt(combinationPct)}</td>
+          </tr>
+          {forWhole !== null && (
+            <tr>
+              <th>האחוז שנותן לכם דירה שלמה נוספת</th>
+              <td>{pctFmt(forWhole)}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <p className={`callout ${overlap ? '' : 'callout-strong'}`}>
+        {overlap
+          ? 'ההצעה בתוך מה שהיזם יכול לפי המודל — יש טווח למשא ומתן.'
+          : `ההצעה מעל מה שהיזם יכול לפי המודל. כדי שתשתלם לו היה צריך אחד מאלה: עלות בנייה ישירה של עד ${t.maxDirectCostPerSqm === null ? '—' : formatCurrency(t.maxDirectCostPerSqm)} למ״ר מכר, שווי דירה של לפחות ${t.minApartmentPricePerSqm === null ? '—' : formatCurrency(t.minApartmentPricePerSqm)} למ״ר, שתישאו ביותר מסים (עסקת ברוטו), או מימון זול יותר. ייתכן גם שהיזם מצפה לעליית מחירים — המודל לא מניח אותה.`}
+      </p>
     </>
   );
 }

@@ -209,16 +209,46 @@ function AskDeveloper({ result, availableCapital }: { result: DecisionResult; av
   );
 }
 
+/**
+ * A sale as a possible direction: the price to ask for — a target computed from the household's own alternatives,
+ * not a valuation — with what it is compared against and the assumptions behind it.
+ */
+function SaleTarget({ result, sale, basisKnown }: { result: DecisionResult; sale: DecisionResult['priceConditional'][number]; basisKnown: boolean }) {
+  const t = sale.threshold;
+  const total = Math.ceil((t.required! * result.rights.landAreaSqm) / 1000) * 1000;
+  const c = result.conditionalRecommendation;
+  const against = t.against ? (result.results.find((r) => r.id === t.against) ?? (c?.result.id === t.against ? c.result : undefined)) : undefined;
+  const needsLoan = c && c.result.id === t.against && c.kind === 'funding';
+  const when = sale.result.strategyType === 'S01M' ? 'היום (מכירה בשוק הפתוח)' : 'במועד אישור התכנית (מכירה ליזם, בהסכם מותנה)';
+  return (
+    <div className="card priority-note sale-target">
+      <p className="priority-rank">מחיר מכירה שכדאי לבדוק לפי ההעדפות שלכם</p>
+      <p>
+        <strong>{formatCurrency(total)}</strong> · כ-{formatCurrency(t.required!)} למ״ר קרקע מקורי
+      </p>
+      <p className="field-hint">
+        מכירה עשויה להיות הכיוון המתאים לכם. זהו מחיר יעד המחושב לפי החלופות הכלכליות שלכם — לא שומת שווי הקרקע ולא מחיר של
+        עסקה שהתקבלה בפועל. הושווה מול: {against ? strategyTitle(against) : 'החלופה הטובה ביותר שחושבה'}
+        {needsLoan ? ' (שמצריכה הלוואת מסים)' : ''}. מס שבח לפי {basisKnown ? 'עלות הרכישה שהזנתם' : 'הנחה שמרנית של עלות רכישה אפס'}. מועד
+        התשלום: {when}.
+      </p>
+    </div>
+  );
+}
+
 export function TopPriorities({
   result,
   goal,
   combinationPct,
   availableCapital = null,
+  basisKnown = false,
 }: {
   result: DecisionResult;
   goal: Goal;
   combinationPct: number;
   availableCapital?: number | null;
+  /** The household entered its acquisition cost (the capital-gains estimate uses it). */
+  basisKnown?: boolean;
 }) {
   const items = priorityRoutes(result, goal);
   const R = result.rights.apartmentEquivalents;
@@ -229,10 +259,7 @@ export function TopPriorities({
     <section className="priorities" aria-live="polite" aria-labelledby="priorities-title">
       <AskDeveloper result={result} availableCapital={availableCapital} />
       {sale && sale.threshold.required !== null && sale.threshold.required > 0 && (
-        <p className="card priority-note">
-          מכירה עשויה להיות הכיוון המתאים לכם. כדי לקבוע אם היא משתלמת, יש לקבל הצעת מחיר של לפחות{' '}
-          {formatCurrency(Math.ceil((sale.threshold.required * result.rights.landAreaSqm) / 1000) * 1000)} ({formatCurrency(sale.threshold.required)} למ״ר).
-        </p>
+        <SaleTarget result={result} sale={sale} basisKnown={basisKnown} />
       )}
       <h2 id="priorities-title" className="section-title">
         סוגי העסקאות לפי סדר התאמה · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות

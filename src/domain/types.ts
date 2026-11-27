@@ -628,11 +628,24 @@ export interface StrategyResult {
    */
   approvalRisk: number;
   /**
-   * If the plan is never approved: conditional contracts lapse, no apartments are built and the owner keeps the land.
-   * Advances paid before approval and interest to then are lost unless secured; bought rights remain the owner's land
-   * (credited at the appraisal's incoming value). An estimate — actual terms depend on guarantees and conditions.
+   * If the plan is never approved: conditional contracts lapse, no apartments are built, no rent, and the owner keeps
+   * the land. Three scenarios, since the loss depends on guarantees, refunds and conditions in the contract:
+   * protected (advances refunded; interest and non-refundable costs lost), partially protected (half the advances),
+   * unprotected (all advances and interest — the maximum modelled exposure). Bought rights stay the owner's, but their
+   * resale value is unknown — not credited.
    */
-  noApproval: { advances: number; interest: number; landCredit: number; loss: number; apartments: 0 };
+  noApproval: {
+    advances: number;
+    interest: number;
+    /** Non-refundable costs paid before approval (purchase tax, transaction costs). */
+    nonRefundable: number;
+    /** Paid for complementary rights before approval (the rights remain; resale value unknown). */
+    purchasedRights: number;
+    protected: number;
+    partial: number;
+    unprotected: number;
+    apartments: 0;
+  };
   capitalGainsRange: { low: number; high: number };
   purchaseTax: number;
   additionalCosts: number;

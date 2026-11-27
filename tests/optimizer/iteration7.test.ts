@@ -85,22 +85,26 @@ describe('mortgage limits by property status (Bank of Israel directive 329; revi
   });
 });
 
-describe('if the plan is never approved (review §10)', () => {
+describe('if the plan is never approved (iteration 8: exposure vs loss)', () => {
   const d = analyzeProfile(profile({ availableCapital: 1_500_000, maxMonthlyRepayment: 15000 }), TERMS, C);
-  it('a conditional combination loses nothing; the land stays with the owner', () => {
+  it('a conditional combination risks nothing; no apartments', () => {
     const s02 = d.results.find((x) => x.id === 'S02')!;
-    expect(s02.noApproval.loss).toBe(0);
+    expect(s02.noApproval.unprotected).toBe(0);
     expect(s02.noApproval.apartments).toBe(0);
   });
-  it('building with construction services: the signing advance and the interest to cancellation are at risk', () => {
+  it('three scenarios: protected ≤ partial ≤ unprotected = advances + interest (the maximum modelled exposure)', () => {
     const built = d.results.find((x) => x.plan.apartmentsBuilt > 0)!;
-    expect(built.noApproval.advances).toBeGreaterThan(0);
-    expect(built.noApproval.loss).toBeCloseTo(built.noApproval.advances + built.noApproval.interest - built.noApproval.landCredit, 6);
+    const n = built.noApproval;
+    expect(n.advances).toBeGreaterThan(0);
+    expect(n.protected).toBeLessThanOrEqual(n.partial);
+    expect(n.partial).toBeLessThanOrEqual(n.unprotected);
+    expect(n.unprotected).toBeCloseTo(n.advances + n.interest, 6);
+    expect(n.protected).toBeGreaterThanOrEqual(n.interest);
   });
-  it('bought complementary rights stay the owner’s land: credited at the appraisal’s incoming value', () => {
+  it('bought complementary rights are not credited automatically — their resale value is unknown', () => {
     const small = analyzeProfile(profile({ landAreaSqm: 60, availableCapital: 1_500_000, maxMonthlyRepayment: 10000 }), TERMS, C);
     const s10 = small.results.find((x) => x.strategyType === 'S10')!;
-    expect(s10.noApproval.landCredit).toBeGreaterThan(0);
-    expect(s10.noApproval.loss).toBeLessThan(s10.noApproval.advances + s10.noApproval.interest);
+    expect(s10.noApproval.purchasedRights).toBeGreaterThan(0);
+    expect(s10.noApproval.unprotected).toBeCloseTo(s10.noApproval.advances + s10.noApproval.interest, 6);
   });
 });

@@ -210,7 +210,7 @@ export function buildResult(
     capitalGainsTaxReserve: sum(ledger, (e) => owner(e) && e.category === 'capital_gains_tax'),
     servicesVat: sum(ledger, (e) => owner(e) && e.category === 'services_vat'),
     approvalRisk: sum(ledger, (e) => ownerOut(e) && e.month < approvalMonthOf(config)),
-    noApproval: noApprovalOutcome(ledger, ownerOut, plan, sim, ctx.info, config),
+    noApproval: noApprovalOutcome(ledger, ownerOut, sim, config),
     capitalGainsRange: plan.capitalGainsRange,
     purchaseTax: sum(ledger, (e) => owner(e) && e.category === 'purchase_tax'),
     additionalCosts: sum(ledger, (e) => owner(e) && ['transaction_costs', 'completion_payment', 'rights_purchase'].includes(e.category)),
@@ -258,16 +258,26 @@ export function buildResult(
 function noApprovalOutcome(
   ledger: LedgerEntry[],
   ownerOut: (e: LedgerEntry) => boolean,
-  plan: StrategyResult['plan'],
   sim: StrategyResult['simulation'],
-  info: EngineContext['info'],
   config: ProjectConfig,
 ): StrategyResult['noApproval'] {
   const approval = approvalMonthOf(config);
-  const advances = ledger.filter((e) => ownerOut(e) && e.month < approval).reduce((s, e) => s + e.amount, 0);
-  const landCredit = info.apartmentEquivalents > 0 ? (plan.rightsPurchased * info.table.incomingValue) / info.apartmentEquivalents : 0;
+  const before = ledger.filter((e) => ownerOut(e) && e.month < approval);
+  const advances = before.reduce((s, e) => s + e.amount, 0);
+  const nonRefundable = before.filter((e) => e.category === 'purchase_tax' || e.category === 'transaction_costs').reduce((s, e) => s + e.amount, 0);
+  const purchasedRights = before.filter((e) => e.category === 'rights_purchase').reduce((s, e) => s + e.amount, 0);
   const interest = sim.interestToApproval;
-  return { advances, interest, landCredit, loss: Math.max(0, advances + interest - landCredit), apartments: 0 };
+  const refundable = advances - nonRefundable;
+  return {
+    advances,
+    interest,
+    nonRefundable,
+    purchasedRights,
+    protected: interest + nonRefundable,
+    partial: interest + nonRefundable + refundable / 2,
+    unprotected: advances + interest,
+    apartments: 0,
+  };
 }
 
 export interface CoreAnalysis {
