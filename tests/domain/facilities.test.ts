@@ -53,13 +53,17 @@ describe('mortgage limits by purpose and status', () => {
     expect(mortgageLtvLimit([1], true, C, true)).toBeCloseTo(0.7, 12);
     expect(mortgageLtvLimit([1], null, C, true)).toBeCloseTo(0.7, 12);
   });
-  it('refinancing a tax loan above 50% of the delivered apartment fails, even for a sole home', () => {
+  it('refinancing a tax loan is capped at the any-purpose limit; the rest is a maturity gap, not more mortgage (iteration 9 / F03)', () => {
     const tight = { ...WITH_TAX_LOAN, financing: { ...WITH_TAX_LOAN.financing, ltvLimits: { ...WITH_TAX_LOAN.financing.ltvLimits, additionalHome: 0.1 } } };
     const p = profile({ landAreaSqm: 222.67, availableCapital: 0, maxMonthlyRepayment: 9000, soleHome: true });
     const ok = analyzeProfile(p, TERMS, WITH_TAX_LOAN).results.find((x) => x.id === 'S02')!;
     const capped = analyzeProfile(p, TERMS, tight).results.find((x) => x.id === 'S02')!;
     expect(ok.simulation.taxLoanRefinanced).toBeGreaterThan(0.1 * 2_500_000);
     expect(ok.reasonCodes).not.toContain('LTV_EXCEEDED');
-    expect(capped.reasonCodes).toContain('LTV_EXCEEDED');
+    expect(ok.simulation.taxLoanMaturityGap).toBe(0);
+    // Was: the whole balance became a mortgage and then failed the LTV test. Now the facility stops at its limit.
+    expect(capped.simulation.taxLoanRefinanced).toBeLessThanOrEqual(0.1 * capped.plan.postCompletionCollateral + 1);
+    expect(capped.simulation.taxLoanMaturityGap).toBeGreaterThan(0);
+    expect(capped.reasonCodes).toContain('TAX_LOAN_EXTENSION_NEEDED');
   });
 });

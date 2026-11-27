@@ -480,6 +480,8 @@ export interface SimulationResult {
   interestAfterCompletion: number;
   /** Tax-loan balance that had to be refinanced as a mortgage at delivery (not repaid from cash). */
   taxLoanRefinanced: number;
+  /** Largest tax-loan balance left after cash and the refinance facility at/after maturity (0 = fully covered). */
+  taxLoanMaturityGap: number;
   /** Tax-loan interest the developer bears on the owner's behalf (a developer cost, not the owner's). */
   taxLoanSubsidy: number;
   /** Present value at signing of all interest the owner pays (monthly interest, and capitalised interest at maturity). */

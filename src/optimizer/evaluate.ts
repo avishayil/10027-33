@@ -166,6 +166,8 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
       (typeof ctx.profile.otherPropertyBorrowingLimit === 'number' || config.financing.otherPropertyLoanAssumed),
     securedLoanLimit: typeof ctx.profile.otherPropertyBorrowingLimit === 'number' ? ctx.profile.otherPropertyBorrowingLimit : undefined,
     securedLoan: config.financing.securedLoan,
+    // Refinancing a tax loan on the delivered whole apartments: the "any purpose" share of their value (conditional).
+    taxLoanRefinanceLimit: config.financing.ltvLimits.additionalHome * plan.postCompletionCollateral,
     // A developer/bank tax loan for combination taxes: only when the configuration enables it (conditional run).
     taxLoan:
       config.financing.taxLoan.available && ctx.profile.maxMonthlyRepayment !== 0
