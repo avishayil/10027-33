@@ -30,11 +30,27 @@ Allocated per apartment-equivalent and assigned to exactly one payer:
 entrepreneurial profit (EA 6672/19) — plus any owner taxes the developer pays (§17(d)). Only the levy share of the
 land sold, `L × (1 − c)`, is deducted. Three arrangements are always evaluated:
 
-| Arrangement | Levy | Owner's capital-gains tax | Engine |
-|---|---|---|---|
-| Gross | owner | owner | both on the owner's cash flow |
-| Mixed (headline) | developer | owner | levy becomes consideration |
-| Net | developer | developer, grossed up `T = t/(1 − 25%)` | owner pays none |
+| Arrangement | Levy | Owner's capital-gains tax | VAT on services received | Engine |
+|---|---|---|---|---|
+| Gross | owner | owner | owner | all three on the owner's cash flow |
+| Mixed (default) | developer | owner | owner | levy becomes consideration |
+| Net | developer | developer, grossed up `T = t/(1 − 25%)` | developer | owner pays none |
+
+Services VAT = `received × services value × 18/118`, at the permit. When the owner pays it, the capital-gains
+consideration is the services value ex VAT and the developer has no barter-VAT cost (#60). The headline is the
+arrangement the user says the offer includes (#63).
+
+### Equivalent % between arrangements (`optimizer/arrangementEquivalence.ts`)
+Other arrangements are evaluated at the **developer-equivalent %** — the % with the same developer P&L profit on the
+household's full combination (bisection on [0, 80%]). The **owner break-even %** solves
+`c·R·apartment − Σ owner-paid combination taxes × (1 + r/12)^(months to delivery)` equal, with `r` the tax-loan rate.
+At 35% mixed: 25.7% / 25.0% net, 40.5% / 40.9% gross (developer / owner). Scale-free in the holding size.
+
+### Tax loan (`domain/cashflow.ts`)
+Order for a shortfall on a combination tax: cash → loan secured on another property (#49) → tax loan → unfunded.
+The tax loan accrues monthly at prime + 2% (6.75%), no payments before delivery; at delivery it is repaid from cash
+above the reserve and the rest becomes mortgage-stage debt on the delivered apartment (LTV and repayment checks).
+Reported: `taxLoanDrawn`, `taxLoanInterest`; condition `TAX_LOAN` (#62).
 
 The developer's purchase tax (6%) is charged on its full consideration, including taxes it pays. Statutory sale
 date: plan approval under §19(3א) / position 06/26 (conditional), otherwise signing. Golden values (levy

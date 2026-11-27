@@ -3,8 +3,9 @@
  * nothing is put in the URL and nothing is sent over the network.
  */
 import { useMemo, useState } from 'react';
+import { withArrangement } from '../domain/arrangements';
 import { PROJECT_CONFIG } from '../data/config';
-import type { CommercialTerms, DecisionResult, Goal, UserProfile } from '../domain/types';
+import type { CommercialTerms, DecisionResult, Goal, TaxArrangement, UserProfile } from '../domain/types';
 import { analyzeProfile } from '../optimizer/analyze';
 import { parseParcelFraction } from '../utils/simulationMath';
 import type { SavedInputs } from './storage';
@@ -48,6 +49,8 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const [basisText, setBasisText] = useState(saved?.basisText ?? '');
   const [deadlineYears, setDeadlineYears] = useState(saved?.deadlineYears ?? PROJECT_CONFIG.analysis.liquidityDeadlineYears);
   const [soleHome, setSoleHome] = useState<'unknown' | 'yes' | 'no'>(saved?.soleHome ?? 'unknown');
+  // What the offer at the combination % includes — the headline arrangement; the others are derived from it.
+  const [taxArrangement, setTaxArrangement] = useState<TaxArrangement>(saved?.taxArrangement ?? c.taxArrangement);
 
   const area = useMemo((): { value: number | null; error: string | null } => {
     if (areaMode === 'fraction') {
@@ -95,16 +98,16 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
 
   const profileKey = JSON.stringify(profile);
   const result: DecisionResult | null = useMemo(
-    () => (profile ? analyzeProfile(profile, terms, PROJECT_CONFIG) : null),
-    // profileKey captures every profile field; terms are primitives.
+    () => (profile ? analyzeProfile(profile, terms, withArrangement(PROJECT_CONFIG, taxArrangement)) : null),
+    // profileKey captures every profile field; terms and the arrangement are primitives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profileKey, combinationPct, developerMarkup],
+    [profileKey, combinationPct, developerMarkup, taxArrangement],
   );
 
   const values: SavedInputs = {
     version: 1,
     areaMode, areaText, fractionText, lotId, capitalText, repaymentMode, repaymentText,
-    goal, combinationPct, developerMarkup, basisText, deadlineYears, soleHome,
+    goal, combinationPct, developerMarkup, basisText, deadlineYears, soleHome, taxArrangement,
   };
 
   return {
@@ -114,7 +117,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
       lotId, setLotId, capitalText, setCapitalText, repaymentMode, setRepaymentMode,
       repaymentText, setRepaymentText, goal, setGoal, combinationPct, setCombinationPct,
       developerMarkup, setDeveloperMarkup, basisText, setBasisText, deadlineYears, setDeadlineYears,
-      soleHome, setSoleHome,
+      soleHome, setSoleHome, taxArrangement, setTaxArrangement,
     },
     landArea: area.value,
     errors,

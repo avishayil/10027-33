@@ -9,7 +9,7 @@ import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-27.4';
+export const CONFIG_VERSION = '2026-11-27.5';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,
@@ -85,6 +85,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     completionPurchaseTax: { soleHome: 0, additionalHome: REGULATION.completionPurchaseTaxAdditional.value },
     saleTransactionCostRate: REGULATION.saleTransactionCostRate.value,
     revenueShareTaxAtSigning: true,
+    servicesVatOnOwner: true,
   },
   financing: {
     nominalAnnualInterest: FINANCING.nominalAnnualInterest.value,
@@ -95,6 +96,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     maxLtv: FINANCING.maxLtv.value,
     comfortableLtv: FINANCING.comfortableLtv.value,
     workInProgressRecognition: COMMERCIAL.workInProgressRecognition.value,
+    taxLoan: { available: true, annualRate: FINANCING.taxLoanAnnualInterest.value },
   },
   analysis: {
     horizonYears: PROJECT.horizonYears.value,

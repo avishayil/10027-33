@@ -70,6 +70,11 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     workInProgressRecognition: config.financing.workInProgressRecognition,
     // Only when the household said it owns another property and has not ruled out borrowing.
     taxesFinanceableBySecuredLoan: ctx.profile.soleHome === false && ctx.profile.maxMonthlyRepayment !== 0,
+    // A developer/bank tax loan for combination taxes — unless the household ruled out borrowing.
+    taxLoan:
+      config.financing.taxLoan.available && ctx.profile.maxMonthlyRepayment !== 0
+        ? { annualRate: config.financing.taxLoan.annualRate }
+        : undefined,
   });
 
   // Whole apartments at market value; an unresolved fractional share at an illiquidity discount.

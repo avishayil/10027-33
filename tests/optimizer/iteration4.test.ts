@@ -9,7 +9,7 @@ import { LAND_TRANSACTIONS } from '../../src/data/evidence';
 import { calculateRights } from '../../src/domain/rights';
 import type { Goal } from '../../src/domain/types';
 import { analyzeProfile } from '../../src/optimizer/analyze';
-import { GROSS, NET } from '../fixtures/configs';
+import { GROSS, ITERATION4_TAX_TERMS, NET, NO_TAX_LOAN } from '../fixtures/configs';
 import { MODERATE, TERMS, profile } from '../fixtures/profiles';
 
 const incoming = (A: number) => (25_521_300 * A) / 21_258;
@@ -125,7 +125,8 @@ describe('evidence first', () => {
   });
 
   it('when no evidence-based route fits, the closest routes come with the extra capital they need', () => {
-    const d = analyzeProfile(MODERATE, TERMS, C); // ₪300K: owner tax at approval exceeds the cash under a mixed deal
+    // Iteration-4 tax terms (no tax loan, VAT on the developer): ₪300K is below the owner tax at approval.
+    const d = analyzeProfile(MODERATE, TERMS, ITERATION4_TAX_TERMS);
     expect(d.recommendation).toBeNull();
     expect(d.nearMiss.length).toBeGreaterThan(0);
     // With 0% return on cash, the extra capital needed equals the unfunded obligation exactly.
@@ -159,13 +160,24 @@ describe('regression: no cash, ₪5K/month, owns another property (reported scen
     expect(r.monthlyRepayment).toBeLessThanOrEqual(5000);
   });
 
-  it('no other property: the verdict still gives a direction — conditional on the developer bearing the taxes', () => {
+  it('no other property and no tax loan: the verdict still gives a direction — conditional on other tax terms', () => {
     for (const soleHome of [true, null]) {
-      const d = analyzeProfile({ ...base, soleHome }, terms, C);
+      const d = analyzeProfile({ ...base, soleHome }, terms, NO_TAX_LOAN);
       expect(d.recommendation).toBeNull();
       expect(d.conditionalRecommendation).not.toBeNull();
       expect(d.conditionalRecommendation!.arrangement).toBe('net');
       expect(d.conditionalRecommendation!.result.simulation.unfunded).toBe(0);
+    }
+  });
+
+  it('no other property: a developer/bank tax loan gives a real (conditional) recommendation, repaid at delivery', () => {
+    for (const soleHome of [true, null]) {
+      const r = analyzeProfile({ ...base, soleHome }, terms, C).recommendation!;
+      expect(r).not.toBeNull();
+      expect(r.simulation.unfunded).toBe(0);
+      expect(r.simulation.taxLoanDrawn).toBeGreaterThan(200000);
+      expect(r.requiredConditions).toContain('TAX_LOAN');
+      expect(r.monthlyRepayment).toBeLessThanOrEqual(5000);
     }
   });
 

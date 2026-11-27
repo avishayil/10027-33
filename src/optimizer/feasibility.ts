@@ -40,7 +40,7 @@ export function assessEvaluation(
     else missing.push('CAPITAL_UNKNOWN');
   }
 
-  const financed = sim.drawsByStage.bridge + sim.drawsByStage.construction + sim.drawsByStage.mortgage;
+  const financed = sim.drawsByStage.bridge + sim.drawsByStage.construction + sim.drawsByStage.mortgage + sim.taxLoanDrawn;
   if (financed > EPS) {
     const P = profile.maxMonthlyRepayment;
     if (!capitalKnown) {
@@ -54,6 +54,7 @@ export function assessEvaluation(
     }
     if (sim.drawsByStage.bridge > EPS) conditions.add('BRIDGE_FINANCING');
     if (sim.taxesFinancedBySecuredLoan > EPS) conditions.add('SECURED_LOAN_OTHER_PROPERTY');
+    if (sim.taxLoanDrawn > EPS) conditions.add('TAX_LOAN');
     if (sim.drawsByStage.construction > EPS) conditions.add('CONSTRUCTION_FINANCING');
     conditions.add('LENDER_CONFIRMATION');
     // Without the user's capital the borrowing need itself is unknown, so collateral cannot be judged either.

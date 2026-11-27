@@ -28,7 +28,7 @@ function KeyAssumptions() {
     { text: <>עלות בנייה: <strong>{formatCurrency(PROJECT_CONFIG.construction.costPerSqm)} למ״ר</strong> לפני מע״מ ורווח יזמי</>, tag: 'הנחה', tagClass: 'verif-assumed' },
     { text: <>מחיר שיזם ישלם על זכויות: <strong>{formatCurrency(m.developerRightsSaleScenario.pricePerOriginalSqm)} למ״ר</strong> — תרחיש, לא הצעה קיימת</>, tag: 'לא מאומת', tagClass: 'verif-assumed' },
     { text: <>היטל השבחה: <strong>50%</strong> מעליית השווי בטבלת האיזון; מס שבח: רזרבה של <strong>25% מהרווח</strong></>, tag: 'חוק / אומדן', tagClass: 'verif-verified' },
-    { text: <>בקומבינציה מניחים עסקת <strong>״נטו״</strong> — היזם משלם את מס השבח וההיטל שלכם, כמקובל בעסקאות רבות. חובה לוודא בחוזה</>, tag: 'מקובל', tagClass: 'verif-reported' },
+    { text: <>יזם שמשלם את המסים שלכם מגלם אותם ב<strong>אחוז קומבינציה נמוך יותר</strong>. לכן בשלב הבא תסמנו מה ההצעה כוללת. ברירת המחדל: היזם משלם את היטל ההשבחה, ומס השבח והמע״מ על שירותי הבנייה עליכם (אפשר לממן אותם בהלוואת מסים מהיזם או מהבנק)</>, tag: 'מקובל', tagClass: 'verif-reported' },
     { text: <>ריבית משכנתא: <strong>5%</strong>, ובתרחיש השמרני 7%</>, tag: 'מדווח', tagClass: 'verif-reported' },
     { text: <>יזם צפוי להקצות לשירותי בנייה רק <strong>20%–30% מהדירות במגרש</strong> (כ-100 יח״ד), <strong>דירה אחת לכל היותר</strong> לבעלים — ומי שהקומבינציה כבר נותנת לו דירה שלמה (כ-3 זכויות ומעלה) צפוי לקבל קומבינציה מלאה</>, tag: 'הנחה', tagClass: 'verif-assumed' },
     { text: <>התכנית (עדכון 106(ב)) <strong>טרם אושרה סופית</strong> — הזכויות עדיין מוצעות</>, tag: 'סטטוס', tagClass: 'verif-reported' },

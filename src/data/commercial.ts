@@ -2,7 +2,11 @@
 import type { DataPoint, PaymentMilestone } from '../domain/types';
 import { RETRIEVED_AT } from './project';
 
-export const COMBINATION_RANGE = { min: 0.3, max: 0.4, default: 0.35 };
+/**
+ * The slider is the offer's %, under the arrangement it states (who pays the taxes). Net offers sit lower and gross
+ * offers higher: reported gross deals were 40%–47% (Rothstein 2022), so 25%–45% covers all three arrangements.
+ */
+export const COMBINATION_RANGE = { min: 0.25, max: 0.45, default: 0.35 };
 export const MARKUP_RANGE = { min: 0.15, max: 0.2, default: 0.175 };
 
 export const COMMERCIAL = {
@@ -103,12 +107,12 @@ export const COMMERCIAL = {
     value: 'mixed',
     label: 'הסדר המסים בקומבינציה שעליו מבוססת ההמלצה הראשית',
     sourceType: 'secondary_market',
-    sourceName: 'מדריכי מיסוי של משרדי עו״ד; סקר משרד הבינוי',
+    sourceName: 'מדריכי מיסוי של משרדי עו״ד; סקר משרד הבינוי; דוחות רוטשטיין 2024 וקרדן 2013 (מאי״ה)',
     sourceUrl: 'https://www.gov.il/BlobFolder/reports/r1060_moch/he/r1060.pdf',
     retrievedAt: '2026-11-27',
     verification: 'reported',
     notes:
-      'שלושה הסדרים קיימים: ברוטו (הבעלים משלמים היטל ומס שבח), מעורב (היזם משלם את ההיטל), נטו (היזם משלם את שניהם, בגילום). אין מקור שמראה שנטו הוא הנוהג הגובר; ״מעורב״ נבחר כבסיס כי נשיאת היזם בהיטל מדווחת כנפוצה. המערכת מחשבת את שלושתם ומציגה מה משתנה בכל אחד.',
+      'שלושה הסדרים: ברוטו (הבעלים משלמים היטל, מס שבח ומע״מ על שירותי הבנייה), מעורב (היזם משלם את ההיטל), נטו (היזם משלם את שלושתם, בגילום). אין מקור שמראה שנטו הוא הנוהג הגובר; ״מעורב״ הוא ברירת המחדל כי נשיאת היזם בהיטל מדווחת כנפוצה. בעסקאות מדווחות (רוטשטיין 2022, 40%–47%) הבעלים שילמו את המע״מ ולעיתים קיבלו הלוואת מסים. המשתמש בוחר מה ההצעה כוללת; ההסדרים האחרים מחושבים באחוז השקול ליזם (אותו רווח), לא באותו אחוז.',
   },
   contractorProfitRate: {
     value: 0.175,

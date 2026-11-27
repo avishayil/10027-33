@@ -36,12 +36,15 @@ export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: 
   const completionRevenue = sum((e) => e.category === 'completion_payment') / (1 + vat);
   const servicesRevenue = sum((e) => e.category === 'construction' && e.payer === 'owner') / (1 + vat);
   const constructionCost = unitsBuilt * build;
-  const barterVat = plan.rightsInCombination * terms.combinationPct * d * vat;
+  // VAT on barter services is a developer cost only when it bears it; VAT the owner pays is collected and remitted.
+  const developerBearsVat = plan.ledger.some((e) => e.category === 'services_vat' && e.payer === 'developer');
+  const barterVat = developerBearsVat ? plan.rightsInCombination * terms.combinationPct * d * vat : 0;
   const landPaid = sum((e) => e.category === 'sale_proceeds' && e.direction === 'in');
   const revenueSharePaid = sum((e) => e.category === 'revenue_share' && e.direction === 'in');
   const buyBack = plan.fractionSettled?.mode === 'cash' ? sum((e) => e.category === 'fraction_settlement') : 0;
   // (S13 value-based allocation: the developer pays the excess value in cash or receives the gap as completion.)
-  const devTaxes = sum((e) => e.payer === 'developer');
+  // Developer-borne services VAT is already counted in barterVat (on its own cost basis).
+  const devTaxes = sum((e) => e.payer === 'developer' && e.category !== 'services_vat');
   // The lot's public-building obligation (appraisal: 325 m² × ₪8,000/m² shell incl. VAT), at the owner's lot share.
   const publicConstruction = info.table.lotShare * config.publicConstruction.sqmPerLot * config.publicConstruction.costPerSqm;
 

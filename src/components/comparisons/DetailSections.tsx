@@ -176,12 +176,20 @@ export function CostLedger({ r }: { r: StrategyResult }) {
               <td />
               <td>{formatCurrency(r.capitalGainsTaxReserve)}</td>
             </tr>
+            {r.servicesVat > 0 && (
+              <tr className="row-total">
+                <th>מע״מ על שירותי הבנייה שעליכם</th>
+                <td />
+                <td>{formatCurrency(r.servicesVat)}</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
       <p className="field-hint">
         עלויות הבנייה כוללות מע״מ, רווח יזמי, רזרבה של 10% לבלתי צפוי והצמדה של 3% בשנה. היטל ההשבחה מוערך מטבלת
-        האיזון (50% מעליית השווי); כל זכות נושאת היטל פעם אחת בלבד. מס שבח — רזרבה על הרווח, לא על התמורה ברוטו.
+        האיזון (50% מעליית השווי); כל זכות נושאת היטל פעם אחת בלבד. מס שבח — רזרבה על הרווח, לא על התמורה ברוטו. בקומבינציה
+        כל מס (היטל, מס שבח, מע״מ על שירותי הבנייה) משולם פעם אחת — על ידיכם או על ידי היזם, לפי ההסדר.
       </p>
     </Section>
   );
@@ -217,6 +225,14 @@ export function Financing({ result, r }: { result: DecisionResult; r: StrategyRe
             <th>— מתוכה משכנתא על הדירה הגמורה</th>
             <td>{formatCurrency(s.drawsByStage.mortgage)}</td>
           </tr>
+          {s.taxLoanDrawn > 1 && (
+            <tr>
+              <th>הלוואת מסים מהיזם / מהבנק המלווה (נפרעת במסירה) · ריבית מצטברת</th>
+              <td>
+                {formatCurrency(s.taxLoanDrawn)} · {formatCurrency(s.taxLoanInterest)}
+              </td>
+            </tr>
+          )}
           <tr className={s.unfunded > 1 ? 'row-alert' : ''}>
             <th>תשלומים שאין להם מימון (מסים, היטל, עלויות)</th>
             <td>{formatCurrency(s.unfunded)}</td>

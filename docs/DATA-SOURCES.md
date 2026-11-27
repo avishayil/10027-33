@@ -55,6 +55,20 @@ New source-status values: `official_rule`, `court_ruling`, `offer_confirmed`, `u
 runtime; the market figures (₪25,000/m², ₪5,500 rent, 5% nominal) remain scenarios, and ₪6,900 / ₪7,100 / ₪1,916
 remain unverified references — not quotes.
 
+## Reported combination deals and the tax loan (2026-11-27)
+
+| Value | Base | Range | Status | Source |
+|---|---|---|---|---|
+| Services VAT payer | owner (gross, mixed) / developer (net) | — | reported practice | Rothstein 2024 periodic report, note 10 (owners paid VAT in all three deals) |
+| Tax-loan rate | prime + 2% = 6.75% | 4.75–8.75% | reported | Rothstein (prime + 2%); prime 4.75% after the BoI decision of 23.11.2026 (secondary sources — BoI site blocked automated access; verify) |
+| Combination range (slider) | 35% | 25–45% | scenario | covers net offers (lower) and reported gross deals (40–47%) |
+
+Reported deals (`COMBINATION_DEALS` in `src/data/evidence.ts`, shown in the assumptions panel), as transcribed in
+the owner's research — not yet re-checked against the filings on [mayafiles.tase.co.il](https://mayafiles.tase.co.il):
+Rothstein Rehovot 05/2022 (40%), Holon 03/2022 (47%, developer pays the new-plan levy up to ₪7.5M), Netanya 04/2022
+(43%), Karden Be'er Ya'akov 05/2009 (19%, developer pays the levy; owner credit guaranteed). Different land, years
+and rights — evidence of how deals split the taxes, not a % to expect here.
+
 ## Iteration 4 — evidence registry
 
 See `src/data/evidence.ts` and `docs/validation/market-evidence-2026-11-27.md`. The developer price (₪6,900),

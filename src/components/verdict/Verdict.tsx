@@ -14,7 +14,9 @@ import {
   formatRights,
   strategyTitle,
 } from '../../optimizer/explain';
-import { formatCompactCurrency, formatCurrency } from '../../utils/format';
+import { formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
+
+const pctHalf = (x: number) => `${formatNumber(Math.round(x * 200) / 2, 1)}%`;
 import { Tooltip } from '../Tooltip';
 
 const AFF_CLASS = { fits: 'estimated_feasible', fits_with_financing: 'conditional', does_not_fit: 'infeasible', unknown: 'unknown' } as const;
@@ -165,7 +167,7 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
   }
 
   const conditions = rec.requiredConditions.map((c) => CONDITION_TEXT[c]);
-  const PRIORITY: ConditionCode[] = ['NET_TAX_TERMS', 'LEVY_TERMS', 'SALE_DATE_DEFERRAL', 'SERVICES_CAPACITY', 'MIXED_STRUCTURE', 'COMPLETION_PRICE', 'COMPLETION_CLASSIFICATION', 'CONSTRUCTION_FINANCING', 'LENDER_CONFIRMATION'];
+  const PRIORITY: ConditionCode[] = ['NET_TAX_TERMS', 'LEVY_TERMS', 'TAX_LOAN', 'SALE_DATE_DEFERRAL', 'SERVICES_CAPACITY', 'MIXED_STRUCTURE', 'COMPLETION_PRICE', 'COMPLETION_CLASSIFICATION', 'CONSTRUCTION_FINANCING', 'LENDER_CONFIRMATION'];
   const checkFirst = PRIORITY.filter((c) => rec.requiredConditions.includes(c)).slice(0, 3);
   const why = explainWhy(rec, goal, result.ranked);
   const debt = rec.mortgageRequired > 1;
@@ -174,6 +176,8 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
   const builds = rec.plan.apartmentsBuilt > 0;
   const ownerTax = rec.capitalGainsTaxReserve;
   const devTax = rec.ledger.filter((e) => e.payer === 'developer' && e.category === 'capital_gains_tax').reduce((s, e) => s + e.amount, 0);
+  const devVat = rec.ledger.filter((e) => e.payer === 'developer' && e.category === 'services_vat').reduce((s, e) => s + e.amount, 0);
+  const loan = rec.simulation.taxLoanDrawn;
 
   return (
     <section className="card verdict" aria-live="polite" aria-labelledby="verdict-title">
@@ -234,6 +238,22 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
             {formatCurrency(ownerTax)} / {formatCurrency(devTax)}
           </dd>
         </div>
+        {combRights > 0 && (
+          <div>
+            <dt>מע״מ על שירותי הבנייה — עליכם / על היזם</dt>
+            <dd>
+              {formatCurrency(rec.servicesVat)} / {formatCurrency(devVat)}
+            </dd>
+          </div>
+        )}
+        {loan > 1 && (
+          <div>
+            <dt>הלוואת מסים (נפרעת במסירה) · ריבית עד המסירה</dt>
+            <dd>
+              {formatCurrency(loan)} · {formatCurrency(rec.simulation.taxLoanInterest)}
+            </dd>
+          </div>
+        )}
         {rec.purchaseTax > 0 && (
           <div>
             <dt>מס רכישה (עליכם)</dt>
@@ -349,12 +369,16 @@ export function Alternatives({ result }: { result: DecisionResult }) {
 }
 
 const ARRANGEMENT_LABELS: Record<TaxArrangement, string> = {
-  gross: 'עסקת ברוטו — אתם משלמים את ההיטל ואת מס השבח',
-  mixed: 'עסקה מעורבת — היזם משלם את ההיטל, אתם את מס השבח',
-  net: 'עסקת נטו — היזם משלם את ההיטל ואת מס השבח',
+  gross: 'עסקת ברוטו — אתם משלמים את ההיטל, את מס השבח ואת המע״מ',
+  mixed: 'עסקה מעורבת — היזם משלם את ההיטל, אתם את מס השבח והמע״מ',
+  net: 'עסקת נטו — היזם משלם את ההיטל, את מס השבח ואת המע״מ',
 };
+const ARRANGEMENT_NAME: Record<TaxArrangement, string> = { gross: 'עסקת ברוטו', mixed: 'עסקה מעורבת', net: 'עסקת נטו' };
 
-/** "If the developer pays the taxes choose X, otherwise Y" — the decision under each tax arrangement. */
+/**
+ * "If the developer pays the taxes choose X, otherwise Y" — the decision under each tax arrangement, each at the %
+ * a developer would offer for it (same developer profit), with the % at which it is still worth it for you.
+ */
 export function ArrangementTree({ result }: { result: DecisionResult }) {
   const ids = new Set(result.arrangements.map((a) => a.recommendationId));
   const title = (id: string | null) => {
@@ -367,28 +391,54 @@ export function ArrangementTree({ result }: { result: DecisionResult }) {
       <ul>
         {result.arrangements.map((a) => (
           <li key={a.arrangement}>
-            <span className="muted">{ARRANGEMENT_LABELS[a.arrangement]}:</span> <strong>{title(a.recommendationId)}</strong>
+            <span className="muted">
+              {ARRANGEMENT_LABELS[a.arrangement]}
+              {a.combinationPct !== null && <> · בכ-{pctHalf(a.combinationPct)}</>}:
+            </span>{' '}
+            <strong>{a.combinationPct === null ? 'אין אחוז שקול בטווח' : title(a.recommendationId)}</strong>
             {a.recommendationId && (
               <span className="muted">
                 {' '}
                 · {a.wholeApartments} דירות · בחתימה {formatCurrency(a.cashAtSigning)}
-                {a.mortgageRequired > 1 ? ` · משכנתא ${formatCurrency(a.mortgageRequired)}` : ''}
+                {a.mortgageRequired > 1 ? ` · חוב בשיא ${formatCurrency(a.mortgageRequired)}` : ''}
               </span>
             )}
           </li>
         ))}
       </ul>
+      <BreakEvens result={result} />
       <p className="field-hint">
-        ההמלצה הראשית מניחה עסקה מעורבת. בפועל זה נקבע בחוזה — אף הסדר אינו ״ברירת המחדל של השוק״.
+        יזם שלוקח על עצמו מסים מגלם אותם בתמורה: לכן כל הסדר מחושב באחוז שמשאיר ליזם אותו רווח, ולא באותו אחוז. ההמלצה
+        הראשית לפי ההצעה שהזנתם. בפועל זה נקבע בחוזה — אף הסדר אינו ״ברירת המחדל של השוק״. הלוואה לתשלום המסים אינה
+        תשלום שלהם: הקרן והריבית עליכם.
       </p>
     </div>
+  );
+}
+
+/** "A net offer is worth it for you only from X%; a developer is expected to offer about Y%." */
+function BreakEvens({ result }: { result: DecisionResult }) {
+  const lines = result.arrangements.filter(
+    (a) => a.combinationPct !== null && a.ownerBreakEvenPct !== null && Math.abs(a.combinationPct - a.ownerBreakEvenPct) > 1e-9,
+  );
+  if (!lines.length) return null;
+  return (
+    <ul className="field-hint">
+      {lines.map((a) => (
+        <li key={a.arrangement}>
+          {ARRANGEMENT_NAME[a.arrangement]} משתלמת לכם רק מ-{pctHalf(a.ownerBreakEvenPct!)} ומעלה; יזם צפוי להציע בה כ-
+          {pctHalf(a.combinationPct!)}
+          {a.combinationPct! >= a.ownerBreakEvenPct! ? ' — בערך שווה או טוב יותר לכם.' : ' — פחות טוב לכם מההצעה שהזנתם.'}
+        </li>
+      ))}
+    </ul>
   );
 }
 
 const CONDITION_FOR: Record<TaxArrangement, string> = {
   gross: '',
   mixed: 'שהיזם נושא בהיטל ההשבחה (עסקה מעורבת)',
-  net: 'שהיזם נושא גם במס השבח וגם בהיטל ההשבחה (עסקת נטו)',
+  net: 'שהיזם נושא בכל המסים — היטל, מס שבח ומע״מ (עסקת נטו)',
 };
 
 /** Nothing fits under the headline terms, but a route fits under other contract terms — say so plainly. */
@@ -402,8 +452,9 @@ function ConditionalDirection({ result }: { result: DecisionResult }) {
         {strategyTitle(r)} — בתנאי {CONDITION_FOR[c.arrangement]}
       </h2>
       <p className="verdict-desc">
-        בתנאים שהנחנו כבסיס (אתם משלמים את מס השבח) אין לכם מספיק כסף פנוי לשלם את המס במועד. אבל אם תשיגו את התנאי
-        הזה בחוזה — המסלול הזה מתאים ליכולת שלכם. זה הדבר הראשון לבדוק מול היזם. חלופה: בקשת דחיית תשלום המס לפי סעיף
+        בתנאי ההצעה שהזנתם אין לכם מספיק כסף פנוי לשלם את המסים במועד. אם היזם ייקח אותם על עצמו בחוזה — המסלול הזה
+        מתאים ליכולת שלכם. אבל יזם שמשלם מסים מגלם אותם בתמורה: חישבנו לפי אחוז קומבינציה של כ-{pctHalf(c.combinationPct)}{' '}
+        בלבד. זה הדבר הראשון לבדוק מול היזם. חלופות: הלוואת מסים מהיזם או מהבנק המלווה, או בקשת דחיית תשלום המס לפי סעיף
         91א (לא מובטחת).
       </p>
       <p className="verdict-desc">{STRATEGY_DESCRIPTIONS[r.strategyType]}</p>

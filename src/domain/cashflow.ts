@@ -27,6 +27,7 @@ export const NON_FINANCEABLE: ReadonlySet<LedgerCategory> = new Set<LedgerCatego
   'purchase_tax',
   'transaction_costs',
   'betterment_levy',
+  'services_vat',
 ]);
 
 /** Payments that create the asset and can partly count toward pre-completion collateral. */
@@ -57,6 +58,12 @@ export interface SimulationInput {
    * be financed by that secured loan (conditional on lender approval) instead of being unfunded.
    */
   taxesFinanceableBySecuredLoan?: boolean;
+  /**
+   * A tax loan from the developer or the financing bank (combination deals): covers eligible tax events cash cannot
+   * pay. Interest is capitalised until completion (no payments before it); the balance is then refinanced as a
+   * mortgage on the delivered apartment, where the LTV test applies (not against the pre-delivery land price).
+   */
+  taxLoan?: { annualRate: number };
 }
 
 const EPS = 0.5;
@@ -106,6 +113,10 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let totalDrawn = 0;
   let unfunded = 0;
   let taxesFinanced = 0;
+  let taxLoanBalance = 0;
+  let taxLoanDrawn = 0;
+  let taxLoanInterest = 0;
+  const taxLoanMonthly = input.taxLoan ? input.taxLoan.annualRate / 12 : 0;
   // Principal repaid so far (prepayments + amortisation), attributed to the secured tax loan first — so the debt
   // counted against the project's own collateral is never understated.
   let principalRepaid = 0;
@@ -137,6 +148,11 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     }
     const events = byMonth.get(m) ?? [];
     const stage = stageOf(m, input.permitMonth, input.completionMonth);
+    if (taxLoanBalance > 0 && m <= input.completionMonth) {
+      const accrued = taxLoanBalance * taxLoanMonthly;
+      taxLoanBalance += accrued;
+      taxLoanInterest += accrued;
+    }
 
     for (const e of events) if (e.amount >= 0) cash += e.amount;
 
@@ -152,6 +168,16 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
           totalDrawn += draw;
           drawsByStage[stage] += draw;
           taxesFinanced += draw;
+        } else if (input.taxLoan && e.taxLoanEligible) {
+          const draw = need - fromCash;
+          totalDrawn += draw;
+          taxLoanDrawn += draw;
+          if (m >= input.completionMonth) {
+            debt += draw;
+            drawsByStage.mortgage += draw;
+          } else {
+            taxLoanBalance += draw;
+          }
         } else {
           unfunded += need - fromCash;
           unfundedItems.push({ month: m, category: e.category, label: e.label, amount: need - fromCash });
@@ -174,21 +200,35 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       }
     }
 
+    // At delivery the tax loan (principal + capitalised interest) is refinanced as a mortgage on the apartment.
+    if (taxLoanBalance > 0 && m >= input.completionMonth) {
+      debt += taxLoanBalance;
+      drawsByStage.mortgage += taxLoanBalance;
+      taxLoanBalance = 0;
+    }
+
     if (debt > 0) {
       const repay = Math.min(debt, Math.max(0, cash - reserveAfter[m]));
       debt -= repay;
       principalRepaid += repay;
       cash -= repay;
     }
+    if (taxLoanBalance > 0) {
+      const repay = Math.min(taxLoanBalance, Math.max(0, cash - reserveAfter[m]));
+      taxLoanBalance -= repay;
+      cash -= repay;
+    }
 
-    peakDebt = Math.max(peakDebt, debt);
+    peakDebt = Math.max(peakDebt, debt + taxLoanBalance);
     maxCapitalUsed = Math.max(maxCapitalUsed, Math.min(reference, reference - cash));
 
     const afterCompletion = m >= input.completionMonth;
     if (debt > EPS) {
       if (!afterCompletion) {
         const collateral = (input.preCompletionLandCollateral ?? 0) + paidIntoAsset * wip;
-        // The tax loan is secured on the household's other property, not on this project.
+        // Not on this project's land: a loan secured on the household's other property, and the tax loan — the
+        // developer/escort bank underwrites it on the owner's apartment entitlement, and it is tested on the
+        // delivered apartment once refinanced (post-completion LTV).
         peakPreLtv = Math.max(peakPreLtv, collateral > 0 ? projectDebt() / collateral : projectDebt() > EPS ? Infinity : 0);
       } else {
         const collateral = input.postCompletionCollateral ?? 0;
@@ -237,7 +277,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
 
   return {
     cashAtHorizon: cash,
-    debtAtHorizon: debt,
+    debtAtHorizon: debt + taxLoanBalance,
     peakDebt,
     totalDrawn,
     peakPersonalMonthly: Math.max(0, peakPersonal),
@@ -255,6 +295,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     unfunded,
     unfundedItems,
     taxesFinancedBySecuredLoan: taxesFinanced,
+    taxLoanDrawn,
+    taxLoanInterest,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

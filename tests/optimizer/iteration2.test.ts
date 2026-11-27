@@ -243,7 +243,10 @@ describe('developer economics', () => {
     const services = 0.7875 * 1_100_000 * 1.175 * 1.18; // incl. ordinary contractor profit
     const rev = 0.65 * 2.25 * a;
     const publicShare = 0.02353 * 325 * 8000; // owner's lot share of the public-building shell (appraisal p.97)
-    const costs = 2.25 * build + 0.7875 * 1_100_000 * 0.18 + L + 0.06 * (services + L) + publicShare;
+    // Mixed deal: the owner pays the services VAT (collected and remitted — no developer cost); purchase tax on the
+    // consideration ex that VAT.
+    const servicesExVat = services / 1.18;
+    const costs = 2.25 * build + L + 0.06 * (servicesExVat + L) + publicShare;
     const s02 = run().results.find((x) => x.id === 'S02')!;
     expect(s02.developerPnL!.revenue).toBeCloseTo(rev, 4);
     expect(s02.developerPnL!.costs).toBeCloseTo(costs, 4);

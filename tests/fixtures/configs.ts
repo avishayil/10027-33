@@ -2,7 +2,8 @@
  * Named configurations for fixtures.
  * LEGACY reproduces the iteration-2 tax assumptions exactly (no contractor profit in the services value, levy
  * simplified to zero, capital-gains tax at signing, 6% completion purchase tax) — kept only so the previously
- * reconciled numbers stay traceable. It is not a current assumption.
+ * reconciled numbers stay traceable. It is not a current assumption. Legacy and golden fixtures keep the services VAT
+ * on the developer (servicesVatOnOwner: false), as before the payer table.
  */
 import { PROJECT_CONFIG as C } from '../../src/data/config';
 import type { ProjectConfig, TaxArrangement } from '../../src/domain/types';
@@ -18,7 +19,7 @@ export const LEGACY_BASE: ProjectConfig = {
   market: { ...C.market, apartmentValueAnnualGrowth: 0.02 },
   financing: { ...C.financing, alternativeNetAnnualReturn: 0.04 },
   commercial: { ...C.commercial, contractorProfitRate: 0, combinationSaleDate: 'signing' },
-  taxation: { ...C.taxation, bettermentLevyFactor: 0, completionPurchaseTax: { soleHome: 0.06, additionalHome: 0.06 } },
+  taxation: { ...C.taxation, bettermentLevyFactor: 0, completionPurchaseTax: { soleHome: 0.06, additionalHome: 0.06 }, servicesVatOnOwner: false },
 };
 export const LEGACY_OWNER_PAYS = withArrangement(LEGACY_BASE, 'mixed');
 export const LEGACY_NET = withArrangement(LEGACY_BASE, 'net');
@@ -26,8 +27,17 @@ export const LEGACY_NET = withArrangement(LEGACY_BASE, 'net');
 /** Reviewer's golden fixture: contractor profit 17.5%, levy simplified to zero, flat 25%, zero basis. */
 export const GOLDEN_TAX: ProjectConfig = {
   ...C,
-  taxation: { ...C.taxation, bettermentLevyFactor: 0 },
+  taxation: { ...C.taxation, bettermentLevyFactor: 0, servicesVatOnOwner: false },
 };
+
+/** Iteration-4 tax terms: services VAT always absorbed by the developer (before the payer table). */
+export const VAT_ON_DEVELOPER: ProjectConfig = { ...C, taxation: { ...C.taxation, servicesVatOnOwner: false } };
+
+/** No developer/bank tax loan: combination taxes the cash cannot cover are unfunded (iteration-4 rule). */
+export const NO_TAX_LOAN: ProjectConfig = { ...C, financing: { ...C.financing, taxLoan: { ...C.financing.taxLoan, available: false } } };
+
+/** Iteration-4 tax terms in full: services VAT on the developer and no tax loan. */
+export const ITERATION4_TAX_TERMS: ProjectConfig = { ...NO_TAX_LOAN, taxation: VAT_ON_DEVELOPER.taxation };
 
 export const NET = withArrangement(C, 'net');
 export const GROSS = withArrangement(C, 'gross');

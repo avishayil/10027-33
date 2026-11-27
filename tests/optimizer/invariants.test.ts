@@ -1,8 +1,10 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { ASSUMPTION_GROUPS, PROJECT_CONFIG as C } from '../../src/data/config';
+import { withArrangement } from '../../src/domain/arrangements';
 import { simulateCashflow } from '../../src/domain/cashflow';
-import type { Goal, UserProfile } from '../../src/domain/types';
+import { constructionServiceTaxValuePerApartment } from '../../src/domain/construction';
+import type { Goal, TaxArrangement, UserProfile } from '../../src/domain/types';
 import { analyzeProfile } from '../../src/optimizer/analyze';
 import { rightsBalance } from '../../src/optimizer/generate';
 
@@ -16,7 +18,7 @@ const profileArb = fc.record({
 }) as fc.Arbitrary<UserProfile>;
 
 const termsArb = fc.record({
-  combinationPct: fc.double({ min: 0.3, max: 0.4, noNaN: true }),
+  combinationPct: fc.double({ min: 0.25, max: 0.45, noNaN: true }),
   developerMarkup: fc.double({ min: 0.15, max: 0.2, noNaN: true }),
 });
 
@@ -38,6 +40,27 @@ describe('mathematical invariants', () => {
         }
       }),
       { numRuns: 40 },
+    );
+  });
+
+  it('combination services VAT is charged exactly once; a tax loan never covers more than the owner’s taxes', () => {
+    fc.assert(
+      fc.property(profileArb, termsArb, fc.constantFrom('gross', 'mixed', 'net') as fc.Arbitrary<TaxArrangement>, (p, t, arr) => {
+        const cfg = withArrangement(C, arr);
+        const d = analyzeProfile(p, t, cfg);
+        const perEq = constructionServiceTaxValuePerApartment(cfg) * (cfg.taxation.vatRate / (1 + cfg.taxation.vatRate));
+        for (const r of d.results) {
+          const vat = r.ledger.filter((e) => e.category === 'services_vat');
+          const expected = r.plan.rightsInCombination * t.combinationPct * perEq;
+          expect(vat.reduce((s, e) => s + e.amount, 0)).toBeCloseTo(expected, 4);
+          expect(new Set(vat.map((e) => e.payer)).size).toBeLessThanOrEqual(1);
+          const eligible = r.ledger
+            .filter((e) => e.payer === 'owner' && e.taxLoanEligible)
+            .reduce((s, e) => s + e.amount, 0);
+          expect(r.simulation.taxLoanDrawn).toBeLessThanOrEqual(eligible + 1);
+        }
+      }),
+      { numRuns: 25 },
     );
   });
 

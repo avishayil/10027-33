@@ -2,7 +2,7 @@
 import { useId } from 'react';
 import { PROJECT_CONFIG } from '../../data/config';
 import { mortgageCapacity } from '../../domain/mortgage';
-import type { Goal } from '../../domain/types';
+import type { Goal, TaxArrangement } from '../../domain/types';
 import type { DecisionEngine } from '../../hooks/useDecisionEngine';
 import { GOAL_LABELS } from '../../optimizer/explain';
 import { formatCurrency, formatNumber } from '../../utils/format';
@@ -305,14 +305,37 @@ function RangeField({
   );
 }
 
+export const OFFER_INCLUDES: Record<TaxArrangement, string> = {
+  gross: 'כלום (ברוטו)',
+  mixed: 'רק את היטל ההשבחה (מעורבת)',
+  net: 'הכול: היטל, מס שבח ומע״מ (נטו)',
+};
+/** What is left on the owner under each arrangement — shown under the select. */
+const OWNER_PAYS: Record<TaxArrangement, string> = {
+  gross: 'היטל ההשבחה, מס השבח והמע״מ על שירותי הבנייה עליכם.',
+  mixed: 'מס השבח והמע״מ על שירותי הבנייה עליכם.',
+  net: 'אתם לא משלמים מסים על העסקה — אבל האחוז בהתאם נמוך יותר.',
+};
+export const ARRANGEMENT_SHORT: Record<TaxArrangement, string> = { gross: 'ברוטו', mixed: 'מעורבת', net: 'נטו' };
+
+/** "The same offer is worth about X% gross or Y% net" — the developer-equivalent % of the other arrangements. */
+function equivalenceHint(engine: DecisionEngine): string | null {
+  const others = (engine.result?.arrangements ?? []).filter((a) => a.arrangement !== engine.inputs.taxArrangement && a.combinationPct !== null);
+  if (!others.length) return null;
+  const list = others.map((a) => `כ-${pct(Math.round(a.combinationPct! * 200) / 200)} ב${ARRANGEMENT_SHORT[a.arrangement]}`).join(' או ');
+  return `יזם שלוקח על עצמו יותר מסים מציע אחוז נמוך יותר: ההצעה הזו שקולה ל${list}.`;
+}
+
 export function TermsFields({ engine }: { engine: DecisionEngine }) {
   const { inputs: i, result } = engine;
   const c = PROJECT_CONFIG.commercial;
   const R = result?.rights.apartmentEquivalents ?? 0;
+  const arrId = useId();
+  const eq = equivalenceHint(engine);
   return (
     <div className="fields terms-fields">
       <RangeField
-        label="אחוז קומבינציה"
+        label="אחוז קומבינציה בהצעה"
         hint={`איזה חלק מהזכויות חוזר אליכם כדירות גמורות. ב-${pct(i.combinationPct)}: ${formatNumber(R * i.combinationPct, 2)} דירות מתוך ${formatNumber(R, 2)} הזכויות שלכם. זו הנחה לבדיקה — לא הצעה מאושרת.`}
         value={i.combinationPct}
         min={c.combination.min}
@@ -320,6 +343,19 @@ export function TermsFields({ engine }: { engine: DecisionEngine }) {
         onChange={i.setCombinationPct}
         marks={[c.combination.min, c.combination.default, c.combination.max]}
       />
+      <div className="field">
+        <label htmlFor={arrId}>מה היזם משלם באחוז הזה?</label>
+        <select id={arrId} value={i.taxArrangement} onChange={(e) => i.setTaxArrangement(e.target.value as TaxArrangement)}>
+          {(['gross', 'mixed', 'net'] as TaxArrangement[]).map((a) => (
+            <option key={a} value={a}>
+              {OFFER_INCLUDES[a]}
+            </option>
+          ))}
+        </select>
+        <p className="field-hint">
+          {OWNER_PAYS[i.taxArrangement]} לא בטוחים? השאירו ״מעורבת״. {eq}
+        </p>
+      </div>
       <RangeField
         label="רווח יזמי בשירותי בנייה"
         hint="התוספת שהיזם גובה מעל עלות הבנייה כשאתם משלמים על הבנייה בעצמכם. הנחה — לא הצעה מאושרת."
@@ -377,6 +413,6 @@ export function describeAnswers(engine: DecisionEngine) {
             ? 'לא הוזן'
             : `עד ${formatCurrency(Number(i.repaymentText))} בחודש`,
     goal: GOAL_LABELS[i.goal],
-    terms: `קומבינציה ${pct(i.combinationPct)} · רווח יזמי ${pct(i.developerMarkup)}`,
+    terms: `קומבינציה ${pct(i.combinationPct)} (${ARRANGEMENT_SHORT[i.taxArrangement]}) · רווח יזמי ${pct(i.developerMarkup)}`,
   };
 }

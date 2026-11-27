@@ -15,6 +15,7 @@ import {
   constructionServiceTaxValuePerApartment,
   permitMonth as permitMonthOf,
 } from './construction';
+import { ARRANGEMENT_PAYERS } from './arrangements';
 import { capitalGainsReserve, levyPerRight, netMonthlyRentPerApartment } from './taxation';
 import type {
   CashEvent,
@@ -96,7 +97,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   ) => {
     if (amount <= 0 && !extra.rightsPortion) return;
     ledger.push({ category, label, amount, direction: 'out', month, payer, ...extra });
-    if (payer === 'owner' && !extra.deferred && amount > 0) events.push({ month, amount: -amount, label, category });
+    if (payer === 'owner' && !extra.deferred && amount > 0)
+      events.push({ month, amount: -amount, label, category, ...(extra.taxLoanEligible ? { taxLoanEligible: true } : {}) });
   };
   const inflow = (month: number, amount: number, label: string, category: LedgerEntry['category']) => {
     if (amount <= 0) return;
@@ -108,7 +110,11 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     cgRange.high += t.high;
     return t.used;
   };
-  const levyPayer: LedgerEntry['payer'] = arrangement === 'gross' ? 'owner' : 'developer';
+  const payers = ARRANGEMENT_PAYERS[arrangement];
+  const levyPayer: LedgerEntry['payer'] = payers.levy;
+  const vatRate = config.taxation.vatRate;
+  // VAT on the services received: charged to the arrangement's payer, or always absorbed by the developer (legacy).
+  const servicesVatPayer: LedgerEntry['payer'] = config.taxation.servicesVatOnOwner ? payers.servicesVat : 'developer';
 
   for (const leg of candidate.legs) {
     switch (leg.kind) {
@@ -166,11 +172,17 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         const levy = leg.rights * levyUnit;
         out(permit, levy, levyPayer === 'owner' ? 'היטל השבחה — עליכם (עסקת ברוטו)' : 'היטל השבחה — משולם ע״י היזם', 'betterment_levy', levyPayer, {
           rightsPortion: leg.rights,
+          taxLoanEligible: true,
         });
         const developerPaidLevy = levyPayer === 'developer' ? levy : 0;
+        // VAT on the services: a private owner cannot reclaim it. When the owner pays it, the land's consideration is
+        // the services ex VAT (the owner is not taxed on VAT it paid itself — to be confirmed by a tax adviser).
+        const servicesVat = (services * vatRate) / (1 + vatRate);
+        out(permit, servicesVat, servicesVatPayer === 'owner' ? 'מע״מ על שירותי הבנייה שאתם מקבלים' : 'מע״מ על שירותי הבנייה — על היזם', 'services_vat', servicesVatPayer, { taxLoanEligible: true });
+        const ownerPaidVat = servicesVatPayer === 'owner' ? servicesVat : 0;
         const soldPortion = leg.rights * (1 - terms.combinationPct);
         const tax = capitalGainsReserve({
-          consideration: services + developerPaidLevy,
+          consideration: services - ownerPaidVat + developerPaidLevy,
           deductibleCosts: 0,
           deductibleLevy: levy * (1 - terms.combinationPct),
           rightsPortion: soldPortion,
@@ -179,7 +191,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
           config,
         });
         let developerPaidTax = 0;
-        if (arrangement === 'net') {
+        if (payers.capitalGainsTax === 'developer') {
           // Net deal: the developer pays the owner's tax; that payment is itself consideration → gross-up.
           const g = 1 / (1 - cgRate);
           developerPaidTax = tax.used * g;
@@ -189,10 +201,11 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         } else {
           out(combinationSaleMonth, addCg(tax), 'מס שבח על שירותי הבנייה שמתקבלים (רזרבה)', 'capital_gains_tax', 'owner', {
             range: { low: tax.low, high: tax.high },
+            taxLoanEligible: true,
           });
         }
         // The developer's acquisition tax on the land it receives, on the full consideration including taxes it pays.
-        out(combinationSaleMonth, (services + developerPaidLevy + developerPaidTax) * buyerPurchaseTax, 'מס רכישה על הקרקע — על היזם', 'purchase_tax', 'developer');
+        out(combinationSaleMonth, (services - ownerPaidVat + developerPaidLevy + developerPaidTax) * buyerPurchaseTax, 'מס רכישה על הקרקע — על היזם', 'purchase_tax', 'developer');
         break;
       }
       case 'completion': {

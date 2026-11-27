@@ -118,8 +118,9 @@ export interface ProjectConfig {
     /** Price at which a developer settles a fractional entitlement in cash, as a share of market value. */
     fractionCashSettlementFactor: number;
     /**
-     * Tax arrangement in combination deals: gross (owner pays levy and capital-gains tax), mixed (developer pays
-     * the levy), net (developer pays both, the tax grossed up). The engine evaluates all three; this is the headline.
+     * Tax arrangement in combination deals: gross (owner pays levy, capital-gains tax and services VAT), mixed
+     * (developer pays the levy), net (developer pays all three, the tax grossed up). This is what the offer at the
+     * slider's combination % includes; the other arrangements are evaluated at their developer-equivalent %.
      */
     taxArrangement: TaxArrangement;
     /** Statutory sale date for a pre-approval combination: plan approval under §19(3א) (conditional) or signing. */
@@ -183,6 +184,11 @@ export interface ProjectConfig {
     saleTransactionCostRate: number;
     /** Capital-gains tax on revenue-sharing deals is assessed at signing (conservative). */
     revenueShareTaxAtSigning: boolean;
+    /**
+     * VAT on the construction services received in a combination is charged to whoever the arrangement names
+     * (owner in gross/mixed, developer in net). Off = the developer always absorbs it (iteration 1–4 behaviour).
+     */
+    servicesVatOnOwner: boolean;
   };
   financing: {
     nominalAnnualInterest: number;
@@ -194,6 +200,8 @@ export interface ProjectConfig {
     comfortableLtv: number;
     /** Share of amounts already paid into construction that a lender might recognise as security before completion. */
     workInProgressRecognition: number;
+    /** Tax loan from the developer or the financing bank for combination taxes (reported practice; conditional). */
+    taxLoan: { available: boolean; annualRate: number };
   };
   analysis: {
     horizonYears: number;
@@ -287,6 +295,7 @@ export type LedgerCategory =
   | 'construction'
   | 'betterment_levy'
   | 'capital_gains_tax'
+  | 'services_vat'
   | 'purchase_tax'
   | 'transaction_costs'
   | 'rights_purchase'
@@ -312,6 +321,8 @@ export interface LedgerEntry {
   range?: { low: number; high: number };
   /** Part of disposing of land rights (used to compute net sale proceeds). */
   saleRelated?: boolean;
+  /** A combination tax the owner pays that a developer/bank tax loan may cover. */
+  taxLoanEligible?: boolean;
 }
 
 export interface CashEvent {
@@ -320,6 +331,8 @@ export interface CashEvent {
   amount: number;
   label: string;
   category: LedgerCategory;
+  /** A combination tax the owner pays that a developer/bank tax loan may cover. */
+  taxLoanEligible?: boolean;
 }
 
 export interface TransactionPlan {
@@ -392,6 +405,10 @@ export interface SimulationResult {
   unfunded: number;
   /** Taxes/levy/costs financed by a loan secured on another property the household owns (conditional). */
   taxesFinancedBySecuredLoan: number;
+  /** Combination taxes covered by a tax loan from the developer or the financing bank (conditional). */
+  taxLoanDrawn: number;
+  /** Interest capitalised on the tax loan until delivery (then refinanced as a mortgage). */
+  taxLoanInterest: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -453,7 +470,8 @@ export type ConditionCode =
   | 'COMPLETION_CLASSIFICATION'
   | 'NET_TAX_TERMS'
   | 'LEVY_TERMS'
-  | 'SECURED_LOAN_OTHER_PROPERTY';
+  | 'SECURED_LOAN_OTHER_PROPERTY'
+  | 'TAX_LOAN';
 
 export interface ScenarioAssessment {
   fails: ReasonCode[];
@@ -506,6 +524,8 @@ export interface StrategyResult {
   constructionCost: number;
   bettermentLevy: number;
   capitalGainsTaxReserve: number;
+  /** VAT on construction services received in a combination, when the owner pays it (gross / mixed). */
+  servicesVat: number;
   capitalGainsRange: { low: number; high: number };
   purchaseTax: number;
   additionalCosts: number;
@@ -623,7 +643,8 @@ export interface DecisionResult {
    * When nothing fits under the headline terms but a route fits under a different tax arrangement: that route,
    * presented as a conditional direction ("works if the developer bears the taxes").
    */
-  conditionalRecommendation: { result: StrategyResult; arrangement: TaxArrangement } | null;
+  /** Fits only under other tax terms — at that arrangement's developer-equivalent combination %. */
+  conditionalRecommendation: { result: StrategyResult; arrangement: TaxArrangement; combinationPct: number } | null;
   /** When no evidence-based route fits: the closest ones and the extra capital each would need. */
   nearMiss: { result: StrategyResult; additionalCapital: number | null }[];
   /** Extra own capital per evidence-based route type that does not fit (one per strategy type). */
@@ -652,6 +673,13 @@ export interface Projection {
 
 export interface ArrangementOutcome {
   arrangement: TaxArrangement;
+  /**
+   * The combination % this arrangement was evaluated at: the slider for the headline, otherwise the
+   * developer-equivalent % (same developer profit). Null when no % in range is equivalent.
+   */
+  combinationPct: number | null;
+  /** The % under this arrangement at which the owner is as well off as under the headline offer. */
+  ownerBreakEvenPct: number | null;
   recommendationId: string | null;
   wholeApartments: number;
   feasibility: Feasibility | null;

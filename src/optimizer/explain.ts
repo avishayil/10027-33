@@ -103,6 +103,8 @@ export const CONDITION_TEXT: Record<ConditionCode, string> = {
   LEVY_TERMS: 'שהיזם נושא בהיטל ההשבחה, עם ביטחונות.',
   SECURED_LOAN_OTHER_PROPERTY:
     'הלוואה בשעבוד הדירה הקיימת שלכם (״משכנתא לכל מטרה״) למימון מס השבח וההיטל — בכפוף לאישור הבנק ולשווי הדירה. מימון בנייה רגיל לא מממן מסים.',
+  TAX_LOAN:
+    'הלוואת מסים מהיזם או מהבנק המלווה (מקובל בעסקאות קומבינציה) — לבדוק בחוזה את הריבית, הבטוחות ומועד הפירעון. הלוואה אינה תשלום: הקרן והריבית עליכם, ובמסירה היתרה עוברת למשכנתא על הדירה.',
   SERVICES_CAPACITY: 'שיש מקום פנוי לשירותי בנייה במגרש — היזם צפוי להקצות רק 20%–30% מהדירות, וייתכן שיהיו יותר מבקשים ממקומות.',
 };
 
@@ -172,7 +174,7 @@ export function explainWhy(r: StrategyResult, goal: Goal, ranked: StrategyResult
     out.push('שימו לב: לפי מודל צד היזם, העסקה כמעט לא משאירה לו רווח בהנחות הנוכחיות — ייתכן שלא תוצע.');
   }
   if (r.mortgageRequired <= 1) out.push('לא נדרשת משכנתא.');
-  else out.push(`נדרשת משכנתא של כ-${fmtN(Math.round(r.mortgageRequired / 1000))} אלף ₪.`);
+  else out.push(`נדרשת ${debtLabel(r)} של כ-${fmtN(Math.round(r.mortgageRequired / 1000))} אלף ₪.`);
   if (m.resilience >= 0.5) out.push('נשאר מתאים גם בתרחיש השמרני.');
   if (r.feasibility === 'fragile') out.push('שימו לב: בתרחיש השמרני המסלול חורג מהיכולת שלכם.');
   if (goal === 'passive_income' && m.sustainableMonthlyIncome > 0) {
@@ -198,12 +200,23 @@ export const RISK_LABELS: Record<RiskLevel, string> = { low: 'סיכון נמו�
  * scenario (+2), and developer terms in doubt (+1). 0 → low, 1–2 → medium, 3+ → high. An unknown price is not a
  * risk score here — it is stated on the card as "depends on a price".
  */
+/** True when the only borrowing is a tax loan repaid in full at delivery (no mortgage payments). */
+export function onlyTaxLoan(r: StrategyResult): boolean {
+  const s = r.simulation;
+  return s.taxLoanDrawn > 1 && s.drawsByStage.bridge + s.drawsByStage.construction <= 1 && s.postCompletionMonthly <= 1;
+}
+
+/** "משכנתא", or "הלוואת מסים" when that is all the route borrows. */
+export function debtLabel(r: StrategyResult): string {
+  return onlyTaxLoan(r) ? 'הלוואת מסים' : 'משכנתא';
+}
+
 export function riskLevel(r: StrategyResult): { level: RiskLevel; reasons: string[] } {
   const reasons: string[] = [];
   let points = 0;
   if (r.mortgageRequired > 1) {
     points += 1;
-    reasons.push('נדרשת משכנתא');
+    reasons.push(onlyTaxLoan(r) ? 'נדרשת הלוואת מסים (נפרעת במסירה)' : 'נדרשת משכנתא');
   }
   if (r.assessment.resilience === 'fragile') {
     points += 2;

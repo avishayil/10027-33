@@ -11,7 +11,7 @@ import type { CashEvent, ProjectConfig, UserProfile } from '../../src/domain/typ
 import { analyzeProfile } from '../../src/optimizer/analyze';
 import { evaluateCandidate } from '../../src/optimizer/evaluate';
 import { generateStrategies } from '../../src/optimizer/generate';
-import { GOLDEN_TAX, GROSS, NET, withArrangement } from '../fixtures/configs';
+import { GOLDEN_TAX, GROSS, NET, VAT_ON_DEVELOPER, withArrangement } from '../fixtures/configs';
 import { MODERATE, NO_MEANS, TERMS, profile } from '../fixtures/profiles';
 
 const info = calculateRights(167, C);
@@ -43,11 +43,12 @@ describe('P0 tax valuation — reviewer golden fixture (17.5% contractor profit,
 
   it('only the levy share of the land sold is deducted (proportional allocation)', () => {
     const L = info.bettermentLevy;
+    // Services VAT kept on the developer here (its effect is covered in tests/domain/arrangements.test.ts).
     // Mixed: developer pays the levy → it is consideration; deduct L × (1 − c).
-    const mixed = sumBy(plan('S02', withArrangement(C, 'mixed')), 'owner', 'capital_gains_tax');
+    const mixed = sumBy(plan('S02', withArrangement(VAT_ON_DEVELOPER, 'mixed')), 'owner', 'capital_gains_tax');
     expect(mixed).toBeCloseTo(0.25 * (services + L - L * 0.65), 4);
     // Gross: the owner pays the levy (at permit) → not consideration; still deduct L × (1 − c).
-    const g = plan('S02', GROSS);
+    const g = plan('S02', withArrangement(VAT_ON_DEVELOPER, 'gross'));
     expect(sumBy(g, 'owner', 'capital_gains_tax')).toBeCloseTo(0.25 * (services - L * 0.65), 4);
     expect(sumBy(g, 'owner', 'betterment_levy')).toBeCloseTo(L, 6);
   });

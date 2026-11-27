@@ -184,3 +184,44 @@
     payment methods with their mortgage, risk level and how much more or less they leave at the end (omitted when
     the comparison rests on an unverified price). Replaces the split in #57, which showed completion and construction
     services as two different deals when, for a small holding, both are "combination + a payment to the developer".
+
+## Who really pays the taxes — gross / mixed / net, VAT and a tax loan (2026-11-27)
+
+Prompted by the owner's research (TASE filings: Rothstein 2022 — 40%/43%/47% with the owners paying levy, capital
+gains and VAT, plus a tax loan at prime + 2%; Karden 2009 — 19% with the developer paying the levy). The central
+point: a developer that takes on the owner's taxes prices them into a lower combination %, so the legal liability
+(owner), the contractual payer and the economic burden must not be confused.
+
+60. **VAT on the construction services received in a combination has a payer.** Gross and mixed: the owner (a private
+    owner cannot reclaim it) — ~₪183K for 167 m² at 35%, at the permit; net: the developer. Previously no one paid
+    it on the owner side and the developer P&L always absorbed it. When the owner pays the VAT, the capital-gains
+    consideration is the services value ex VAT (the owner is not taxed on VAT it paid itself — to be confirmed by a
+    tax adviser), and the developer's barter-VAT cost is zero (collected and remitted). One payer table
+    (`domain/arrangements.ts`) drives levy, capital-gains tax and VAT. Legacy/golden fixtures keep the old rule
+    (`servicesVatOnOwner: false`).
+61. **Arrangements are compared at their developer-equivalent %, never at the same %.** The % that leaves the
+    developer the same profit (`optimizer/arrangementEquivalence.ts`): at 35% mixed ≈ 25.7% net ≈ 40.5% gross. The
+    owner's break-even (apartments today minus owner-paid taxes carried to delivery at the tax-loan rate) is shown
+    next to it: ≈ 25.0% net, ≈ 40.9% gross. A "fits on condition the developer bears the taxes" direction now states
+    the lower % it assumes. Result under base terms: taking on the taxes costs the developer about what it saves the
+    owner; with financing counted, a net deal at the expected % is roughly neutral to slightly better for the owner.
+    The equivalents agree with the reported 40%–47% gross deals.
+62. **Paying ≠ lending: a developer/bank tax loan.** Combination taxes the household cannot pay in cash (owner
+    capital-gains tax, levy in gross, services VAT) may be covered by a tax loan at prime + 2% (6.75%; prime 4.75%
+    per the Bank of Israel decision of 23.11.2026 — secondary sources, the BoI site blocked automated access).
+    Interest is capitalised to delivery (no payments before it), then the balance is repaid from cash or refinanced
+    as a mortgage on the delivered apartment, with the usual repayment and LTV checks. A loan secured on another
+    property (#49, 5%) is used first. Not offered when the household ruled out borrowing. Condition `TAX_LOAN`.
+    **Deviation from the plan:** the loan is tested against the delivered apartment, not the pre-delivery land
+    (₪6,900/m² understates the entitlement a lender underwrites; counting it there failed every case at ~139% LTV).
+    Effect: the ₪300K / ₪5K household (2.25 rights) moves from "nothing fits" to combination + pool sale with a ₪195K
+    tax loan repaid at delivery; 3 rights / ₪300K to full combination with a ₪384K loan (₪2,243/month).
+63. **The offer states what it includes.** Next to the % slider: "מה היזם משלם באחוז הזה?" — nothing (gross) / the levy
+    (mixed, default) / everything (net). It sets the headline arrangement, so an offer entered as net is never taxed
+    again; a hint shows the equivalent % in the other arrangements. The slider range widens from 30–40% to 25–45%
+    so net and gross offers can be entered. Saved answers without it load as mixed.
+64. **Kept simple on purpose (non-goals).** No per-tax payer/date/cap/provenance model, no levy cap or hybrid split
+    input (Holon's ₪7.5M cap is documented only), no change to the today's-prices primary comparison (#44), no
+    project-specific deal % or levy entered as fact. The reported deals are shown as evidence, never as inputs.
+65. **Build version in the footer**: the short commit id (`GITHUB_SHA` in CI, `git rev-parse` locally), injected at
+    build time.

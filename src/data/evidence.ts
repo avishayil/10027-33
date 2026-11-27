@@ -132,3 +132,59 @@ export const OFFICIAL_FACTS = [
   { label: 'נתוני ריביות משכנתאות — עדכון אחרון', value: '11.11.2026', note: 'ריבית אפקטיבית; 5% במחשבון הוא תרחיש', url: 'https://www.boi.org.il/information/interestrates/mortgage/' },
   { label: 'מדד תשומות הבנייה — אוקטובר 2026', value: '104.4 (+0.4%)', note: 'בסיס יולי 2025; 3% בשנה במחשבון הוא תרחיש', url: 'https://www.cbs.gov.il/' },
 ];
+
+/**
+ * Reported combination deals (TASE filings of listed developers), as transcribed in the owner's research of
+ * 2026-11-27 — not yet re-checked against the filings. Different land, years, rights and risks: they show how deals
+ * split the taxes, not a % to expect here. Not inputs to the engine.
+ */
+export interface CombinationDeal {
+  developer: string;
+  place: string;
+  date: string;
+  /** Owners' share (residential unless stated). */
+  ownerShare: string;
+  /** Who pays what, in short. */
+  taxes: string;
+  financing: string;
+  source: string;
+}
+
+export const COMBINATION_DEALS: CombinationDeal[] = [
+  {
+    developer: 'רוטשטיין',
+    place: 'רחובות',
+    date: '2022-05',
+    ownerShare: '40% מגורים (35% מסחר, 28% תעסוקה)',
+    taxes: 'הבעלים: היטל, מס שבח, מע״מ. היזם: אגרות והיטלי פיתוח',
+    financing: 'הלוואה לבעלים כ-₪16 מיליון, פריים + 2%',
+    source: 'דוח תקופתי 2024, ביאור 10',
+  },
+  {
+    developer: 'רוטשטיין',
+    place: 'חולון',
+    date: '2022-03',
+    ownerShare: '47% מגורים (48% מסחר)',
+    taxes: 'הבעלים: מס שבח, מע״מ, היטל על התב״ע הקיימת. היזם: היטל על התב״ע החדשה עד ₪7.5 מיליון',
+    financing: '—',
+    source: 'דיווח 13.3.2022; דוח תקופתי 2024, ביאור 10',
+  },
+  {
+    developer: 'רוטשטיין',
+    place: 'נתניה',
+    date: '2022-04',
+    ownerShare: '43%',
+    taxes: 'המוכר: מס שבח, היטל, מע״מ. היזם: אגרות והיטלי פיתוח',
+    financing: 'מסגרת אשראי למסים כנגד שעבוד הקרקע',
+    source: 'דוח תקופתי 2024, ביאור 10',
+  },
+  {
+    developer: 'קרדן נדל״ן',
+    place: 'באר יעקב',
+    date: '2009-05',
+    ownerShare: '19% (לפי שווי הדירות)',
+    taxes: 'היזם: היטל השבחה (בכפוף להסדרים) והיטל פיתוח',
+    financing: 'ערבות לאשראי ₪18.5 מיליון; הריבית על היזם; הקרן מתוך מכירת דירות הבעלים',
+    source: 'דוחות קרדן יזמות 2013, ביאור 16',
+  },
+];

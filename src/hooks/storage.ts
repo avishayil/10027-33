@@ -3,7 +3,7 @@
  * Data stays in this browser's localStorage; it is never sent anywhere. Every access is guarded,
  * because storage can be unavailable (private mode, blocked site data).
  */
-import type { Goal } from '../domain/types';
+import type { Goal, TaxArrangement } from '../domain/types';
 
 export const STORAGE_KEY = 'mimush-chacham:answers:v1';
 
@@ -23,6 +23,8 @@ export interface SavedInputs {
   deadlineYears: number;
   /** Added in iteration 3; older saved answers without it are migrated to 'unknown'. */
   soleHome?: 'unknown' | 'yes' | 'no';
+  /** What the developer pays at the offered combination %. Older saves without it load as 'mixed'. */
+  taxArrangement?: TaxArrangement;
 }
 
 const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'passive_income', 'immediate_cash', 'minimize_risk'];
@@ -39,7 +41,8 @@ function isValid(x: unknown): x is SavedInputs {
     (o.repaymentMode === 'amount' || o.repaymentMode === 'none' || o.repaymentMode === 'unknown') &&
     GOALS.includes(o.goal as Goal) &&
     ['combinationPct', 'developerMarkup', 'deadlineYears'].every(num) &&
-    (o.soleHome === undefined || o.soleHome === 'unknown' || o.soleHome === 'yes' || o.soleHome === 'no')
+    (o.soleHome === undefined || o.soleHome === 'unknown' || o.soleHome === 'yes' || o.soleHome === 'no') &&
+    (o.taxArrangement === undefined || o.taxArrangement === 'gross' || o.taxArrangement === 'mixed' || o.taxArrangement === 'net')
   );
 }
 
@@ -52,7 +55,7 @@ export function loadInputs(): SavedInputs | null {
     // The wizard now offers three goals; the two retired ones map to their nearest successor.
     const goal: Goal =
       parsed.goal === 'passive_income' ? 'maximize_apartments' : parsed.goal === 'immediate_cash' ? 'minimize_risk' : parsed.goal;
-    return { soleHome: 'unknown', ...parsed, goal };
+    return { soleHome: 'unknown', taxArrangement: 'mixed', ...parsed, goal };
   } catch {
     return null;
   }

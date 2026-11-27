@@ -4,6 +4,7 @@
  */
 import { PROJECT_CONFIG } from '../data/config';
 import { applyScenario, applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
+import { TAX_ARRANGEMENTS, withArrangement } from '../domain/arrangements';
 import { candidatePnL, developerEconomics } from '../domain/developer';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
@@ -28,6 +29,7 @@ import type {
 } from '../domain/types';
 import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
 import { LAND_TRANSACTIONS } from '../data/evidence';
+import { developerEquivalentPct, ownerBreakEvenPct } from './arrangementEquivalence';
 import { evaluateCandidate, type EngineContext, type Evaluation } from './evaluate';
 import { assess, assessEvaluation, classify, informationalReasons, isFeasible } from './feasibility';
 import { generateStrategies } from './generate';
@@ -180,6 +182,7 @@ export function buildResult(
     constructionCost: plan.constructionCost,
     bettermentLevy: sum(ledger, (e) => owner(e) && e.category === 'betterment_levy'),
     capitalGainsTaxReserve: sum(ledger, (e) => owner(e) && e.category === 'capital_gains_tax'),
+    servicesVat: sum(ledger, (e) => owner(e) && e.category === 'services_vat'),
     capitalGainsRange: plan.capitalGainsRange,
     purchaseTax: sum(ledger, (e) => owner(e) && e.category === 'purchase_tax'),
     additionalCosts: sum(ledger, (e) => owner(e) && ['transaction_costs', 'completion_payment', 'rights_purchase'].includes(e.category)),
@@ -420,13 +423,25 @@ export function analyzeProfile(
   }
 
   // --- Tax arrangements: the same household under gross / mixed / net combination terms --------------------
-  const arrangementTops: { arrangement: TaxArrangement; top: StrategyResult | null }[] = [];
-  const arrangements: ArrangementOutcome[] = (['gross', 'mixed', 'net'] as TaxArrangement[]).map((arrangement) => {
-    const c2 = arrangement === config.commercial.taxArrangement ? core : coreAnalysis(profile, terms, withArrangement(config, arrangement));
-    const top = c2.ranked[0] ?? null;
-    arrangementTops.push({ arrangement, top });
+  // A developer that takes on taxes offers a lower %, so each other arrangement is evaluated at its
+  // developer-equivalent % — never at the slider's % (that would treat the taxes as free).
+  const headline = config.commercial.taxArrangement;
+  const eqCtx = { info: ctx.info, profile, config };
+  const arrangementTops: { arrangement: TaxArrangement; top: StrategyResult | null; combinationPct: number | null }[] = [];
+  const arrangements: ArrangementOutcome[] = TAX_ARRANGEMENTS.map((arrangement) => {
+    const pct = arrangement === headline ? terms.combinationPct : developerEquivalentPct(eqCtx, headline, terms.combinationPct, arrangement);
+    const c2 =
+      arrangement === headline
+        ? core
+        : pct === null
+          ? null
+          : coreAnalysis(profile, { ...terms, combinationPct: pct }, withArrangement(config, arrangement));
+    const top = c2?.ranked[0] ?? null;
+    arrangementTops.push({ arrangement, top, combinationPct: pct });
     return {
       arrangement,
+      combinationPct: pct,
+      ownerBreakEvenPct: arrangement === headline ? terms.combinationPct : ownerBreakEvenPct(eqCtx, headline, terms.combinationPct, arrangement),
       recommendationId: top?.id ?? null,
       wholeApartments: top?.metrics.wholeApartments ?? 0,
       feasibility: top?.feasibility ?? null,
@@ -444,15 +459,15 @@ export function analyzeProfile(
     null;
   const negotiationOnly = results.filter((r) => r.assessment.commercial === 'negotiable');
   // Nothing fits under the headline terms? Give a direction anyway: the route that fits under the least demanding
-  // other arrangement (mixed before net), clearly conditional on obtaining those terms.
+  // other arrangement (mixed before net), at the lower % a developer would offer for it.
   let conditionalRecommendation: DecisionResult['conditionalRecommendation'] = null;
   if (!recommendation) {
     const order: TaxArrangement[] = ['mixed', 'net'];
     for (const arr of order) {
-      if (arr === config.commercial.taxArrangement) continue;
+      if (arr === headline) continue;
       const hit = arrangementTops.find((x) => x.arrangement === arr && x.top);
-      if (hit?.top) {
-        conditionalRecommendation = { result: hit.top, arrangement: arr };
+      if (hit?.top && hit.combinationPct !== null) {
+        conditionalRecommendation = { result: hit.top, arrangement: arr, combinationPct: hit.combinationPct };
         break;
       }
     }
@@ -529,9 +544,7 @@ function R_total(ctx: EngineContext, config: ProjectConfig): number {
   return ctx.info.apartmentEquivalents * levyPerRight(ctx.info, config);
 }
 
-export function withArrangement(config: ProjectConfig, taxArrangement: TaxArrangement): ProjectConfig {
-  return { ...config, commercial: { ...config.commercial, taxArrangement } };
-}
+export { withArrangement };
 
 /** Owner cash obligations at signing (month 0), excluding the contingency reserve. */
 export function cashAtSigning(r: StrategyResult): number {

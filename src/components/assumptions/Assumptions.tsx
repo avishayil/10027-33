@@ -1,5 +1,5 @@
 import { ASSUMPTION_GROUPS, CONFIG_VERSION, PROJECT_CONFIG } from '../../data/config';
-import { APARTMENT_COMPARABLES, APPRAISAL_FIGURES, APPRAISAL_SOURCE, LAND_TRANSACTIONS, OFFICIAL_FACTS, TRANSACTION_SOURCES } from '../../data/evidence';
+import { APARTMENT_COMPARABLES, APPRAISAL_FIGURES, APPRAISAL_SOURCE, COMBINATION_DEALS, LAND_TRANSACTIONS, OFFICIAL_FACTS, TRANSACTION_SOURCES } from '../../data/evidence';
 import { SOURCE_REGISTRY } from '../../data/sources';
 import type { DataPoint, Verification } from '../../domain/types';
 import { formatCurrency, formatNumber } from '../../utils/format';
@@ -100,6 +100,40 @@ export function Assumptions() {
               {s.name}
             </a>
           ))}
+        </p>
+      </div>
+      <div className="assumption-group">
+        <h3>עסקאות קומבינציה מדווחות — מי משלם את המסים</h3>
+        <div className="table-scroll">
+          <table className="compare-table">
+            <thead>
+              <tr>
+                <th>יזם · מקום</th>
+                <th>מועד</th>
+                <th>לבעלים</th>
+                <th>מסים</th>
+                <th>מימון</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COMBINATION_DEALS.map((d, idx) => (
+                <tr key={idx}>
+                  <td>
+                    {d.developer} · {d.place}
+                  </td>
+                  <td>{d.date}</td>
+                  <td>{d.ownerShare}</td>
+                  <td>{d.taxes}</td>
+                  <td>{d.financing}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="field-hint">
+          מדוחות חברות ציבוריות (מאי״ה), כפי שהועתקו — טרם אומתו מול הדוחות. קרקעות, שנים וזכויות שונות: הן מראות איך
+          מחלקים את המסים, לא איזה אחוז לצפות כאן. בכל עסקאות רוטשטיין הבעלים שילמו את המע״מ על שירותי הבנייה, וכך גם
+          המחשבון מניח בעסקת ברוטו ובעסקה מעורבת. אחוז קומבינציה לבדו אינו משווה בין עסקאות — צריך לדעת מי משלם מה.
         </p>
       </div>
       <div className="assumption-group">
