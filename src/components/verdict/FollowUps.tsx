@@ -5,6 +5,7 @@ const STEP_FOR: Record<string, WizardStep> = {
   capital: 'capital',
   repayment: 'repayment',
   basis: 'summary',
+  soleHome: 'summary',
   lot: 'land',
 };
 

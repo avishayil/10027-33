@@ -11,6 +11,7 @@ export const SIMPLICITY: Record<StrategyType, number> = {
   S02: 0.8,
   S02C: 0.75,
   S02P: 0.65,
+  S13: 0.55,
   S11: 0.4,
   S04: 0.7,
   S03: 0.5,

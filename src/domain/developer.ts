@@ -40,6 +40,7 @@ export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: 
   const landPaid = sum((e) => e.category === 'sale_proceeds' && e.direction === 'in');
   const revenueSharePaid = sum((e) => e.category === 'revenue_share' && e.direction === 'in');
   const buyBack = plan.fractionSettled?.mode === 'cash' ? sum((e) => e.category === 'fraction_settlement') : 0;
+  // (S13 value-based allocation: the developer pays the excess value in cash or receives the gap as completion.)
   const devTaxes = sum((e) => e.payer === 'developer');
 
   const revenue = apartmentSales + completionRevenue + servicesRevenue;

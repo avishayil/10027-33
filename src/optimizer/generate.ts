@@ -12,7 +12,7 @@ export function mixedSplit(N: number, R: number, c: number): number {
   return (N - c * R) / (1 - c);
 }
 
-export function generateStrategies(info: RightsInfo, terms: CommercialTerms, _config: ProjectConfig): Candidate[] {
+export function generateStrategies(info: RightsInfo, terms: CommercialTerms, config: ProjectConfig): Candidate[] {
   const R = info.apartmentEquivalents;
   if (!(R > EPS)) return [];
   const c = terms.combinationPct;
@@ -36,6 +36,14 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, _co
       { kind: 'combination', rights: R },
       { kind: 'completion', apartmentEquivalents: target - finished },
     ], target);
+  }
+
+  // Value-based allocation: a whole apartment of a different (illustrative) size instead of a fraction.
+  if (fraction > 0.01) {
+    for (const size of config.market.apartmentTiersSqm) {
+      if (size === config.construction.apartmentSizeSqm) continue; // the standard size is S06
+      add(`S13-${size}`, 'S13', [{ kind: 'combination', rights: R }, { kind: 'tier_apartment', sizeSqm: size }], whole + 1);
+    }
   }
 
   add('S04', 'S04', [{ kind: 'revenue_share', rights: R }], 0);

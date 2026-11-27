@@ -94,7 +94,8 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
               <th>משכנתא</th>
               <th>החזר חודשי</th>
               <th>כסף נטו תוך שנתיים</th>
-              <th>רווח כלכלי (10 שנים)</th>
+              <th>שווי מימוש נטו (10 שנים)</th>
+              <th>מול מכירה היום</th>
             </tr>
           </thead>
           <tbody>
@@ -112,14 +113,15 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
                 <td data-label="משכנתא">{r.mortgageRequired > 1 ? formatCurrency(r.mortgageRequired) : '—'}</td>
                 <td data-label="החזר חודשי">{r.monthlyRepayment > 1 ? formatCurrency(r.monthlyRepayment) : '—'}</td>
                 <td data-label="כסף נטו תוך שנתיים">{formatCurrency(r.metrics.liquidity)}</td>
-                <td data-label="רווח כלכלי (10 שנים)">{formatCurrency(r.metrics.valueCreated)}</td>
+                <td data-label="שווי מימוש נטו (10 שנים)">{formatCurrency(r.metrics.valueCreated)}</td>
+                <td data-label="מול מכירה היום">{formatCurrency(r.gainVsSellingToday)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="field-hint">
-        ״רווח כלכלי״ = הון בעוד 10 שנים (דירות, כסף, קרקע) פחות חובות, החזרי משכנתא ומסים עתידיים — מעבר למה
+        ״שווי מימוש נטו״ = הון בעוד 10 שנים (דירות, כסף, קרקע) פחות חובות, החזרי משכנתא ומסים עתידיים — מעבר למה
         שהכסף הפנוי שלכם היה צובר בלאו הכי. כולל שכר דירה (או חיסכון בשכר דירה) מהדירות שנשארות.
       </p>
     </Section>
@@ -470,7 +472,39 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
         הנחת עבודה: יזם מרוויח הכי הרבה מקומבינציה מלאה, ולכן יקצה לשירותי בנייה רק 20%–30% מהדירות במגרש וידאג שכל בעל
         זכויות יוכל להגיע לדירה. זו הערכה — לא מדיניות שפורסמה.
       </p>
+      <h3>טווח משא ומתן על זכויות עודפות</h3>
+      {result.negotiationTargets
+        .filter((t) => t.code === 'NEGOTIATION_RANGE')
+        .map((t) => (
+          <p key={t.strategyId} className={`callout ${t.overlap ? '' : 'callout-strong'}`}>
+            {titleFor(result, t.strategyId)}: המינימום שמשתלם לכם {t.value === null ? 'לא נמצא' : `${formatCurrency(t.value)} למ״ר`} · המקסימום
+            הסביר ליזם (רווח 15%) {formatCurrency(t.upper ?? 0)} למ״ר —{' '}
+            <strong>{t.overlap ? 'יש טווח חופף למשא ומתן.' : 'אין טווח חופף בהנחות האלה.'}</strong>
+          </p>
+        ))}
       <h3>כלכלת העסקה מבחינת היזם</h3>
+      {result.recommendation?.developerPnL && (
+        <>
+          <p className="field-hint">רווח והפסד משוער של היזם במסלול המומלץ (לבעלים אחד, במחירי היום, לפני מימון ותזמון):</p>
+          <table className="kv-table">
+            <tbody>
+              {result.recommendation.developerPnL.lines.map((l) => (
+                <tr key={l.label}>
+                  <th>{l.label}</th>
+                  <td>{formatCurrency(l.amount)}</td>
+                </tr>
+              ))}
+              <tr className="row-total">
+                <th>רווח משוער ליזם (מההכנסות)</th>
+                <td className={result.recommendation.developerPnL.marginOnRevenue < 0 ? 'cell-fail' : ''}>
+                  {pctFmt(result.recommendation.developerPnL.marginOnRevenue)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="field-hint">רווח שלילי כאן הוא אזהרת מודל — לא קביעה שיזם אמיתי מפסיד. בדקו היקף עלויות, שטחים ותמהיל.</p>
+        </>
+      )}
       <table className="kv-table">
         <tbody>
           <tr>
@@ -490,7 +524,7 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
             <td>{formatCurrency(d.consistentCashPricePerSqm)} למ״ר</td>
           </tr>
           <tr>
-            <th>מס שבח שהיזם משלם עבורכם בעסקת נטו (כולל גילום)</th>
+            <th>מס שבח שהיזם משלם עבורכם בקומבינציה (רק בעסקת נטו, כולל גילום)</th>
             <td>{formatCurrency(d.combinationTaxCost)}</td>
           </tr>
           <tr>
@@ -523,4 +557,9 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
       </p>
     </Section>
   );
+}
+
+function titleFor(result: DecisionResult, id?: string): string {
+  const r = id ? result.results.find((x) => x.id === id) : undefined;
+  return r ? strategyTitle(r) : '';
 }

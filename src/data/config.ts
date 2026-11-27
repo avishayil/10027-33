@@ -56,6 +56,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     targetMarginOnRevenue: COMMERCIAL.developerTargetMargin.value,
   },
   market: {
+    apartmentTiersSqm: [80, 90, 100, 110],
     apartmentValuePerSqm: MARKET.apartmentValuePerSqm.value,
     apartmentValueAnnualGrowth: MARKET.apartmentValueAnnualGrowth.value,
     monthlyRentPerApartment: MARKET.monthlyRentPerApartment.value,

@@ -143,6 +143,9 @@ export function buildResult(
     estimatedNetMonthlyRentalCashflow: sim.monthlyNetRent - sim.postCompletionMonthly,
     netPresentValue: base.valueCreated / Math.pow(1 + alt, config.analysis.horizonYears),
     futureNetWealth: base.futureNetWealth,
+    gainVsSellingToday: 0,
+    cashAtSigning: 0,
+    netCashAtDelivery: sim.cashAtCompletion - sim.referenceAtCompletion,
     feasibility,
     assessment,
     developerMargin,
@@ -181,6 +184,11 @@ export function coreAnalysis(profile: UserProfile, terms: CommercialTerms, confi
   const dev = developerEconomics(info, config, terms.combinationPct, profile);
   const scales = buildScales(ctx, config);
   const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
+  const sellToday = results.find((r) => r.strategyType === 'S01M');
+  for (const r of results) {
+    r.gainVsSellingToday = r.metrics.valueCreated - (sellToday?.metrics.valueCreated ?? 0);
+    r.cashAtSigning = cashAtSigning(r);
+  }
   const { ranked, frontierIds } = rankStrategies(results, profile.goal, scales);
   return { ctx, scales, dev, results, ranked, frontierIds };
 }
@@ -324,7 +332,15 @@ export function analyzeProfile(
     }
   }
 
-  const topFor = (p: UserProfile) => coreAnalysis(p, terms, config).ranked[0]?.id ?? null;
+  // Material outcome signature: which strategy, whether it is affordable, and the funding need (rounded).
+  const signature = (c: CoreAnalysis) => {
+    const t = c.ranked[0];
+    if (!t) return 'none';
+    const need = Math.round((t.simulation.unfunded + t.mortgageRequired) / 25000);
+    return `${t.id}|${t.assessment.affordability}|${need}`;
+  };
+  const mainSignature = signature(core);
+  const changesOutcome = (p: UserProfile) => signature(coreAnalysis(p, terms, config)) !== mainSignature;
 
   return {
     rights: ctx.info,
@@ -334,7 +350,7 @@ export function analyzeProfile(
     recommendation,
     alternatives,
     negotiationTargets,
-    followUpQuestions: findMaterialUnknowns(profile, ctx.info, mainTop, topFor, config),
+    followUpQuestions: findMaterialUnknowns(profile, ctx.info, changesOutcome, config),
     sensitivity: { byScenario, drivers },
     mortgageCapacity:
       profile.maxMonthlyRepayment === null

@@ -73,6 +73,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   let retainedLandRights = 0;
   let settleFraction: 'cash' | 'pool' | null = null;
   let fractionSettled: TransactionPlan['fractionSettled'] = null;
+  let tierSize: number | null = null;
   let heldLandValueAtHorizon = 0;
   let deferredLiabilities = 0;
 
@@ -258,6 +259,9 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
       case 'balancing_pool':
         settleFraction = 'pool';
         break;
+      case 'tier_apartment':
+        tierSize = leg.sizeSqm;
+        break;
       case 'rent_for_repayment':
         rentCountsForRepayment = true;
         break;
@@ -290,6 +294,37 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   let wholeApartmentsRetained = Math.floor(retainedEq + 1e-6);
   let fractionalShare = Math.max(0, retainedEq - wholeApartmentsRetained);
   if (fractionalShare < 1e-6) fractionalShare = 0;
+  const standardSize = config.construction.apartmentSizeSqm;
+  const apartmentSizes: number[] = new Array(wholeApartmentsRetained).fill(standardSize);
+
+  if (tierSize !== null && fractionalShare > 0) {
+    // Value-based allocation: the fraction becomes one whole apartment of `tierSize`. Value units: 1 = a standard
+    // apartment. Not a guarantee that such an apartment exists or can be legally assigned.
+    const tierEq = tierSize / standardSize;
+    const gap = tierEq - fractionalShare;
+    if (gap > 1e-9) {
+      const price = gap * aptToday * config.commercial.completionPriceFactor;
+      out(permit, price / 2, `תשלום השלמה לדירת ${tierSize} מ״ר (50%)`, 'completion_payment');
+      out(completion, price / 2, `תשלום השלמה לדירת ${tierSize} מ״ר (יתרה)`, 'completion_payment');
+      const pt = config.taxation.completionPurchaseTax;
+      const rate = profile.soleHome === true ? pt.soleHome : pt.additionalHome;
+      out(permit, price * rate, 'מס רכישה על ההשלמה (לפי סיווג ומצב דירות)', 'purchase_tax', 'owner', {
+        range: { low: price * pt.soleHome, high: price * pt.additionalHome },
+      });
+    } else if (gap < -1e-9) {
+      const amount = -gap * aptAtCompletion * config.commercial.fractionCashSettlementFactor;
+      inflow(completion, amount, 'איזון כספי על ההפרש לדירה הקטנה', 'fraction_settlement');
+      const tax = amount * config.taxation.indicativeCapitalGainsRate;
+      cgRange.low += tax;
+      cgRange.high += tax;
+      out(completion, tax, 'מס שבח על האיזון (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
+      fractionSettled = { mode: 'cash', share: -gap };
+    }
+    retainedEq = wholeApartmentsRetained + tierEq;
+    apartmentSizes.push(tierSize);
+    wholeApartmentsRetained += 1;
+    fractionalShare = 0;
+  }
 
   if (settleFraction && fractionalShare > 0) {
     // Cash: the developer buys the fraction back at a negotiated discount. Pool (יחידת סל): fractions of several
@@ -306,11 +341,13 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     fractionSettled = { mode: settleFraction, share: fractionalShare };
     fractionalShare = 0;
     wholeApartmentsRetained = Math.floor(retainedEq + 1e-6);
+    apartmentSizes.length = wholeApartmentsRetained;
   }
+  const wholeApartmentValueEq = apartmentSizes.reduce((s, x) => s + x / standardSize, 0);
 
   const landPrice = info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm;
   const preCompletionLandCollateral = retainedLandRights * landPrice;
-  const postCompletionCollateral = wholeApartmentsRetained * aptToday + rightsHeld * landPrice;
+  const postCompletionCollateral = wholeApartmentValueEq * aptToday + rightsHeld * landPrice;
 
   return {
     events,
@@ -324,6 +361,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     retainedApartmentEquivalents: Math.max(0, retainedEq),
     wholeApartmentsRetained,
     fractionalShare,
+    wholeApartmentValueEq,
+    apartmentSizes,
     retainedLandRights,
     apartmentsBuilt,
     apartmentsSoldByOwner: apartmentsSold,
@@ -348,5 +387,6 @@ export function monthlyNetRentFor(plan: TransactionPlan, config: ProjectConfig):
   const rate = plan.rentCountsForRepayment
     ? 1 - config.market.rentalExpenseReserve - config.taxation.rentalTaxReserve
     : 1 - config.market.rentalExpenseReserve;
-  return plan.wholeApartmentsRetained * gross * rate;
+  // Rent scales with apartment value (size) — a compact apartment earns less than a standard one.
+  return plan.wholeApartmentValueEq * gross * rate;
 }

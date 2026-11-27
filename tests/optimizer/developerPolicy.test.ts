@@ -22,7 +22,7 @@ describe('developer policy for construction services', () => {
     expect(d.results.find((r) => r.id === 'S03-4')!.reasonCodes).toContain('DEVELOPER_POLICY_WHOLE_FROM_COMBINATION');
     expect(d.lotPolicy.servicesOffered).toBe(false);
     // Even with ample means, the best route to more apartments is combination (with paid completion).
-    expect(['S02', 'S02C', 'S06']).toContain(d.recommendation!.strategyType);
+    expect(['S02', 'S02C', 'S02P', 'S06', 'S13']).toContain(d.recommendation!.strategyType);
     expect(serviceApartments(d.recommendation!.candidate)).toBe(0);
   });
 

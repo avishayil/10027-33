@@ -151,6 +151,8 @@ export interface ProjectConfig {
     targetMarginOnRevenue: number;
   };
   market: {
+    /** Illustrative apartment sizes for value-based allocation (not verified project inventory). */
+    apartmentTiersSqm: number[];
     apartmentValuePerSqm: number;
     apartmentValueAnnualGrowth: number;
     monthlyRentPerApartment: number;
@@ -237,7 +239,8 @@ export type StrategyType =
   | 'S08' // build, keep and rent (rent counts toward repayment)
   | 'S09' // wait and reassess after approval
   | 'S10' // buy complementary rights and build
-  | 'S11'; // mixed: combination on part of the rights + construction services on the rest
+  | 'S11' // mixed: combination on part of the rights + construction services on the rest
+  | 'S13'; // combination + a whole apartment of a different size (value-based allocation)
 
 export type Leg =
   | { kind: 'sell_rights'; rights: number; market: 'developer' | 'open_market' | 'post_approval' }
@@ -250,6 +253,11 @@ export type Leg =
   | { kind: 'settle_fraction_cash' }
   /** The fraction joins a project balancing pool (יחידת סל) sold at completion; net proceeds distributed. */
   | { kind: 'balancing_pool' }
+  /**
+   * Convert the fractional combination entitlement into one whole apartment of `sizeSqm` (value-based): pay the
+   * value gap if the apartment is worth more, receive the excess (settlement factor) if it is worth less.
+   */
+  | { kind: 'tier_apartment'; sizeSqm: number }
   | { kind: 'revenue_share'; rights: number }
   | { kind: 'sell_apartments'; apartments: number }
   | { kind: 'hold_land'; rights: number }
@@ -319,6 +327,10 @@ export interface TransactionPlan {
   wholeApartmentsRetained: number;
   /** Unresolved fractional share (no rent, illiquid). */
   fractionalShare: number;
+  /** Value (in standard-apartment equivalents) of the whole apartments the owner keeps — sizes may differ. */
+  wholeApartmentValueEq: number;
+  /** Sizes (m²) of the whole apartments the owner keeps. Illustrative tiers — not confirmed inventory. */
+  apartmentSizes: number[];
   /** Land rights the owner still holds before completion (built share, combination-retained share, purchased). */
   retainedLandRights: number;
   apartmentsBuilt: number;
@@ -487,6 +499,15 @@ export interface StrategyResult {
   estimatedNetMonthlyRentalCashflow: number;
   netPresentValue: number;
   futureNetWealth: number;
+  /**
+   * Incremental gain at the horizon relative to selling the land today on the open market at the reference price
+   * (S01M). Negative = worse than selling today under these assumptions.
+   */
+  gainVsSellingToday: number;
+  /** Owner cash obligations at signing (excluding the contingency reserve). */
+  cashAtSigning: number;
+  /** Net cash in hand right after delivery, beyond the starting capital grown. */
+  netCashAtDelivery: number;
 
   feasibility: Feasibility;
   assessment: Assessment;

@@ -297,7 +297,7 @@ export function TermsFields({ engine }: { engine: DecisionEngine }) {
     <div className="fields terms-fields">
       <RangeField
         label="אחוז קומבינציה"
-        hint={`איזה חלק מהזכויות חוזר אליכם כדירות גמורות. ב-${pct(i.combinationPct)}: ${formatNumber(R * i.combinationPct, 2)} דירות מתוך ${formatNumber(R, 2)} הזכויות שלכם.`}
+        hint={`איזה חלק מהזכויות חוזר אליכם כדירות גמורות. ב-${pct(i.combinationPct)}: ${formatNumber(R * i.combinationPct, 2)} דירות מתוך ${formatNumber(R, 2)} הזכויות שלכם. זו הנחה לבדיקה — לא הצעה מאושרת.`}
         value={i.combinationPct}
         min={c.combination.min}
         max={c.combination.max}
@@ -306,7 +306,7 @@ export function TermsFields({ engine }: { engine: DecisionEngine }) {
       />
       <RangeField
         label="רווח יזמי בשירותי בנייה"
-        hint="התוספת שהיזם גובה מעל עלות הבנייה כשאתם משלמים על הבנייה בעצמכם."
+        hint="התוספת שהיזם גובה מעל עלות הבנייה כשאתם משלמים על הבנייה בעצמכם. הנחה — לא הצעה מאושרת."
         value={i.developerMarkup}
         min={c.developerMarkup.min}
         max={c.developerMarkup.max}
@@ -317,12 +317,22 @@ export function TermsFields({ engine }: { engine: DecisionEngine }) {
   );
 }
 
-export function BasisField({ engine }: { engine: DecisionEngine }) {
+export function BasisField({ engine, open = false }: { engine: DecisionEngine; open?: boolean }) {
   const { inputs: i, errors } = engine;
   const id = useId();
+  const homeId = useId();
   return (
-    <details className="optional-inputs">
-      <summary>פרט נוסף שמשפר את אומדן מס השבח (לא חובה)</summary>
+    <details className="optional-inputs" open={open}>
+      <summary>פרטים נוספים שמשפרים את אומדן המסים (לא חובה)</summary>
+      <div className="field">
+        <label htmlFor={homeId}>אם תקבלו דירה — האם היא תהיה הדירה היחידה שלכם?</label>
+        <select id={homeId} value={i.soleHome} onChange={(e) => i.setSoleHome(e.target.value as 'unknown' | 'yes' | 'no')}>
+          <option value="unknown">לא יודע/ת</option>
+          <option value="yes">כן, דירה יחידה</option>
+          <option value="no">לא, יש לנו דירה נוספת</option>
+        </select>
+      </div>
+      <p className="field-hint">משפיע על מס הרכישה אם תשלמו ליזם על השלמה לדירה שלמה (0% לדירה יחידה, עד כ-8% לנוספת).</p>
       <div className="field">
         <label htmlFor={id}>כמה שולם על הקרקע כשנרכשה (₪, סה״כ)?</label>
         <MoneyInput id={id} value={i.basisText} onChange={i.setBasisText} placeholder="ריק = לא ידוע" invalid={!!errors.basis} />

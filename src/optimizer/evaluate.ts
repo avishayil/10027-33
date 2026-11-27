@@ -73,7 +73,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
   // Whole apartments at market value; an unresolved fractional share at an illiquidity discount.
   const aptAtHorizon = apartmentValueAt(config, horizonMonth);
   const assetsAtHorizon =
-    plan.wholeApartmentsRetained * aptAtHorizon +
+    plan.wholeApartmentValueEq * aptAtHorizon +
     plan.fractionalShare * aptAtHorizon * (1 - config.market.fractionIlliquidityDiscount) +
     plan.heldLandValueAtHorizon;
   // Unfunded obligations stay as liabilities (they are not loans and carry no modelled interest).

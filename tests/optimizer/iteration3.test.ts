@@ -186,3 +186,31 @@ describe('P0 commercial realism', () => {
     expect(range.overlap).toBe(range.value !== null && range.value <= range.upper!);
   });
 });
+
+describe('P1 apartment value tiers (illustrative sizes, not confirmed inventory)', () => {
+  it('at 35% the 0.7875 entitlement nearly covers a compact 80 m² apartment: gap ₪31,250 vs ₪531,250', () => {
+    const p80 = plan('S13-80');
+    const paid = sumBy(p80, 'owner', 'completion_payment');
+    expect(paid).toBeCloseTo(31_250, 4);
+    expect(sumBy(plan('S06-1'), 'owner', 'completion_payment')).toBeCloseTo(531_250, 4);
+    expect(p80.wholeApartmentsRetained).toBe(1);
+    expect(p80.apartmentSizes).toEqual([80]);
+    expect(p80.wholeApartmentValueEq).toBeCloseTo(0.8, 12);
+  });
+
+  it('at 40% a 90 m² apartment is fully covered by value (zero gap)', () => {
+    const terms40 = { ...TERMS, combinationPct: 0.4 };
+    const c = generateStrategies(info, terms40, C).find((x) => x.id === 'S13-90')!;
+    const p = buildTransactionPlan(c, { info, profile: MODERATE, terms: terms40, config: C });
+    expect(sumBy(p, 'owner', 'completion_payment')).toBeCloseTo(0, 6);
+    expect(p.wholeApartmentsRetained).toBe(1);
+  });
+
+  it('a smaller apartment than the entitlement pays the owner the excess', () => {
+    const terms40 = { ...TERMS, combinationPct: 0.4 };
+    const c = generateStrategies(info, terms40, C).find((x) => x.id === 'S13-80')!;
+    const p = buildTransactionPlan(c, { info, profile: MODERATE, terms: terms40, config: C });
+    const excess = p.ledger.find((e) => e.category === 'fraction_settlement')!;
+    expect(excess.amount).toBeCloseTo(0.1 * 2_500_000 * Math.pow(1.02, 5) * 0.8, 2);
+  });
+});
