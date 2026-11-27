@@ -318,3 +318,13 @@ combined stress is worse than any single one; headroom × saleable area = profit
 cost rise lowers profit by more than ₪11.44M × 1.12. Performance: one analysis ≈ 79 ms (unchanged). Recommendations
 unchanged (no owner-side formula changed; the favourable immediate-sale scenario only affects the price-dependent sale
 route's threshold display).
+
+### Iteration 9 — phase D (optimiser, UX, performance)
+Tests: `tests/optimizer/mixSearch.test.ts` (extremes kept, cap, unique ids, integer entitlement, two above whole);
+`tests/domain/rental.test.ts` (rent start delay costs ≥ 3 months' rent; 80% recognition raises the personal payment by
+20% of rent; fraction earns no rent; rental variants kept for an income goal); `tests/optimizer/cancellation.test.ts`
+(failure month, paid-to-developer from the ledger, protected/unprotected identities, S02 pays nothing; delay computed for
+shown routes only and lowers value); `tests/domain/validation.test.ts` (parcel and lot bounds — 7,097 m² on lot 149 —,
+unknown lot, negatives, percentages, null ≠ 0, engine refuses); storage tests (goal migration reported, unknown saved lot
+dropped). Household matrix unchanged (`docs/validation/before-phaseD.md` = `after-phaseD.md`). Browser timing at 4× CPU
+slowdown: load ≈ 0.9 s; slider step ≈ 40 ms (was ≈ 300 ms); a 5-step drag settles in ≈ 1.5 s (was ≈ 2.0 s).

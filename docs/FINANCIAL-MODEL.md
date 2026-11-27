@@ -294,3 +294,10 @@ Project loan: interest-only to delivery, then 25-year annuity. Loan on another p
   `annualIrr()` solves the monthly rate by bisection. Σ equity flows = Σ project flows − financing cost.
 * `LotOptions.saleableAreaFactor` scales only the developer's sales area (construction stays on the plan areas);
   `publicBuildingsInPlanAreas` drops the separate public-shell cost.
+
+### Phase D
+* `keepMixes()` — per count: cheapest, most valuable, most valuable without payment, then closest; ≤ 7.
+* Cash flow: `rentStartMonth`, `rentRecognition` (personal payment = payment − recognised rent; cash receives all of it);
+  `failureMonth` → `interestToFailure`, `debtAtFailure`.
+* `StrategyResult.developerFailure` (all routes) and `delayedApproval` (shown routes; +24 months approval).
+* `validateInputs()` at the engine boundary; `maxAreaInLot = 167 ÷ sharePer167`.
