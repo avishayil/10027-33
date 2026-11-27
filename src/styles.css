@@ -2100,3 +2100,9 @@ button {
   font-size: 0.8rem;
   color: var(--muted);
 }
+
+.priority-risk {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}

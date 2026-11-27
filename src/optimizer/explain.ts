@@ -152,7 +152,7 @@ export const AFFORDABILITY_LABELS = {
   unknown: 'חסר מידע',
 } as const;
 
-export const RESILIENCE_LABELS = { robust: 'עמיד', fragile: 'גבולי' } as const;
+export const RESILIENCE_LABELS = { robust: 'עומד בתרחיש שמרני', fragile: 'נכשל בתרחיש שמרני' } as const;
 
 export const COMMERCIAL_LABELS = {
   not_required: 'לא תלוי ביזם',
@@ -188,4 +188,76 @@ export function explainWhy(r: StrategyResult, goal: Goal, ranked: StrategyResult
 
 export function formatRights(n: number): string {
   return fmtN(n);
+}
+
+export type RiskLevel = 'low' | 'medium' | 'high';
+export const RISK_LABELS: Record<RiskLevel, string> = { low: 'סיכון נמוך', medium: 'סיכון בינוני', high: 'סיכון גבוה' };
+
+/**
+ * One plain risk level for the summary, from three sources: needing a mortgage (+1), failing the conservative
+ * scenario (+2), and developer terms in doubt (+1). 0 → low, 1–2 → medium, 3+ → high. An unknown price is not a
+ * risk score here — it is stated on the card as "depends on a price".
+ */
+export function riskLevel(r: StrategyResult): { level: RiskLevel; reasons: string[] } {
+  const reasons: string[] = [];
+  let points = 0;
+  if (r.mortgageRequired > 1) {
+    points += 1;
+    reasons.push('נדרשת משכנתא');
+  }
+  if (r.assessment.resilience === 'fragile') {
+    points += 2;
+    reasons.push('לא עומד בתרחיש שמרני (מחירים נמוכים / ריבית גבוהה / עיכוב)');
+  }
+  if (r.assessment.commercial === 'questionable') {
+    points += 1;
+    reasons.push('תלוי בתנאים שהיזם לא בטוח שיסכים להם');
+  }
+  return { level: points === 0 ? 'low' : points <= 2 ? 'medium' : 'high', reasons };
+}
+
+const n2 = (x: number) => new Intl.NumberFormat('he-IL', { maximumFractionDigits: 2 }).format(x);
+const apts = (x: number) => (Math.abs(x - 1) < 1e-9 ? 'דירה אחת' : `${n2(x)} דירות`);
+
+/** Two or three lines that say what actually happens in this route, with the owner's own numbers. */
+export function plainExplanation(r: StrategyResult, R: number, combinationPct: number): string {
+  const p = r.plan;
+  const fromComb = p.rightsInCombination * combinationPct;
+  const whole = Math.floor(fromComb + 1e-6);
+  const frac = Math.max(0, fromComb - whole);
+  const k = r.candidate.targetApartments;
+  const built = p.apartmentsBuilt;
+  const combLine = `בקומבינציה היזם בונה ומוסר לכם ${n2(combinationPct * 100)}% מהזכויות כדירות: ${apts(fromComb)}`;
+  switch (r.strategyType) {
+    case 'S01':
+      return `מוכרים ליזם את כל ${n2(R)} הזכויות ומקבלים כסף. אין דירה ואין משכנתא — הסכום תלוי במחיר שהיזם יציע.`;
+    case 'S01M':
+      return `מוכרים היום את הקרקע לקונה פרטי. אין דירה ואין משכנתא — המחיר לא ידוע וצריך שומה עדכנית.`;
+    case 'S09':
+      return `לא חותמים עכשיו. מחכים כשנתיים לאישור התכנית ומוכרים בשוק — בתקווה למחיר גבוה יותר, בסיכון של עיכוב.`;
+    case 'S04':
+      return `היזם בונה ומוכר את כל הדירות, ואתם מקבלים אחוז מהכנסות המכירה בסוף. אין דירה — הסכום תלוי באחוז שיסוכם ובמחירי המכירה.`;
+    case 'S02':
+      return `${combLine}.${frac > 0 ? ` ${whole > 0 ? `${apts(whole)} שלמה, ו-` : ''}${n2(frac)} מדירה נשאר כבעלות משותפת — בלי שכירות ובשווי מופחת.` : ''}`;
+    case 'S02C':
+      return `${combLine}. את החלק שאינו דירה שלמה (${n2(frac)}) היזם קונה מכם בכסף במסירה.`;
+    case 'S02P':
+      return `${combLine}. את החלק שאינו דירה שלמה (${n2(frac)}) מצרפים לחלקים של בעלים אחרים ל״יחידת סל״ שנמכרת, והכסף מתחלק.`;
+    case 'S06':
+      return `${combLine}. משלמים ליזם על עוד ${n2(Math.max(0, k - fromComb))} דירה במחיר שוק, ומקבלים ${apts(k)} שלמות.`;
+    case 'S11':
+      return `${n2(p.rightsInCombination)} זכויות הולכות לקומבינציה, ועל השאר משלמים ליזם רק עלות בנייה ורווח יזמי. כך מגיעים ל${apts(k)} שלמה — זול מקנייה במחיר שוק.`;
+    case 'S05':
+      return `מוכרים ליזם ${n2(p.rightsSold)} זכויות, ומשלמים לו על בניית ${apts(built)} על הזכויות שנשארות לכם (עלות בנייה ורווח יזמי). התמורה מהמכירה — במחיר שעוד לא ידוע — אמורה לממן את הבנייה.`;
+    case 'S03':
+      return `משלמים ליזם על בניית ${apts(built)} על הזכויות שלכם (עלות בנייה ורווח יזמי)${p.rightsSold > 1e-6 ? `, ומוכרים לו את היתרה (${n2(p.rightsSold)} זכויות)` : ''}.`;
+    case 'S07':
+      return `משלמים ליזם על בניית ${apts(built)} על הזכויות שלכם, ובמסירה מוכרים אחת כדי להחזיר את רוב החוב.`;
+    case 'S08':
+      return `משלמים ליזם על בניית ${apts(built)} ומשכירים. שכר הדירה עוזר להחזיר את המשכנתא.`;
+    case 'S10':
+      return `קונים ${n2(p.rightsPurchased)} זכויות מבעלים אחרים, ומשלמים ליזם על בניית ${apts(built)}.`;
+    default:
+      return STRATEGY_DESCRIPTIONS[r.strategyType];
+  }
 }
