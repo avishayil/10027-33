@@ -523,6 +523,8 @@ export type ReasonCode =
   | 'NO_BORROWING_CAPACITY'
   | 'REPAYMENT_EXCEEDED'
   | 'LTV_EXCEEDED'
+  /** The tax loan falls due at delivery but the money to repay it (a pool sale / buy-back) comes later. */
+  | 'TAX_LOAN_EXTENSION_NEEDED'
   | 'CAPITAL_UNKNOWN'
   | 'IMMEDIATE_PRICE_UNKNOWN'
   | 'FRACTIONAL_UNIT'
@@ -645,6 +647,7 @@ export interface StrategyResult {
     partial: number;
     unprotected: number;
     apartments: 0;
+    rent: 0;
   };
   capitalGainsRange: { low: number; high: number };
   purchaseTax: number;

@@ -277,6 +277,7 @@ function noApprovalOutcome(
     partial: interest + nonRefundable + refundable / 2,
     unprotected: advances + interest,
     apartments: 0,
+    rent: 0,
   };
 }
 
