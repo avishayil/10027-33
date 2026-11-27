@@ -69,6 +69,12 @@ export interface SimulationInput {
     /** Interest the developer bears instead of the owner (the owner's rate is then 0): accrued as a subsidy. */
     subsidyRate?: number;
   };
+  /**
+   * The conditional facility that may refinance a tax loan at maturity on the delivered apartment (e.g. the "any purpose"
+   * 50% of its value). Default: no limit (unit tests); the engine always passes the limit. Cash repays first; what this
+   * facility cannot cover is a maturity gap, never silently turned into a mortgage.
+   */
+  taxLoanRefinanceLimit?: number;
   /** Most that can be borrowed against the other property (default: no limit). */
   securedLoanLimit?: number;
   /** Real annual discount rate for pvInterest (default 0). */
@@ -77,6 +83,11 @@ export interface SimulationInput {
   approvalMonth?: number;
   /** Inflation to deflate the (nominal) financing flows in pvFinancing (default 0). */
   inflation?: number;
+  /**
+   * Today's-price amounts (events with priceBasis 'real', rent and collateral values) are converted to nominal shekels on
+   * their date with `inflation`, so cash, debt and repayments share one money basis (iteration 9 / F04).
+   */
+  realInputs?: { rent: boolean; collateral: boolean };
   /** The loan on another property ("any purpose"): its own rate and term; it amortises from the draw. */
   securedLoan?: { annualRate: number; years: number };
 }
@@ -112,13 +123,17 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   const lastEvent = input.events.reduce((m, e) => Math.max(m, Math.round(e.month)), 0);
   const H = Math.max(input.horizonMonth, lastEvent + 1);
   const wip = input.workInProgressRecognition ?? 1;
+  // One money basis: every amount in nominal shekels on its date.
+  const index = (m: number) => Math.pow(1 + (input.inflation ?? 0), m / 12);
   const byMonth = new Map<number, CashEvent[]>();
   for (const e of input.events) {
     const m = Math.max(0, Math.round(e.month));
     const list = byMonth.get(m) ?? [];
-    list.push(e);
+    list.push(e.priceBasis === 'real' ? { ...e, amount: e.amount * index(m), priceBasis: 'nominal' } : e);
     byMonth.set(m, list);
   }
+  const rentAt = (m: number) => input.monthlyNetRent * (input.realInputs?.rent ? index(m) : 1);
+  const collateralAt = (x: number, m: number) => x * (input.realInputs?.collateral ? index(m) : 1);
   const reserveAfter = datedReserve(byMonth, H);
 
   let cash = input.startingCash;
@@ -147,6 +162,11 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   const dfMonth = (m: number) => Math.pow(1 + (input.discountRate ?? 0), -m / 12);
   const subsidyMonthly = input.taxLoan?.subsidyRate ? input.taxLoan.subsidyRate / 12 : 0;
   let taxLoanRefinanced = 0;
+  let taxLoanMaturityGap = 0;
+  let taxLoanMatured = false;
+  // The refinance facility's limit in nominal shekels, fixed at maturity.
+  let refinanceCap = 0;
+  const refinanceLimit = input.taxLoanRefinanceLimit ?? Infinity;
   const taxLoanLimit = input.taxLoan?.limit ?? Infinity;
   const securedLimit = input.securedLoanLimit ?? Infinity;
   let interestAfterCompletion = 0;
@@ -188,12 +208,14 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     }
     const events = byMonth.get(m) ?? [];
     const stage = stageOf(m, input.permitMonth, input.completionMonth);
-    if (taxLoanBalance > 0 && m <= input.completionMonth) {
+    if (taxLoanBalance > 0) {
+      // Capitalised until delivery; an overdue balance after delivery keeps accruing at the same rate.
       const accrued = taxLoanBalance * taxLoanMonthly;
       taxLoanBalance += accrued;
       taxLoanInterest += accrued;
+      if (taxLoanMatured) pvInterest += accrued * dfMonth(m);
       // Interest the developer pays on the owner's behalf (it accrues on the developer, not on the balance).
-      taxLoanSubsidy += taxLoanBalance * subsidyMonthly;
+      if (m <= input.completionMonth) taxLoanSubsidy += taxLoanBalance * subsidyMonthly;
     }
 
     for (const e of events) if (e.amount >= 0) cash += e.amount;
@@ -220,12 +242,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         const x = Math.min(short, Math.max(0, taxLoanLimit - taxLoanDrawn));
         totalDrawn += x;
         taxLoanDrawn += x;
-        if (m >= input.completionMonth) {
-          debt += x;
-          drawsByStage.mortgage += x;
-        } else {
-          taxLoanBalance += x;
-        }
+        // Drawn after delivery it is due at once: the maturity step below repays or refinances it, or reports a gap.
+        taxLoanBalance += x;
         draw(m, x);
         short -= x;
       }
@@ -251,16 +269,30 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       }
     }
 
-    // At delivery the tax loan (principal + capitalised interest) is refinanced as a mortgage on the apartment.
-    // Maximum exposure is measured before any same-month repayment.
+    // Tax-loan maturity (delivery; iteration 9 / F03). Maximum exposure is measured before any same-month repayment.
+    // 1. cash first; 2. the explicit, conditional refinance facility on the delivered apartment, up to its limit;
+    // 3. whatever remains is a maturity gap — it stays outstanding (overdue) and is reported, never turned into debt.
     peakDebt = Math.max(peakDebt, debt + taxLoanBalance + secured);
     if (taxLoanBalance > 0 && m >= input.completionMonth) {
-      taxLoanAtMaturity = taxLoanBalance;
-      // The capitalised tax-loan interest falls due at maturity.
-      pvInterest += taxLoanInterest * dfMonth(m);
-      debt += taxLoanBalance;
-      drawsByStage.mortgage += taxLoanBalance;
-      taxLoanBalance = 0;
+      if (!taxLoanMatured) {
+        taxLoanMatured = true;
+        taxLoanAtMaturity = taxLoanBalance;
+        refinanceCap = collateralAt(refinanceLimit, m);
+        // The capitalised tax-loan interest falls due at maturity.
+        pvInterest += taxLoanInterest * dfMonth(m);
+      }
+      const repay = Math.min(taxLoanBalance, Math.max(0, cash - reserveAfter[m]));
+      taxLoanBalance -= repay;
+      cash -= repay;
+      service(m, repay);
+      const x = Math.min(taxLoanBalance, Math.max(0, refinanceCap - taxLoanRefinanced));
+      if (x > 0) {
+        debt += x;
+        drawsByStage.mortgage += x;
+        taxLoanRefinanced += x;
+        taxLoanBalance -= x;
+      }
+      taxLoanMaturityGap = Math.max(taxLoanMaturityGap, taxLoanBalance);
     }
 
     if (debt > 0) {
@@ -268,8 +300,6 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       debt -= repay;
       cash -= repay;
       service(m, repay);
-      // The tax-loan balance converted this month that cash did not repay has to be refinanced as a mortgage.
-      if (m === input.completionMonth && taxLoanAtMaturity > 0) taxLoanRefinanced = Math.max(0, Math.min(taxLoanAtMaturity, debt));
     }
     if (taxLoanBalance > 0) {
       const repay = Math.min(taxLoanBalance, Math.max(0, cash - reserveAfter[m]));
@@ -286,13 +316,13 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     const afterCompletion = m >= input.completionMonth;
     if (debt > EPS) {
       if (!afterCompletion) {
-        const collateral = (input.preCompletionLandCollateral ?? 0) + paidIntoAsset * wip;
+        const collateral = collateralAt(input.preCompletionLandCollateral ?? 0, m) + paidIntoAsset * wip;
         // Not on this project's land: a loan secured on the household's other property, and the tax loan — the
         // developer/escort bank underwrites it on the owner's apartment entitlement, and it is tested on the
         // delivered apartment once refinanced (post-completion LTV).
         peakPreLtv = Math.max(peakPreLtv, collateral > 0 ? projectDebt() / collateral : projectDebt() > EPS ? Infinity : 0);
       } else {
-        const collateral = input.postCompletionCollateral ?? 0;
+        const collateral = collateralAt(input.postCompletionCollateral ?? 0, m);
         peakPostLtv = Math.max(peakPostLtv, collateral > 0 ? projectDebt() / collateral : projectDebt() > EPS ? Infinity : 0);
       }
     }
@@ -333,7 +363,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     paymentsFV += payment;
     service(m, payment);
 
-    const rent = afterCompletion ? input.monthlyNetRent : 0;
+    const rent = afterCompletion ? rentAt(m) : 0;
     cash += rent;
     const personal = payment - (input.rentCountsForRepayment ? rent : 0);
     peakPersonal = Math.max(peakPersonal, personal);
@@ -378,6 +408,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanAtMaturity,
     interestAfterCompletion,
     taxLoanRefinanced,
+    taxLoanMaturityGap,
     taxLoanSubsidy,
     pvInterest,
     interestToApproval,

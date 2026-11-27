@@ -135,7 +135,9 @@ describe('evidence first', () => {
       expect(n.additionalCapital!).toBeCloseTo(n.result.simulation.unfunded, -1);
     }
     expect(d.nearMiss[0].result.id).toBe('S11-1');
-    expect(d.nearMiss[0].additionalCapital!).toBeLessThan(20_000);
+    // Iteration 9 / F04: taxes due at approval are now in nominal shekels (2% a year), so the gap grew from ≈₪10.6K
+    // to ≈₪25.8K — the cash still has to be there in the shekels of that date.
+    expect(d.nearMiss[0].additionalCapital!).toBeLessThan(30_000);
   });
 
   it('developer P&L includes the lot’s public-building obligation (325 m² × ₪8,000 × lot share)', () => {

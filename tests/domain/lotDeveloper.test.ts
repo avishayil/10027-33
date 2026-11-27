@@ -21,7 +21,8 @@ describe('lot-level developer P&L', () => {
   const p = lotDeveloperPnL(ctx, 'mixed', 0.35);
   it('covers the lot’s units: services quota, owners’ combination units and the developer’s units for sale', () => {
     expect(p.units).toBe(lotPolicy(info, C).lotUnits);
-    expect(p.servicesUnits).toBeCloseTo(C.developerPolicy.servicesCapShareOfLot * p.units, 9);
+    // Iteration 9 / F02: whole slots — ⌊25% × 102⌋ = 25 (was 25.5).
+    expect(p.servicesUnits).toBe(Math.floor(C.developerPolicy.servicesCapShareOfLot * p.units));
     expect(p.ownerCombinationUnits + p.developerUnits).toBeCloseTo(p.units - p.servicesUnits, 9);
     expect(p.ownerCombinationUnits).toBeCloseTo(0.35 * (p.units - p.servicesUnits), 9);
   });

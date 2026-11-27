@@ -369,6 +369,13 @@ export type LedgerCategory =
 
 export type Payer = 'owner' | 'developer' | 'buyer' | 'seller';
 
+/**
+ * Price basis of an amount (iteration 9 / F04). 'real': today's prices (market values, taxes on them, completion and sale
+ * prices); 'nominal': a fixed or indexed shekel amount on its date (indexed construction payments, loans). The cash-flow
+ * simulation converts everything to one nominal timeline; valuation deflates that timeline once.
+ */
+export type PriceBasis = 'real' | 'nominal';
+
 export interface LedgerEntry {
   category: LedgerCategory;
   label: string;
@@ -386,6 +393,7 @@ export interface LedgerEntry {
   saleRelated?: boolean;
   /** A combination tax the owner pays that a developer/bank tax loan may cover. */
   taxLoanEligible?: boolean;
+  priceBasis: PriceBasis;
 }
 
 export interface CashEvent {
@@ -396,6 +404,8 @@ export interface CashEvent {
   category: LedgerCategory;
   /** A combination tax the owner pays that a developer/bank tax loan may cover. */
   taxLoanEligible?: boolean;
+  /** Default 'nominal' (the amount is used as is). Plan events always state it. */
+  priceBasis?: PriceBasis;
 }
 
 export interface TransactionPlan {
@@ -480,6 +490,8 @@ export interface SimulationResult {
   interestAfterCompletion: number;
   /** Tax-loan balance that had to be refinanced as a mortgage at delivery (not repaid from cash). */
   taxLoanRefinanced: number;
+  /** Largest tax-loan balance left after cash and the refinance facility at/after maturity (0 = fully covered). */
+  taxLoanMaturityGap: number;
   /** Tax-loan interest the developer bears on the owner's behalf (a developer cost, not the owner's). */
   taxLoanSubsidy: number;
   /** Present value at signing of all interest the owner pays (monthly interest, and capitalised interest at maturity). */
@@ -815,9 +827,32 @@ export interface Projection {
   housingBenefit: number;
 }
 
+/**
+ * One consideration, two views (iteration 9, owner decision (a)). The owner model counts what it receives in standard
+ * apartments (2.25 rights per 167 m², 100 m² each); the lot model gives up the official share of the lot's saleable
+ * area (≈ 117 m² per simulation right on lot 149). Both are kept; the difference — area the official table attributes
+ * to the holding but the simulation does not credit to the owner — is an explicit line, so
+ * ownerValue + unallocatedValue = developerForgoneValue (gross, today's prices).
+ */
+export interface ConsiderationReconciliation {
+  /** Apartment-equivalents the owner ends with from the developer's inventory (retained, sold by the owner, pooled). */
+  apartmentEquivalents: number;
+  /** The same in the owner model's standard area (equivalents × 100 m²). */
+  standardAreaSqm: number;
+  /** The lot area the developer gives up for them (equivalents × official saleable area per simulation right). */
+  officialAreaSqm: number;
+  /** officialAreaSqm − standardAreaSqm: in the official table, not credited to the owner by the simulation. */
+  unallocatedAreaSqm: number;
+  ownerValue: number;
+  developerForgoneValue: number;
+  unallocatedValue: number;
+}
+
 export interface LotPnLSummary {
   units: number;
   servicesUnits: number;
+  /** Typical services participants this route displaces into combination (whole slots). */
+  displacedParticipants: number;
   revenue: number;
   costs: number;
   financingCost: number;
@@ -826,6 +861,7 @@ export interface LotPnLSummary {
   profitOnCost: number;
   /** Physical apartments this owner receives on the route. */
   userPhysicalUnits: number;
+  consideration: ConsiderationReconciliation;
 }
 
 export interface DeveloperThresholds {

@@ -23,7 +23,16 @@ import { completionMonth, constructionQuotePerApartment, milestoneMonth, permitM
 import { lotPolicy } from './policy';
 import { calculateRights } from './rights';
 import { buildTransactionPlan } from './transactions';
-import type { Candidate, CommercialTerms, ProjectConfig, RightsInfo, TaxArrangement, TransactionPlan, UserProfile } from './types';
+import type {
+  Candidate,
+  CommercialTerms,
+  ConsiderationReconciliation,
+  ProjectConfig,
+  RightsInfo,
+  TaxArrangement,
+  TransactionPlan,
+  UserProfile,
+} from './types';
 
 export interface LotContext {
   info: RightsInfo;
@@ -65,11 +74,12 @@ export interface LotOptions {
   participation?: number;
   /** A user's route as a change to the lot: monthly flows and its revenue / cost split. */
   delta?: RouteDelta | null;
-  /** Apartments the user builds through construction services: they take quota slots from typical participants. */
+  /** Quota slots the user's route takes (whole slots — `serviceApartments(candidate)`), never a fraction. */
   userServicesUnits?: number;
 }
 
 export interface RouteDelta {
+  consideration: ConsiderationReconciliation;
   flows: number[];
   revenue: number;
   costs: number;
@@ -84,6 +94,8 @@ export interface LotPnL {
   /** Physical apartments the user receives on the route (0 without a route). */
   userPhysicalUnits: number;
   servicesUnits: number;
+  /** Typical services participants the user's slots displace into combination. */
+  displacedParticipants: number;
   ownerCombinationUnits: number;
   developerUnits: number;
   revenue: number;
@@ -212,9 +224,22 @@ function addConstruction(f: Flows, config: ProjectConfig, lotId: string, area: n
   return { direct, soft };
 }
 
+/** The construction-services quota in whole apartment slots. */
+export function quotaSlots(config: ProjectConfig, units: number): number {
+  return Math.floor(config.developerPolicy.servicesCapShareOfLot * units + 1e-9);
+}
+
+/** Slots taken by typical participants and by the user, and the participants the user displaces into combination. */
+export function quotaUse(config: ProjectConfig, units: number, participation: number, userSlots: number) {
+  const quota = quotaSlots(config, units);
+  const typicalWanted = Math.floor(quota * participation + 1e-9);
+  const typical = Math.max(0, Math.min(typicalWanted, quota - userSlots));
+  return { quota, typical, user: Math.min(userSlots, quota), displaced: typicalWanted - typical, free: quota - typical - Math.min(userSlots, quota) };
+}
+
 function expectedParticipation(ctx: LotContext): number {
   const policy = lotPolicy(ctx.info, ctx.config);
-  const quota = ctx.config.developerPolicy.servicesCapShareOfLot * policy.lotUnits;
+  const quota = quotaSlots(ctx.config, policy.lotUnits);
   if (quota <= 0) return 0;
   return Math.max(0, Math.min(1, policy.estimatedDemand / quota));
 }
@@ -230,8 +255,11 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
   const area = lot.residentialArea;
   const areaPerUnit = area / units;
   // Typical services participants, less the slots a user on construction services takes (never beyond the quota).
-  const quota = config.developerPolicy.servicesCapShareOfLot * units;
-  const servicesUnits = Math.max(0, Math.min(quota * participation, quota - (opts.userServicesUnits ?? 0)));
+  // Whole slots (iteration 9 / F02): ⌊25% × 102⌋ = 25. Typical participants each take one slot; a user on construction
+  // services takes whole slots too (a partial S11 apartment still takes one). When the quota is full, the participant the
+  // user displaces moves into combination — the combination area (and its taxes) below grows by exactly that slot.
+  const use = quotaUse(config, units, participation, opts.userServicesUnits ?? 0);
+  const servicesUnits = use.typical;
   const combinationArea = area - servicesUnits * areaPerUnit;
   const ownerCombinationUnits = (c * combinationArea) / areaPerUnit;
   const developerUnits = ((1 - c) * combinationArea) / areaPerUnit;
@@ -271,6 +299,7 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
     saleableArea: area,
     userPhysicalUnits: opts.delta?.userPhysicalUnits ?? 0,
     servicesUnits,
+    displacedParticipants: use.displaced,
     ownerCombinationUnits,
     developerUnits,
     revenue,
@@ -309,9 +338,10 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
   const vat = config.taxation.vatRate;
   const lot = getLot(config.rights.tableVersion, ctx.info.lotId);
   const R = ctx.info.apartmentEquivalents;
-  if (R <= 0) return { flows: [], revenue: 0, costs: 0, userPhysicalUnits: 0 };
+  const consideration = considerationReconciliation(ctx, plan);
+  if (R <= 0) return { consideration, flows: [], revenue: 0, costs: 0, userPhysicalUnits: 0 };
   // Saleable area per simulation right of this owner (ownership share × the lot's saleable area).
-  const areaPerRight = (ctx.info.table.lotShare * lot.residentialArea) / R;
+  const areaPerRight = officialAreaPerRight(ctx);
   const rights = R + plan.rightsPurchased;
   const H = horizonOf(config, plan);
   const f = new Flows(H);
@@ -340,8 +370,7 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
 
   // + the user's route. The lot's unit mix is fixed, so the developer gives up the market value of what it delivers
   // (in area-equivalents of value); the physical count is tracked separately.
-  const pooled = plan.fractionSettled?.mode === 'pool' ? plan.fractionSettled.share : 0;
-  const deliveredArea = (plan.retainedApartmentEquivalents + plan.apartmentsSoldByOwner + pooled) * areaPerRight;
+  const deliveredArea = consideration.officialAreaSqm;
   const rightsArea = rights * areaPerRight;
   revenue += addAreaSales(f, config, Math.max(0, rightsArea - deliveredArea));
   const build = addConstruction(f, config, ctx.info.lotId, rightsArea);
@@ -367,7 +396,36 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
     costs += subsidy;
   }
   const userPhysicalUnits = plan.wholeApartmentsRetained + plan.apartmentsSoldByOwner + plan.fractionalShare;
-  return { flows: f.values, revenue, costs, userPhysicalUnits };
+  return { consideration, flows: f.values, revenue, costs, userPhysicalUnits };
+}
+
+/** Official saleable area per simulation right: the holding's ownership share of the lot's saleable area ÷ its rights. */
+export function officialAreaPerRight(ctx: LotContext): number {
+  const lot = getLot(ctx.config.rights.tableVersion, ctx.info.lotId);
+  const R = ctx.info.apartmentEquivalents;
+  return R > 0 ? (ctx.info.table.lotShare * lot.residentialArea) / R : 0;
+}
+
+/**
+ * What the owner receives and what the developer gives up for it, on one basis (gross, today's prices). The developer
+ * gives up the official area; the owner model credits the standard area; the difference is shown, never dropped.
+ */
+export function considerationReconciliation(ctx: LotContext, plan: TransactionPlan): ConsiderationReconciliation {
+  const config = ctx.config;
+  const pooled = plan.fractionSettled?.mode === 'pool' ? plan.fractionSettled.share : 0;
+  const eq = plan.retainedApartmentEquivalents + plan.apartmentsSoldByOwner + pooled;
+  const perSqm = config.market.apartmentValuePerSqm;
+  const standardAreaSqm = eq * config.construction.apartmentSizeSqm;
+  const officialAreaSqm = eq * officialAreaPerRight(ctx);
+  return {
+    apartmentEquivalents: eq,
+    standardAreaSqm,
+    officialAreaSqm,
+    unallocatedAreaSqm: officialAreaSqm - standardAreaSqm,
+    ownerValue: standardAreaSqm * perSqm,
+    developerForgoneValue: officialAreaSqm * perSqm,
+    unallocatedValue: (officialAreaSqm - standardAreaSqm) * perSqm,
+  };
 }
 
 // ---------------------------------------------------------------------------

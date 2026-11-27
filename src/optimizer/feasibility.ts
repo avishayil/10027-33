@@ -60,10 +60,8 @@ export function assessEvaluation(
     if (sim.taxLoanAtMaturity > EPS && ev.plan.fractionSettled) conditions.add('REPAID_FROM_POOL_SALE');
     // The tax loan falls due at delivery but its repayment source (the pool sale / buy-back) arrives later, and there
     // is no whole apartment to refinance on: an explicit funding gap — an extension or a guarantee is needed.
-    const settlement = ev.plan.ledger.find((e) => e.category === 'fraction_settlement' && e.direction === 'in');
-    if (sim.taxLoanAtMaturity > EPS && ev.plan.wholeApartmentsRetained === 0 && settlement && settlement.month > ev.plan.completionMonth) {
-      fails.push('TAX_LOAN_EXTENSION_NEEDED');
-    }
+    // Iteration 9 / F03: only a balance that neither cash nor the refinance facility covers at maturity is a gap.
+    if (sim.taxLoanMaturityGap > EPS) fails.push('TAX_LOAN_EXTENSION_NEEDED');
     if (sim.drawsByStage.construction > EPS) conditions.add('CONSTRUCTION_FINANCING');
     conditions.add('LENDER_CONFIRMATION');
     // Without the user's capital the borrowing need itself is unknown, so collateral cannot be judged either.

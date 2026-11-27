@@ -15,7 +15,7 @@ import {
   projectDeveloperPnL,
   routeDelta,
 } from '../domain/lotDeveloper';
-import { lotPolicy, policyBlock } from '../domain/policy';
+import { lotPolicy, policyBlock, serviceApartments } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
 import { approvalMonthOf } from '../domain/transactions';
@@ -99,7 +99,8 @@ export function buildScales(ctx: EngineContext, config: ProjectConfig): Scales {
   const maxApartments = Math.max(1, Math.ceil(R - 1e-6));
   return {
     entitlementValue: R * apartmentValueToday(config),
-    landValue: R * ctx.info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm,
+    // Iteration 9 / F07: the appraisal's allocation value of this holding — never a hypothetical offer price.
+    landValue: ctx.info.table.allocationValue,
     maxApartments,
     monthlyRent: maxApartments * netMonthlyRentPerApartment(config),
   };
@@ -134,12 +135,13 @@ export function buildResult(
     const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, ctx.terms.combinationPct, {
       markup: ctx.terms.developerMarkup,
       delta,
-      userServicesUnits: plan.apartmentsBuilt,
+      userServicesUnits: serviceApartments(candidate),
     });
     developerMargin = lot.margin;
     developerLot = {
       units: lot.units,
       servicesUnits: lot.servicesUnits,
+      displacedParticipants: lot.displacedParticipants,
       revenue: lot.revenue,
       costs: lot.costs,
       financingCost: lot.financingCost,
@@ -147,6 +149,7 @@ export function buildResult(
       margin: lot.margin,
       profitOnCost: lot.profitOnCost,
       userPhysicalUnits: lot.userPhysicalUnits,
+      consideration: delta.consideration,
     };
   }
   const blocked = policyBlock(candidate, R, config);
@@ -447,6 +450,10 @@ export function analyzeProfile(
     };
     const ev = evaluateCandidate(recommendation.candidate, ctx, pcfg);
     const monthsLiving = Math.max(0, ev.horizonMonth - ev.plan.completionMonth);
+    // Stated in the shekels of the horizon year (iteration 9 / F04): every item nominal, the total their sum.
+    const startingCapitalGrown = ev.referenceWealthNominal;
+    const total =
+      ev.assetsAtHorizon + ev.sim.cashAtHorizon - ev.sim.debtAtHorizon - ev.sim.personalPaymentsFV - ev.plan.deferredLiabilities - ev.sim.unfunded - startingCapitalGrown;
     projection = {
       years: ev.horizonMonth / 12,
       apartmentGrowth: config.projection.apartmentValueAnnualGrowth,
@@ -457,8 +464,8 @@ export function analyzeProfile(
       mortgagePaymentsFV: ev.sim.personalPaymentsFV,
       deferredLiabilities: ev.plan.deferredLiabilities,
       unfunded: ev.sim.unfunded,
-      startingCapitalGrown: ev.referenceWealth,
-      total: ev.valueCreated,
+      startingCapitalGrown,
+      total,
       housingBenefit: ev.plan.housingBenefitMonthly * monthsLiving,
     };
   }

@@ -33,7 +33,9 @@ describe('mathematical invariants', () => {
           const portions = r.ledger
             .filter((e) => e.category === 'betterment_levy' && e.payer !== 'seller')
             .reduce((s, e) => s + (e.rightsPortion ?? 0), 0);
-          expect(portions).toBeCloseTo(R, 9);
+          // Iteration 9 / F05: rights bought at signing are owned at approval, so their levy is the buyer's too —
+          // exactly once per right held at approval (own + bought), never on the seller as well.
+          expect(portions).toBeCloseTo(R + r.plan.rightsPurchased, 9);
           // Sold rights cannot remain owned.
           expect(r.plan.rightsSold + r.plan.rightsBuilt + r.plan.rightsHeld + r.plan.rightsInCombination + r.plan.rightsInRevenueShare)
             .toBeCloseTo(R + r.plan.rightsPurchased, 9);

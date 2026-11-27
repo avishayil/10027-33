@@ -265,3 +265,48 @@ Developer margin −3.7% → +4.2% (#91–#92): the plan-area budget is about th
 selling the lot's actual saleable area (110 m² a unit). Household directions are unchanged in this matrix; the
 ranking now uses value to you (#94). Still outstanding (release gate): professional review by an appraiser, a tax
 adviser and a real-estate lawyer; actual developer tenders; development levies and fees (not modelled).
+
+## Iteration 9 — reviews of 0bf74d7 (2026-11-27)
+
+Plan: `docs/IMPLEMENTATION-PLAN-ITERATION-9.md` (phases A and B; owner decisions: reconciliation option (a), A+B in
+one PR, any-purpose loan kept at the 50% base).
+
+**Independent arithmetic** (`tests/validation/golden.test.ts`, numbers typed from the formulas, not from the engine):
+2.25 rights, 0.7875 at 35%, 44.44% for a whole apartment; completion ₪531,250; S11 split 0.326923 / 1.923077 and
+₪498,607 of services at ₪1,525,150 per apartment; lot 149 direct budget ₪114,432,600 (+10% = ₪11,443,260,
+₪10,208.99 per saleable m²); owner ₪1,968,750 vs official-share ₪2,307,793 (117.22 m² per right); ₪1M real at year 5
+= ₪1,104,081 nominal, fixed nominal ₪1M = ₪905,731 real, PV difference ≈ ₪81,320 at 3%.
+
+**Reconciliation** (`tests/domain/consideration.test.ts`): owner value + not credited = developer forgone for every
+route of three holdings; ₪1,968,750 + ₪339,043 = ₪2,307,793 at 35% full combination on lot 149.
+
+**Quota** (`tests/domain/quota.test.ts`): 25 slots; S11 takes one; a full quota displaces exactly one participant whose
+unit moves into combination; never negative or above the quota.
+
+**Tax-loan maturity** (`tests/domain/taxLoanMaturity.test.ts`): zero-rate draw/repay; cash-covered maturity with a
+later pool sale passes; no cash and no facility → full gap, repaid later; facility capped, remainder a gap; draw after
+delivery.
+
+**Money basis** (`tests/domain/moneyBasis.test.ts`): real ₪1M at year 5 needs ₪1,104,081; nominal used as is; zero
+inflation unchanged; zero-rate borrow/repay leaves financing value 0; valuation deflates once (real 1/1.03⁵, nominal
+1/(1.03·1.02)⁵).
+
+**Levy and evidence** (`tests/domain/boughtRightsLevy.test.ts`): bought rights carry their levy once, on the buyer,
+range 0–full; 0.75 right ≈ ₪85.6K on lot 149; doubling the unverified developer price does not change the ranking.
+
+**Before / after** (`docs/validation/before-0bf74d7.md` → `docs/validation/after-iteration9.md`): no decision changed
+in the nine-household matrix. Developer margin 4.2% → 4.1% (whole slots). Completion and services borrowing are shown
+in the shekels of delivery (S06 ₪531,250 → ₪569,628; S05 and S11 figures move with them). Adverse-scenario values are
+restated in today's prices (e.g. 2.25 / ₪800K: ₪1,173,464 → ₪1,245,871).
+
+**Test expectations changed on purpose** (each with a reason in the test): the lot quota 25.5 → 25; refinancing above the
+facility now ends as a maturity gap (`TAX_LOAN_EXTENSION_NEEDED`) instead of an LTV failure; the near-miss capital in
+iteration 4 grew ≈ ₪10.6K → ≈ ₪25.8K (taxes in the shekels of their date); the levy invariant counts rights held at
+approval (own + bought); the iteration-2 legacy fixture runs with 0% inflation, as iteration 2 did.
+
+**Not done here** (planned in phases C–E): developer budget detail (area definitions, VAT basis, indirect costs,
+developer IRR, joint stresses), Pareto mix search, rental realism, cancellation state ledger, input validation,
+performance measurement, joint owner–developer contract search. Pinning CI actions to SHAs. Professional review by an
+appraiser, a tax adviser and a lawyer remains a release gate.
+
+Commands: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, `npm run test:e2e`.

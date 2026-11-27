@@ -165,7 +165,7 @@ export function CapitalField({ engine }: { engine: DecisionEngine }) {
         ))}
       </div>
       <p className="field-hint" id={ids.hint}>
-        לא כולל כסף שתרצו לשמור בצד למקרי חירום. מסים והיטל השבחה משולמים מכסף פנוי — בנקים לא מממנים אותם.
+        לא כולל כסף שתרצו לשמור בצד למקרי חירום. משכנתא רגילה לא מממנת מסים והיטל השבחה — משלמים אותם מכסף פנוי, או בהלוואה נפרדת (על נכס אחר / מהיזם) אם תאושר.
       </p>
     </div>
   );
@@ -390,7 +390,7 @@ export function BasisField({ engine, open = false }: { engine: DecisionEngine; o
         <label htmlFor={id}>כמה שולם על הקרקע כשנרכשה (₪, סה״כ)?</label>
         <MoneyInput id={id} value={i.basisText} onChange={i.setBasisText} placeholder="ריק = לא ידוע" invalid={!!errors.basis} />
       </div>
-      <p className="field-hint">בלי הנתון הזה מס השבח מחושב בהנחה השמרנית (עלות רכישה אפס).</p>
+      <p className="field-hint">בלי הנתון הזה מס השבח מחושב בתרחיש של עלות רכישה אפס — תרחיש לבדיקה, לא חישוב מס ולא בהכרח המקרה הגרוע.</p>
     </details>
   );
 }

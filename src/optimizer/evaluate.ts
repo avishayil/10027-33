@@ -45,6 +45,8 @@ export interface Evaluation {
   comparisonValue: number;
   horizonMonth: number;
   referenceWealth: number;
+  /** Starting cash grown at the alternative return, in nominal shekels of the horizon year. */
+  referenceWealthNominal: number;
   assetsAtHorizon: number;
   liquidity: number;
   sustainableMonthlyIncome: number;
@@ -99,8 +101,6 @@ export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config:
   };
 }
 
-/** Ledger categories that are nominal amounts (indexed construction payments and their reserve). */
-const NOMINAL: ReadonlySet<string> = new Set(['construction', 'contingency_reserve', 'contingency_release']);
 
 /**
  * Transaction value at signing (real, today's prices): every owner ledger flow at its own month — nominal ones
@@ -113,7 +113,7 @@ export function transactionValueOf(plan: TransactionPlan, config: ProjectConfig)
   let pv = 0;
   for (const e of plan.ledger) {
     if (e.deferred) continue;
-    const nominal = NOMINAL.has(e.category);
+    const nominal = e.priceBasis === 'nominal';
     if (e.direction === 'in') pv += e.amount * df(e.month, nominal);
     else if (e.payer === 'owner') pv -= e.amount * df(e.month, nominal);
   }
@@ -166,6 +166,10 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
       (typeof ctx.profile.otherPropertyBorrowingLimit === 'number' || config.financing.otherPropertyLoanAssumed),
     securedLoanLimit: typeof ctx.profile.otherPropertyBorrowingLimit === 'number' ? ctx.profile.otherPropertyBorrowingLimit : undefined,
     securedLoan: config.financing.securedLoan,
+    // Refinancing a tax loan on the delivered whole apartments: the "any purpose" share of their value (conditional).
+    taxLoanRefinanceLimit: config.financing.ltvLimits.additionalHome * plan.postCompletionCollateral,
+    // Plan amounts in today's prices (and rent, collateral) are converted to nominal shekels on their dates.
+    realInputs: { rent: true, collateral: true },
     // A developer/bank tax loan for combination taxes: only when the configuration enables it (conditional run).
     taxLoan:
       config.financing.taxLoan.available && ctx.profile.maxMonthlyRepayment !== 0
@@ -190,9 +194,13 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     plan.fractionalShare * aptAtHorizon * (1 - config.market.fractionIlliquidityDiscount) +
     plan.heldLandValueAtHorizon;
   // Unfunded obligations stay as liabilities (they are not loans and carry no modelled interest).
+  // Iteration 9 / F04: the simulation is in nominal shekels; wealth at the horizon is stated in today's prices, so
+  // nominal cash, debt, payments and unfunded amounts are deflated (each unfunded item from its own date).
+  const deflate = (m: number) => Math.pow(1 + config.analysis.inflation, -m / 12);
+  const unfundedReal = sim.unfundedItems.reduce((x, u) => x + u.amount * deflate(u.month), 0);
   const futureNetWealth =
-    sim.cashAtHorizon + assetsAtHorizon - sim.debtAtHorizon - sim.personalPaymentsFV - plan.deferredLiabilities - sim.unfunded;
-  const referenceWealth = startingCash * Math.pow(1 + alt, horizonMonth / 12);
+    (sim.cashAtHorizon - sim.debtAtHorizon - sim.personalPaymentsFV) * deflate(horizonMonth) + assetsAtHorizon - plan.deferredLiabilities - unfundedReal;
+  const referenceWealth = startingCash * Math.pow(1 + alt, horizonMonth / 12) * deflate(horizonMonth);
   const referenceAtDeadline = startingCash * Math.pow(1 + alt, liqYears);
   const liquidity = Math.max(0, sim.cashAtLiquidityDeadline - referenceAtDeadline);
   const investedProceeds = Math.max(0, sim.cashAtCompletion - sim.referenceAtCompletion);
@@ -211,6 +219,8 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     comparisonValue: transactionValueOf(plan, config) + sim.pvFinancing,
     horizonMonth,
     referenceWealth,
+    // Nominal shekels of the horizon year (for the optional projection, which is stated in those shekels).
+    referenceWealthNominal: startingCash * Math.pow(1 + alt, horizonMonth / 12),
     assetsAtHorizon,
     liquidity,
     sustainableMonthlyIncome,
