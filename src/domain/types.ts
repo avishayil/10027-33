@@ -83,10 +83,24 @@ export interface CommercialTerms {
 // ---------------------------------------------------------------------------
 
 export interface PaymentMilestone {
-  /** Position within the development period, 0 = signing, 1 = completion. */
+  /** Signing (month 0), the building permit, or a point in the construction period. */
+  phase: 'signing' | 'permit' | 'construction';
+  /** For 'construction': position within the construction period, 0 = permit, 1 = delivery. */
   at: number;
   share: number;
   label: string;
+}
+
+/**
+ * Explicit milestones, each dependent on the previous: plan approval → building permit → construction → delivery.
+ * A permit can never precede the approval of the plan it depends on.
+ */
+export interface Timeline {
+  approvalMonths: number;
+  permitAfterApprovalMonths: number;
+  constructionMonths: number;
+  /** Delay of a pool sale / developer buy-back after delivery (0 in base; a stress in the adverse scenario). */
+  settlementDelayMonths: number;
 }
 
 export interface ProjectConfig {
@@ -106,10 +120,9 @@ export interface ProjectConfig {
     /** Realised overrun above the quote. Scenario-driven; 0 in the base case. */
     costOverrun: number;
     annualIndexation: number;
-    durationYears: number;
-    permitAt: number;
     schedule: PaymentMilestone[];
   };
+  timeline: Timeline;
   commercial: {
     combination: { min: number; max: number; default: number };
     developerMarkup: { min: number; max: number; default: number };
@@ -118,8 +131,6 @@ export interface ProjectConfig {
     developerPaymentYear: number;
     /** Price of completion area as a share of finished-apartment market value. */
     completionPriceFactor: number;
-    /** Years from today until statutory approval (waiting strategy sells then). */
-    approvalYears: number;
     /** Price at which a developer settles a fractional entitlement in cash, as a share of market value. */
     fractionCashSettlementFactor: number;
     /**
@@ -558,6 +569,11 @@ export interface StrategyResult {
   capitalGainsTaxReserve: number;
   /** VAT on construction services received in a combination, when the owner pays it (gross / mixed). */
   servicesVat: number;
+  /**
+   * Owner money paid before plan approval (e.g. a construction prepayment, rights bought, tax on a revenue-share
+   * deal) — at risk if the plan is not approved within the horizon. Conditional contracts risk nothing.
+   */
+  approvalRisk: number;
   capitalGainsRange: { low: number; high: number };
   purchaseTax: number;
   additionalCosts: number;

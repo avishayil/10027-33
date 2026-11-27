@@ -1,4 +1,4 @@
-import type { ProjectConfig } from './types';
+import type { PaymentMilestone, ProjectConfig } from './types';
 
 /** Contractual quote per apartment: S × cost × (1 + markup) × (1 + VAT). Excludes levy, indexation, contingency. */
 export function constructionQuotePerApartment(config: ProjectConfig, markup: number): number {
@@ -30,16 +30,27 @@ export function costUplift(config: ProjectConfig): number {
   return 1 + Math.max(config.construction.contingency, config.construction.costOverrun);
 }
 
-export function milestoneMonth(at: number, config: ProjectConfig): number {
-  return Math.round(at * config.construction.durationYears * 12);
+/** Plan approval (months from signing). */
+export function approvalMonth(config: ProjectConfig): number {
+  return Math.round(config.timeline.approvalMonths);
 }
 
-export function completionMonth(config: ProjectConfig): number {
-  return milestoneMonth(1, config);
-}
-
+/** Building permit: after approval, never before it. */
 export function permitMonth(config: ProjectConfig): number {
-  return milestoneMonth(config.construction.permitAt, config);
+  return approvalMonth(config) + Math.max(0, Math.round(config.timeline.permitAfterApprovalMonths));
+}
+
+/** Delivery: the end of the construction period that starts at the permit. */
+export function completionMonth(config: ProjectConfig): number {
+  return permitMonth(config) + Math.max(1, Math.round(config.timeline.constructionMonths));
+}
+
+/** Month of a payment milestone. */
+export function milestoneMonth(m: PaymentMilestone, config: ProjectConfig): number {
+  if (m.phase === 'signing') return 0;
+  const permit = permitMonth(config);
+  if (m.phase === 'permit') return permit;
+  return Math.round(permit + m.at * (completionMonth(config) - permit));
 }
 
 export interface Installment {
@@ -72,7 +83,7 @@ export function constructionSchedule(config: ProjectConfig, markup: number, apar
   if (apartments <= 0) return { installments: [], reserveHeld: 0, reserveReleased: 0, actualSpend: 0 };
   const quote = constructionQuotePerApartment(config, markup) * apartments;
   const base = config.construction.schedule.map((m) => {
-    const month = milestoneMonth(m.at, config);
+    const month = milestoneMonth(m, config);
     const q = quote * m.share;
     const indexed = q * Math.pow(1 + config.construction.annualIndexation, month / 12);
     return { month, label: m.label, quote: q, indexed };

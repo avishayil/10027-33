@@ -3,7 +3,7 @@
  * Bump CONFIG_VERSION whenever a value changes.
  */
 import type { DataPoint, ProjectConfig } from '../domain/types';
-import { COMBINATION_RANGE, COMMERCIAL, MARKUP_RANGE, PAYMENT_SCHEDULE, PERMIT_AT } from './commercial';
+import { COMBINATION_RANGE, COMMERCIAL, MARKUP_RANGE, PAYMENT_SCHEDULE } from './commercial';
 import { APPRAISAL_FIGURES, relativeValueByRooms } from './evidence';
 import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
@@ -27,9 +27,13 @@ export const PROJECT_CONFIG: ProjectConfig = {
     contingency: COMMERCIAL.contingency.value,
     costOverrun: 0,
     annualIndexation: COMMERCIAL.annualIndexation.value,
-    durationYears: COMMERCIAL.durationYears.value,
-    permitAt: PERMIT_AT,
     schedule: PAYMENT_SCHEDULE,
+  },
+  timeline: {
+    approvalMonths: COMMERCIAL.approvalMonths.value,
+    permitAfterApprovalMonths: COMMERCIAL.permitAfterApprovalMonths.value,
+    constructionMonths: COMMERCIAL.constructionMonths.value,
+    settlementDelayMonths: 0,
   },
   commercial: {
     combination: COMBINATION_RANGE,
@@ -37,7 +41,6 @@ export const PROJECT_CONFIG: ProjectConfig = {
     revenueShare: COMMERCIAL.revenueShare.value,
     developerPaymentYear: COMMERCIAL.developerPaymentYear.value,
     completionPriceFactor: COMMERCIAL.completionPriceFactor.value,
-    approvalYears: COMMERCIAL.approvalYears.value,
     fractionCashSettlementFactor: COMMERCIAL.fractionCashSettlementFactor.value,
     taxArrangement: 'mixed',
     combinationSaleDate: 'approval',

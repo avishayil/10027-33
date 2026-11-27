@@ -2,14 +2,15 @@
  * Predefined stress scenarios. Proposed stress assumptions — not statistical confidence intervals.
  * The commercial sliders (combination %, developer markup) keep the user's values in every scenario.
  */
-import type { ProjectConfig, ScenarioId } from '../domain/types';
+import type { ProjectConfig, ScenarioId, Timeline } from '../domain/types';
 
 export interface ScenarioParams {
   apartmentValuePerSqm: number;
   /** Realised construction overrun above the quote (adverse ₪12,650 = ₪11,000 × 1.15). */
   costOverrun: number;
   interest: number;
-  durationYears: number;
+  /** Approval, permit lag, construction and settlement delay — explicit dependent milestones. */
+  timeline: Timeline;
   developerPriceFactor: number;
   monthlyRent: number;
   levyFactor: number;
@@ -31,7 +32,7 @@ export const PARAM_LABELS: Record<ScenarioParamKey, string> = {
   apartmentValuePerSqm: 'שווי דירה למ״ר',
   costOverrun: 'חריגה בעלות הבנייה',
   interest: 'ריבית משכנתא',
-  durationYears: 'משך הפרויקט',
+  timeline: 'לוח זמנים (אישור, היתר, בנייה, מכירת יחידת סל)',
   developerPriceFactor: 'מחיר שהיזם ישלם על זכויות',
   monthlyRent: 'שכר דירה',
   levyFactor: 'שומת היטל ההשבחה',
@@ -46,7 +47,7 @@ export function scenarioParams(config: ProjectConfig, id: ScenarioId): ScenarioP
       apartmentValuePerSqm: 28000,
       costOverrun: 0,
       interest: 0.04,
-      durationYears: 3,
+      timeline: { approvalMonths: 18, permitAfterApprovalMonths: 0, constructionMonths: 30, settlementDelayMonths: 0 },
       developerPriceFactor: 1.1,
       monthlyRent: 6500,
       levyFactor: 0.85,
@@ -60,7 +61,9 @@ export function scenarioParams(config: ProjectConfig, id: ScenarioId): ScenarioP
       apartmentValuePerSqm: 21000,
       costOverrun: 0.15,
       interest: config.financing.stressInterest,
-      durationYears: 8,
+      // Approval a year late, the permit a year after it, longer construction, and the pool sale / buy-back a year
+      // after delivery (a tax loan with no whole apartment to refinance on then has nothing to repay it from).
+      timeline: { approvalMonths: 36, permitAfterApprovalMonths: 12, constructionMonths: 48, settlementDelayMonths: 12 },
       developerPriceFactor: 0.75,
       monthlyRent: 4500,
       levyFactor: 1.25,
@@ -73,7 +76,7 @@ export function scenarioParams(config: ProjectConfig, id: ScenarioId): ScenarioP
     apartmentValuePerSqm: config.market.apartmentValuePerSqm,
     costOverrun: 0,
     interest: config.financing.nominalAnnualInterest,
-    durationYears: config.construction.durationYears,
+    timeline: config.timeline,
     developerPriceFactor: 1,
     monthlyRent: config.market.monthlyRentPerApartment,
     levyFactor: 1,
@@ -90,9 +93,9 @@ export function applyScenarioParams(config: ProjectConfig, p: ScenarioParams): P
     construction: {
       ...config.construction,
       costOverrun: p.costOverrun,
-      durationYears: p.durationYears,
       annualIndexation: p.annualIndexation,
     },
+    timeline: p.timeline,
     market: {
       ...config.market,
       apartmentValuePerSqm: p.apartmentValuePerSqm,
@@ -105,7 +108,12 @@ export function applyScenarioParams(config: ProjectConfig, p: ScenarioParams): P
       },
     },
     taxation: { ...config.taxation, bettermentLevyFactor: config.taxation.bettermentLevyFactor * p.levyFactor },
-    financing: { ...config.financing, nominalAnnualInterest: p.interest },
+    // The tax-loan rate moves with the mortgage rate (both priced off prime).
+    financing: {
+      ...config.financing,
+      nominalAnnualInterest: p.interest,
+      taxLoan: { ...config.financing.taxLoan, annualRate: config.financing.taxLoan.annualRate + (p.interest - config.financing.nominalAnnualInterest) },
+    },
   };
 }
 

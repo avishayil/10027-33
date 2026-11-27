@@ -10,6 +10,7 @@
  * and capital-gains tax fall at approval or later — never before.
  */
 import {
+  approvalMonth,
   completionMonth as completionMonthOf,
   constructionSchedule,
   constructionServiceTaxValuePerApartment,
@@ -37,7 +38,7 @@ export interface PlanContext {
 }
 
 export function approvalMonthOf(config: ProjectConfig): number {
-  return Math.round(config.commercial.approvalYears * 12);
+  return approvalMonth(config);
 }
 
 export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): TransactionPlan {
@@ -47,6 +48,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   const cgRange = { low: 0, high: 0 };
 
   const completion = completionMonthOf(config);
+  // A pool sale / developer buy-back of the fraction may come after delivery (adverse stress).
+  const settlementDelay = Math.max(0, Math.round(config.timeline.settlementDelayMonths));
   const permit = permitMonthOf(config);
   const approval = approvalMonthOf(config);
   const horizon = config.analysis.horizonYears * 12;
@@ -361,11 +364,11 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
       });
     } else if (gap < -1e-9) {
       const amount = -gap * aptAtCompletion * config.commercial.fractionCashSettlementFactor;
-      inflow(completion, amount, 'איזון כספי על ההפרש לדירה הקטנה', 'fraction_settlement');
+      inflow(completion + settlementDelay, amount, 'איזון כספי על ההפרש לדירה הקטנה', 'fraction_settlement');
       const tax = disposalTax(amount, -gap);
       cgRange.low += tax;
       cgRange.high += tax;
-      out(completion, tax, 'מס שבח על האיזון (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
+      out(completion + settlementDelay, tax, 'מס שבח על האיזון (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
       fractionSettled = { mode: 'cash', share: -gap };
     }
     retainedEq = wholeApartmentsRetained + tierEq;
@@ -381,13 +384,13 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     // owners are pooled into balancing units sold on the market; proceeds after costs are distributed.
     const factor = settleFraction === 'cash' ? config.commercial.fractionCashSettlementFactor : 1 - costRate;
     const amount = fractionalShare * aptAtCompletion * factor;
-    inflow(completion, amount, settleFraction === 'cash' ? 'פיצוי כספי על חלק הדירה' : 'חלקכם ממכירת יחידת הסל', 'fraction_settlement');
+    inflow(completion + settlementDelay, amount, settleFraction === 'cash' ? 'פיצוי כספי על חלק הדירה' : 'חלקכם ממכירת יחידת הסל', 'fraction_settlement');
     // Disposal of retained property (the apartment entitlement received), not extra land consideration: the gain is
     // measured over its basis — the services value already taxed when it was received.
     const tax = disposalTax(amount, fractionalShare);
     cgRange.low += tax;
     cgRange.high += tax;
-    out(completion, tax, 'מס שבח על הפיצוי (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
+    out(completion + settlementDelay, tax, 'מס שבח על הפיצוי (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
     retainedEq -= fractionalShare;
     fractionSettled = { mode: settleFraction, share: fractionalShare };
     fractionalShare = 0;

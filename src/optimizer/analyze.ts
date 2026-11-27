@@ -9,6 +9,7 @@ import { candidatePnL, developerEconomics } from '../domain/developer';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
+import { approvalMonthOf } from '../domain/transactions';
 import { levyPerRight, netMonthlyRentPerApartment, taxLoanRate } from '../domain/taxation';
 import type {
   Candidate,
@@ -186,6 +187,7 @@ export function buildResult(
     bettermentLevy: sum(ledger, (e) => owner(e) && e.category === 'betterment_levy'),
     capitalGainsTaxReserve: sum(ledger, (e) => owner(e) && e.category === 'capital_gains_tax'),
     servicesVat: sum(ledger, (e) => owner(e) && e.category === 'services_vat'),
+    approvalRisk: sum(ledger, (e) => ownerOut(e) && e.month < approvalMonthOf(config)),
     capitalGainsRange: plan.capitalGainsRange,
     purchaseTax: sum(ledger, (e) => owner(e) && e.category === 'purchase_tax'),
     additionalCosts: sum(ledger, (e) => owner(e) && ['transaction_costs', 'completion_payment', 'rights_purchase'].includes(e.category)),

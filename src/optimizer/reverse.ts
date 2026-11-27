@@ -3,7 +3,7 @@
  * terms that would make a strategy fit the user's finances.
  * Unknown capital or repayment capacity is treated as zero here (and labelled so in the UI).
  */
-import { constructionQuotePerApartment } from '../domain/construction';
+import { completionMonth, constructionQuotePerApartment } from '../domain/construction';
 import { mortgageCapacity } from '../domain/mortgage';
 import { applyScenarioParams, scenarioParams } from '../data/scenarios';
 import type { Candidate, DeveloperEconomics, NegotiationTarget, PriceKnob, PriceThreshold, ProjectConfig, StrategyResult } from '../domain/types';
@@ -86,7 +86,7 @@ export function minSurplusPrice(c: Candidate, ctx: EngineContext, config: Projec
 }
 
 export function latestSurplusPayment(c: Candidate, ctx: EngineContext, config: ProjectConfig): NegotiationTarget {
-  const completion = Math.round(config.construction.durationYears * 12);
+  const completion = completionMonth(config);
   let latest: number | null = null;
   for (let m = 0; m <= completion; m += 1) {
     const cfg = { ...config, commercial: { ...config.commercial, developerPaymentYear: m / 12 } };

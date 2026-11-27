@@ -37,13 +37,23 @@ export const COMMERCIAL = {
     verification: 'assumed',
     notes: 'המדד עלה 0.4% באוקטובר 2026. 3% בשנה הוא תרחיש — לא תחזית הלמ״ס.',
   },
-  durationYears: {
-    value: 5,
-    label: 'משך הפרויקט עד מסירה',
+  constructionMonths: {
+    value: 36,
+    label: 'משך הבנייה מההיתר עד המסירה (חודשים)',
     sourceType: 'planning_assumption',
     retrievedAt: RETRIEVED_AT,
-    range: { low: 3, high: 8 },
+    range: { low: 30, high: 48 },
     verification: 'assumed',
+    notes: 'יחד עם אישור בעוד שנתיים והיתר מיד אחריו — מסירה בעוד כ-5 שנים, כמו קודם.',
+  },
+  permitAfterApprovalMonths: {
+    value: 0,
+    label: 'זמן מאישור התכנית עד היתר בנייה (חודשים)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    range: { low: 0, high: 12 },
+    verification: 'assumed',
+    notes: 'אופטימי: בפועל ההיתר תלוי בהסדרי הקצאה, רישום ומימון. בתרחיש השמרני — שנה.',
   },
   revenueShare: {
     value: 0.45,
@@ -137,9 +147,9 @@ export const COMMERCIAL = {
     notes:
       'בעסקה שנחתמת לפני אישור התכנית ועומדת בתנאי הסעיף, יום המכירה הוא יום אישור התכנית — ומועדי ההצהרה והתשלום נדחים איתו. לפי עמדה 06/26 (כפי שדווחה במקורות משניים) הדבר חל גם כשהיזם נושא במסי הבעלים. מותנה; הנוסח המלא לא אומת.',
   },
-  approvalYears: {
-    value: 2,
-    label: 'זמן משוער עד אישור התכנית',
+  approvalMonths: {
+    value: 24,
+    label: 'זמן משוער עד אישור התכנית (חודשים)',
     sourceType: 'planning_assumption',
     retrievedAt: RETRIEVED_AT,
     verification: 'assumed',
@@ -181,11 +191,10 @@ export const COMMERCIAL = {
 
 /** Illustrative construction payment schedule (planning placeholder, not contract terms). */
 export const PAYMENT_SCHEDULE: PaymentMilestone[] = [
-  { at: 0, share: 0.1, label: 'חתימת חוזה' },
-  { at: 0.4, share: 0.15, label: 'היתר בנייה' },
-  { at: 0.5, share: 0.2, label: 'שלד' },
-  { at: 0.65, share: 0.2, label: 'שלד ומעטפת' },
-  { at: 0.8, share: 0.2, label: 'גמרים' },
-  { at: 1, share: 0.15, label: 'מסירה' },
+  { phase: 'signing', at: 0, share: 0.1, label: 'חתימת חוזה' },
+  { phase: 'permit', at: 0, share: 0.15, label: 'היתר בנייה' },
+  { phase: 'construction', at: 1 / 6, share: 0.2, label: 'שלד' },
+  { phase: 'construction', at: 5 / 12, share: 0.2, label: 'שלד ומעטפת' },
+  { phase: 'construction', at: 2 / 3, share: 0.2, label: 'גמרים' },
+  { phase: 'construction', at: 1, share: 0.15, label: 'מסירה' },
 ];
-export const PERMIT_AT = 0.4;
