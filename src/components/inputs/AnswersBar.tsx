@@ -1,17 +1,22 @@
+import type { Goal } from '../../domain/types';
 import type { DecisionEngine } from '../../hooks/useDecisionEngine';
+import { GOAL_LABELS } from '../../optimizer/explain';
 import { describeAnswers, TermsFields } from './fields';
 import type { WizardStep } from './Wizard';
 
 interface Props {
   engine: DecisionEngine;
   saved: boolean;
+  /** A retired goal from saved answers that was mapped to a current one (shown once, until the goal is changed). */
+  migratedGoalFrom?: Goal;
   onEdit: (step: WizardStep) => void;
   onForget: () => void;
 }
 
 /** The user's answers at a glance, each editable, plus where they are stored. */
-export function AnswersBar({ engine, saved, onEdit, onForget }: Props) {
+export function AnswersBar({ engine, saved, migratedGoalFrom, onEdit, onForget }: Props) {
   const a = describeAnswers(engine);
+  const migratedTo = migratedGoalFrom ? GOAL_LABELS[engine.inputs.goal] : null;
   const items: { step: WizardStep; label: string; value: string }[] = [
     { step: 'land', label: 'הזכויות שלי', value: a.land },
     { step: 'capital', label: 'כסף פנוי', value: a.capital },
@@ -39,6 +44,11 @@ export function AnswersBar({ engine, saved, onEdit, onForget }: Props) {
           </div>
         ))}
       </dl>
+      {migratedGoalFrom && migratedTo && (
+        <p className="field-hint" role="note">
+          ההעדפה ששמרתם — ״{GOAL_LABELS[migratedGoalFrom]}״ — כבר לא מוצגת בשאלון, והועברה ל״{migratedTo}״. אפשר לשנות ב״מה חשוב לי״.
+        </p>
+      )}
       <p className="answers-storage">
         {saved ? (
           <>

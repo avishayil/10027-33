@@ -19,6 +19,7 @@ import {
 import { lotPolicy, policyBlock, serviceApartments } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
+import { validateInputs } from '../domain/validation';
 import { approvalMonthOf } from '../domain/transactions';
 import { levyPerRight, netMonthlyRentPerApartment, taxLoanRate } from '../domain/taxation';
 import type {
@@ -383,6 +384,8 @@ export function analyzeProfile(
   terms: CommercialTerms,
   config: ProjectConfig = PROJECT_CONFIG,
 ): DecisionResult {
+  const invalid = validateInputs(profile, terms, config);
+  if (invalid.length) throw new Error(invalid.join(' '));
   const core = coreAnalysis(profile, terms, config);
   const { ctx, results, ranked, frontierIds, dev, scales } = core;
   const recommendation = ranked[0] ?? null;

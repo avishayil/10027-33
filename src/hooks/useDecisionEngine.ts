@@ -8,6 +8,8 @@ import { PROJECT_CONFIG } from '../data/config';
 import type { CommercialTerms, DecisionResult, Goal, TaxArrangement, UserProfile } from '../domain/types';
 import { analyzeProfile } from '../optimizer/analyze';
 import { parseParcelFraction } from '../utils/simulationMath';
+import { PARCEL } from '../data/parcel33';
+import { maxAreaInLot } from '../domain/validation';
 import type { SavedInputs } from './storage';
 
 export type AreaMode = 'sqm' | 'fraction';
@@ -31,7 +33,8 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const [areaText, setAreaText] = useState(() => {
     if (saved?.areaMode === 'fraction') {
       try {
-        return String(Math.round(parseParcelFraction(saved.fractionText) * 100) / 100);
+        // Exact value, not rounded (iteration 9 / D4): up to 6 decimals of m².
+        return String(Number(parseParcelFraction(saved.fractionText).toFixed(6)));
       } catch {
         return '167';
       }
@@ -76,8 +79,18 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const levyCap = parseAmount(levyCapText);
   const otherPropertyLimit = parseAmount(otherPropertyLimitText);
 
+  // Iteration 9 / D4: the holding must fit inside the parcel and inside one lot (multi-lot holdings are not supported).
+  const areaBound =
+    area.value === null
+      ? null
+      : area.value > PARCEL.area
+        ? `השטח גדול מכל החלקה (${PARCEL.area.toLocaleString('he-IL')} מ״ר).`
+        : area.value > maxAreaInLot(PROJECT_CONFIG, lotId || PROJECT_CONFIG.rights.defaultLotId) + 1e-6
+          ? 'השטח גדול מכל המגרש שהוקצה. אחזקות בכמה מגרשים עוד לא נתמכות — הזינו את החלק שבמגרש אחד.'
+          : null;
+
   const errors = {
-    area: area.error,
+    area: area.error ?? areaBound,
     capital: Number.isNaN(capital) ? 'סכום לא תקין.' : null,
     repayment: repaymentMode === 'amount' && Number.isNaN(repaymentAmount) ? 'סכום לא תקין.' : null,
     basis: Number.isNaN(basis) ? 'סכום לא תקין.' : null,
@@ -89,7 +102,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
     repaymentMode === 'none' ? 0 : repaymentMode === 'unknown' ? null : Number.isNaN(repaymentAmount) ? null : repaymentAmount;
 
   const profile: UserProfile | null =
-    area.value === null
+    area.value === null || areaBound
       ? null
       : {
           landAreaSqm: area.value,
