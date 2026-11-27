@@ -227,6 +227,9 @@ export default function App() {
           </p>
         </footer>
       )}
+      <p className="build-version" dir="ltr">
+        {`build ${__BUILD_VERSION__}`}
+      </p>
     </div>
   );
 }

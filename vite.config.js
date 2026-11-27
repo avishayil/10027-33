@@ -1,5 +1,16 @@
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+/** Build version shown at the bottom of the page: the commit's short id (CI: GITHUB_SHA; locally: git). */
+function buildVersion() {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7)
+  try {
+    return execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return 'dev'
+  }
+}
 
 const base =
   process.env.VITE_BASE != null && process.env.VITE_BASE !== ''
@@ -38,4 +49,7 @@ const cspPlugin = {
 export default defineConfig({
   plugins: [react(), cspPlugin],
   base,
+  define: {
+    __BUILD_VERSION__: JSON.stringify(buildVersion()),
+  },
 })

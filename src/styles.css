@@ -1877,6 +1877,13 @@ button {
   margin-top: 16px;
 }
 
+.build-version {
+  margin: 8px 0 16px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .verdict-numbers .big-num strong {
   white-space: nowrap;
 }
