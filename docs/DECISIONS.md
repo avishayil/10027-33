@@ -303,3 +303,37 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
     level; shown with the questions to ask (guarantees, conditions precedent, approval deadline, liens, trust).
 90. **Consistent hints**: the 3-room hint uses the same funding run as the direction; for the no-risk / cash goal a sale
     is named as a possible direction with the price to ask for, measured against the conditional direction.
+
+## Iteration 8 — review of cffb86d: calibration and release validation (2026-11-27)
+
+91. **Evidence-based developer budget** (owner decision). The developer model prices the plan's built areas per lot
+    (provisions Table 5, appraisal pp.30–32: lot 149 14,269 m² above ground, 4,770 m² underground, 1,530 m² balconies,
+    20 floors / 72 m; lots 150 and 153 likewise) at the June 2026 appraisers' construction-cost survey (Sharon,
+    "רב קומות" ₪6,600, underground ₪3,400 per licensed m², balconies 40% within 30–50%). Lot 149: ₪114.4M direct
+    ≈ ₪10,209 per saleable m² — about the old ₪11,000 × 100 m² per unit, so the construction-cost definition was *not*
+    the cause of the negative margin. Soft costs stay 12%; the survey's ±10% and the appraisal's 27% indirect rate
+    (public-building shells) are sensitivities. The owners' ₪11,000/m² services price is unchanged.
+92. **Revenue on saleable area.** The lot's door-to-door residential area (11,209 m², 110 m² a unit) is sold, not
+    100 m² × units; that understatement was the real source of the gap. Result at 35% mixed: developer margin ≈ +4.2%,
+    viable ≈ 24.7% (gross 30.8%, net 17.5%); for a 15% margin the direct cost would need to fall to ≈ ₪8,979 per
+    saleable m², or apartments sell at ≈ ₪29,105/m². The appraisal's comparables (₪19,000–24,000/m² nearby) are below
+    the ₪25,000 scenario — worth knowing before negotiating at 35%.
+93. **Physical inventory vs value.** The lot's unit mix is fixed, so the developer gives up the market value of what it
+    delivers (value-equivalents); the physical apartments a user receives are counted separately. A user on
+    construction services takes quota slots from typical participants, never beyond the quota.
+94. **Value to you** (owner decision; amends #85): the ranking is an equity NPV — the transaction value plus loan
+    proceeds, debt service (interest and principal) and the debt left at the horizon; nominal flows (indexed
+    construction, loans) deflated by 2% inflation, discounted at 3% real. The transaction value (before personal
+    financing) is reported alongside; the old horizon-based netPresentValue is removed.
+95. **Facilities kept apart**: project loan (construction → mortgage), the loan on another property ("any purpose": own
+    rate and term, amortising from the draw) and the tax loan (bullet at delivery). Refinancing a tax loan on the
+    delivered apartment is capped at the any-purpose 50%. Replacement home: 70% (new optional answer).
+96. **Bounded mix search**: one apartment fewer to one more than the entitlement, incl. a single non-standard apartment;
+    the closest six per count. **S14**: renting out the apartments of a combination route — rent supports repayment,
+    not value; not shown as a payment method.
+97. **Cancellation scenarios**: protected / partially protected / unprotected (the maximum modelled exposure); bought
+    rights are not credited at an unestablished value. A tax loan due before its repayment source (a delayed pool sale)
+    with no whole apartment to refinance on is an explicit gap (extension or guarantee needed).
+98. **Sale target and negotiation range** worded as calculated targets, with what they are measured against.
+99. **Release validation matrix**: the review's twelve scenarios plus a property test across lots, households, goals,
+    slider ranges and arrangements (`tests/validation/release.test.ts`).

@@ -90,6 +90,21 @@ commercial with a ₪46M advance whose interest the joint venture bears; ₪27M 
 | Real discount rate (comparison) | 3% | 0–5% | owner decision / planning assumption | ≈ mortgage rate − inflation |
 | Mortgage LTV on delivered homes | 75% sole / 50% additional / 50% unknown | — | statutory | [BoI directive 329](https://boi.org.il/roles/supervisionregulation/nbt/nbt329/) |
 
+## Iteration 8 — developer budget evidence (2026-11-27)
+
+| Value | Base | Range | Status | Source |
+|---|---|---|---|---|
+| Plan built areas per lot | lot 149: 14,269 / 4,770 / 1,530 m² (above / below / balconies); 20 floors, 72 m | — | official (plan provisions Table 5) | appraisal pp.30–32 (local PDF, `to-review/`) |
+| Saleable area per lot | 11,209 / 10,541 / 11,045 m² | — | planning appraisal | `parcel33.js` (door-to-door area) |
+| Construction cost, tower, Sharon | ₪6,600 / licensed m² | ±10% | reported (survey) | [לשכת שמאי מקרקעין — אומדן עלויות בנייה, יוני 2026](https://landvalue.org.il/index2.php?id=20313) |
+| Underground, Sharon | ₪3,400 / m² | ±10% | reported (survey) | same |
+| Balconies | 40% of the main rate | 30–50% | reported (survey) | same |
+| Indirect costs (sensitivity) | 27% | — | planning appraisal | appraisal (public-building shell) |
+| Inflation (deflating nominal flows) | 2% | 1–3% | official target | Bank of Israel |
+
+The survey excludes VAT, planning and consultants, supervision, fees and levies, overhead, financing, development and
+infrastructure connections. Development levies and permit fees are not modelled.
+
 ## Iteration 4 — evidence registry
 
 See `src/data/evidence.ts` and `docs/validation/market-evidence-2026-11-27.md`. The developer price (₪6,900),

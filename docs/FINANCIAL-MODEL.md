@@ -242,3 +242,18 @@ Sole home 75%, additional 50%, unknown 50%; value-weighted over several apartmen
 ### Apartment mix (`generate.ts`, `apartment_mix` leg)
 Mix value `V = Σ relative values`; gap `V − E` paid as completion (purchase tax on it) or, if negative, paid out by the
 developer at the buy-back factor (price-dependent).
+
+## Iteration 8 changes
+
+### Developer budget (`domain/lotDeveloper.ts`, `developerBudget`)
+`direct = above × ₪6,600 + below × ₪3,400 + balconies × ₪6,600 × 40%` per lot; cost per saleable m² = direct / saleable
+area. Revenue = developer's saleable area × apartment price per m² ex VAT. Services owners pay the owners' price per
+m² for their apartment's area. A user's route: area per simulation right = ownership share × saleable area / R.
+
+### Value to you (`optimizer/evaluate.ts`)
+`transaction value = Σ owner flows (nominal ones deflated) + apartments at delivery, discounted at 3% real`;
+`value to you = transaction value + PV(loan proceeds − debt service − debt at the horizon)`, financing deflated by 2%.
+
+### Facilities (`domain/cashflow.ts`)
+Project loan: interest-only to delivery, then 25-year annuity. Loan on another property: annuity from the draw over
+20 years at its own rate. Tax loan: capitalised, bullet at delivery (repaid or refinanced within the any-purpose cap).

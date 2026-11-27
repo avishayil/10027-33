@@ -696,7 +696,7 @@ function DeveloperThresholdsView({ result, combinationPct }: { result: DecisionR
             <td>{t.maxDirectCostPerSqm === null ? 'לא נמצאה' : `${formatCurrency(t.maxDirectCostPerSqm)} למ״ר`}</td>
           </tr>
           <tr>
-            <th>שווי דירה מינימלי (בעלות ישירה של ₪11,000 למ״ר)</th>
+            <th>שווי דירה מינימלי (בתקציב הבנייה לפי הסקר)</th>
             <td>{t.minApartmentPricePerSqm === null ? 'לא נמצא' : `${formatCurrency(t.minApartmentPricePerSqm)} למ״ר`}</td>
           </tr>
         </tbody>
