@@ -405,3 +405,17 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
      direct-cost ceiling or apartment-price floor that restores its target, and the extra own capital the owner needs at
      the developer's maximum. On demand in the advanced view (≈ 20–60 ms on a laptop). Each lever is computed alone;
      joint levers and more contract variables (completion price, payment dates, loan terms) are the next step.
+120. **Group planner, first version** (phase F, `src/optimizer/group/collective.ts`). Up to eight anonymous owners typed
+     in the advanced view (m², free cash, monthly, goal) — never inferred from the allocation table, never saved or sent.
+     Each owner's options: their own ranked routes (no assumed sizes, no duplicate rental variants), or their conditional
+     direction when nothing fits on base terms (marked with its condition). Shared resources: construction-services
+     slots available to the group (an input) and balancing pools (shares must reach one apartment; any remainder is
+     reported). No owner is placed below their own baseline (best option needing no shared resource). Among such plans:
+     most first choices, then most total value; the uncoordinated choices are shown with their clashes. Bounded search.
+     Rights transfers between owners are not proposed (price unknown); any arrangement needs a sharing agreement.
+121. **Contract with an option, first version** (phase F, `src/optimizer/contingent.ts`). States: plan not approved
+     (maximum exposure), approved with financing, approved without any financing (no mortgage, other-property loan or tax
+     loan). Fixed routes fall back to the full combination where they cannot be carried out; "combination now, switch to
+     X after approval if financed" takes X's value when financed and the combination's otherwise. Regret per state =
+     best available − this choice; rows ordered by largest regret. No probabilities; the option's price and the
+     developer's agreement are not assumed.

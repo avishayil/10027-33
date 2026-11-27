@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { PROJECT_CONFIG } from './data/config';
+import { withArrangement } from './domain/arrangements';
 import { Assumptions } from './components/assumptions/Assumptions';
 import {
   AllocationTable,
@@ -14,6 +16,7 @@ import {
   WhyFits,
 } from './components/comparisons/DetailSections';
 import { JointSearch } from './components/comparisons/JointSearch';
+import { ContingentCard, GroupPlanner } from './components/comparisons/PhaseF';
 import { AnswersBar, TermsCard } from './components/inputs/AnswersBar';
 import { Wizard, type WizardStep } from './components/inputs/Wizard';
 import { PrintHeader } from './components/print/PrintHeader';
@@ -88,6 +91,12 @@ export default function App() {
   };
 
   const focus = result?.recommendation ?? result?.ranked[0] ?? null;
+  // The configuration the analysis ran with (tax arrangement and offer terms), for the advanced cards.
+  const analysisConfig = useMemo(() => {
+    const base = withArrangement(PROJECT_CONFIG, engine.inputs.taxArrangement);
+    const levyCap = engine.inputs.levyCapText === '' ? null : Number(engine.inputs.levyCapText) || null;
+    return { ...base, commercial: { ...base.commercial, offer: { levyCap, developerPaysTaxLoanInterest: engine.inputs.developerPaysInterest } } };
+  }, [engine.inputs.taxArrangement, engine.inputs.levyCapText, engine.inputs.developerPaysInterest]);
   const inWizard = view === 'wizard';
 
   return (
@@ -151,6 +160,8 @@ export default function App() {
                 <ScenarioComparison result={result} />
                 <NegotiationPanel result={result} />
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
+                {profile && <ContingentCard result={result} profile={profile} terms={terms} config={analysisConfig} />}
+                <GroupPlanner terms={terms} config={analysisConfig} />
                 {profile && (
                   <JointSearch
                     profile={profile}

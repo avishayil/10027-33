@@ -307,3 +307,10 @@ Project loan: interest-only to delivery, then 25-year annuity. Loan on another p
 {ok, margin}}, `feasible`, `frontier`, and per arrangement `ownerOk` / `developerOk` / `both` ranges, `developerMaxExact`
 (`lotViablePct`) and, without overlap, `gap` {ownerMin, developerMax, atOwnerMin {margin, maxDirectCostPerSqm,
 minApartmentPricePerSqm}, atDeveloperMax {%, extraCapital, route}}.
+
+### Phase F
+* `planGroup(members, terms, slotsAvailable, titleOf, config)` → per owner: options {route, rank, value, whole, slots,
+  poolShare, condition}, baseline, chosen, alone; plan totals (slots used, pool shares/units/leftover, first choices,
+  value) and the uncoordinated view (slots demanded, pool shares, problems).
+* `contingentPlan(result, profile, terms, config)` → rows {route, option route, no-approval exposure, value financed,
+  value without financing, fell back?, regret per state, max regret}.

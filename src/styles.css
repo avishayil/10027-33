@@ -2182,3 +2182,23 @@ button {
   font-size: 0.8rem;
   color: var(--muted);
 }
+
+.group-inputs input,
+.group-inputs select {
+  width: 100%;
+  min-width: 70px;
+  padding: 4px 6px;
+}
+.inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+.inline-field input {
+  width: 56px;
+  padding: 4px 6px;
+}
+.cell-warn {
+  background: #fffbeb;
+}
