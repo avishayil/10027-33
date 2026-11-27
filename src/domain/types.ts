@@ -882,6 +882,12 @@ export interface DeveloperThresholds {
     perSaleableSqm: number;
     lines: { aboveGround: number; underground: number; balconies: number };
     sensitivity: { label: string; margin: number }[];
+    /** Iteration 9 / C3: one-at-a-time and combined developer stresses at the offer's terms. */
+    stress: { label: string; margin: number; profitOnCost: number; equityIrr: number | null; peakLoan: number; profit: number }[];
+    /** Unbudgeted cost per saleable m² the lot absorbs before the target margin / before a loss (negative = already below). */
+    headroom: { toTargetPerSqm: number; toZeroPerSqm: number };
+    /** Base lot: profit on cost, peak equity and loan, equity IRR. */
+    returns: { profitOnCost: number; peakEquity: number; peakLoan: number; equityIrr: number | null };
   };
 }
 

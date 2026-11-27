@@ -52,7 +52,8 @@ export function scenarioParams(config: ProjectConfig, id: ScenarioId): ScenarioP
       monthlyRent: 6500,
       levyFactor: 0.85,
       annualIndexation: 0.01,
-      immediateSalePricePerSqm: 2739,
+      // Highest reported parcel-33 deal in 10/2024–04/2026 (₪400,000 / 167 m²) — not the appraisal's allocation value.
+      immediateSalePricePerSqm: 2395,
       postApprovalLandValuePerSqm: 7810,
     };
   }

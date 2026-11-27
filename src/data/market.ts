@@ -60,21 +60,22 @@ export const MARKET = {
     sourceUrl: 'https://land-check.co.il',
     retrievedAt: RETRIEVED_AT,
     observedAt: '2024-10/2026-04',
-    range: { low: 1647, high: 2739 },
+    range: { low: 1647, high: 2395 },
     verification: 'reported',
     notes:
-      'חציון חמש עסקאות של 167 מ״ר בחלקה (10/2024–04/2026). אינו שומה עדכנית. טווח לתרחישים: העסקה הזולה ביותר (₪1,647) עד שווי הזכויות בטבלה בניכוי היטל (₪2,739 = (714,371 − 256,940) ÷ 167).',
+      'חציון שבע עסקאות מדווחות של 167 מ״ר בחלקה (10/2024–04/2026), הטווח = העסקה הזולה (₪275,000) עד היקרה (₪400,000) באותה תקופה. עסקאות עבר בלבד — אינו שומה עדכנית. שווי הזכויות בטבלת ההקצאה בניכוי היטל (כ-₪2,739 למ״ר) הוא ערך שמאות תכנונית, לא עסקה — מוצג בנפרד ולא נכלל בטווח.',
   },
   postApprovalLandValuePerSqm: {
     value: 7100,
     label: 'שווי קרקע אחרי אישור — תרחיש היפותטי בלבד (סטטיסטיקה של כל הגוש)',
-    sourceType: 'secondary_market',
+    // Iteration 9 / C4: the block statistic is reported; its use as a post-approval value for parcel 33 is an assumption.
+    sourceType: 'planning_assumption',
     sourceName: 'Zips — גוש 10027, 71 עסקאות',
     sourceUrl: 'https://zips.co.il',
     retrievedAt: RETRIEVED_AT,
     observedAt: '2024-08/2026-08',
     range: { low: 5325, high: 7810 },
-    verification: 'reported',
+    verification: 'assumed',
     notes:
       'ערך ייחוס לאסטרטגיית ההמתנה, נפרד ממחיר היזם (עסקאות בחלקות שונות בגוש — לא ישים ישירות לחלקה 33). תרחיש שמרני −25%, אופטימי +10%.',
   },
