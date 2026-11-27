@@ -4,7 +4,10 @@ import {
   CostLedger,
   DeveloperPanel,
   Financing,
+  LandReferences,
   NegotiationPanel,
+  PriceConditionalRoutes,
+  ProjectionSection,
   ScenarioComparison,
   StrategyComparison,
   WhyFits,
@@ -123,6 +126,7 @@ export default function App() {
                 <FollowUps questions={result.followUpQuestions} onAnswer={edit} />
                 <TermsCard engine={engine} />
                 <Alternatives result={result} />
+                <PriceConditionalRoutes result={result} />
                 <h2 className="section-title section-divider">פירוט ובדיקה</h2>
                 <WhyFits result={result} goal={profile!.goal} />
                 <StrategyComparison result={result} />
@@ -131,6 +135,8 @@ export default function App() {
                 <ScenarioComparison result={result} />
                 <NegotiationPanel result={result} />
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
+                <LandReferences result={result} />
+                <ProjectionSection result={result} />
                 <Assumptions />
                 <div className="no-print print-actions">
                   <button type="button" className="btn-primary" onClick={() => window.print()}>

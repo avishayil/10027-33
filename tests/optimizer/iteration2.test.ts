@@ -199,8 +199,8 @@ describe('fractional entitlements', () => {
     const ev = evaluateCandidate(cand('S02'), ctx(), C);
     expect(ev.plan.fractionalShare).toBeCloseTo(0.7875, 9);
     expect(ev.sim.monthlyNetRent).toBe(0);
-    const apt10 = 2_500_000 * Math.pow(1.02, 10);
-    expect(ev.assetsAtHorizon).toBeCloseTo(0.7875 * apt10 * 0.8, 2);
+    // Primary comparison is in today's prices (no appreciation).
+    expect(ev.assetsAtHorizon).toBeCloseTo(0.7875 * 2_500_000 * 0.8, 2);
   });
 
   it('cash settlement and completion are evaluated as alternatives', () => {
@@ -208,7 +208,9 @@ describe('fractional entitlements', () => {
     expect(settled.plan.fractionalShare).toBe(0);
     expect(settled.plan.ledger.some((e) => e.category === 'fraction_settlement')).toBe(true);
     const completed = evaluateCandidate(cand('S06-1'), ctx(), C);
-    expect(completed.sim.monthlyNetRent).toBeGreaterThan(0);
+    // A whole apartment you live in saves rent — a non-cash benefit, never bank cash.
+    expect(completed.plan.housingBenefitMonthly).toBeGreaterThan(0);
+    expect(completed.sim.monthlyNetRent).toBe(0);
   });
 });
 
@@ -240,7 +242,8 @@ describe('developer economics', () => {
     const L = info.bettermentLevy;
     const services = 0.7875 * 1_100_000 * 1.175 * 1.18; // incl. ordinary contractor profit
     const rev = 0.65 * 2.25 * a;
-    const costs = 2.25 * build + 0.7875 * 1_100_000 * 0.18 + L + 0.06 * (services + L); // levy + developer purchase tax
+    const publicShare = 0.02353 * 325 * 8000; // owner's lot share of the public-building shell (appraisal p.97)
+    const costs = 2.25 * build + 0.7875 * 1_100_000 * 0.18 + L + 0.06 * (services + L) + publicShare;
     const s02 = run().results.find((x) => x.id === 'S02')!;
     expect(s02.developerPnL!.revenue).toBeCloseTo(rev, 4);
     expect(s02.developerPnL!.costs).toBeCloseTo(costs, 4);
@@ -268,7 +271,7 @@ describe('developer economics', () => {
   });
 
   it('flags strategies whose developer deal is unprofitable as commercially questionable — without changing affordability', () => {
-    const s = run().results.find((x) => x.id === 'S02')!;
+    const s = analyzeProfile(profile({ availableCapital: 1_500_000, maxMonthlyRepayment: 15000 }), TERMS, C).results.find((x) => x.id === 'S02')!;
     expect(s.developerMargin).toBeLessThan(0);
     expect(s.assessment.commercial).toBe('questionable');
     expect(s.assessment.affordability).not.toBe('does_not_fit');

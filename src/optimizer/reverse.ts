@@ -6,7 +6,7 @@
 import { constructionQuotePerApartment } from '../domain/construction';
 import { mortgageCapacity } from '../domain/mortgage';
 import { applyScenarioParams, scenarioParams } from '../data/scenarios';
-import type { Candidate, DeveloperEconomics, NegotiationTarget, ProjectConfig, StrategyResult } from '../domain/types';
+import type { Candidate, DeveloperEconomics, NegotiationTarget, PriceKnob, PriceThreshold, ProjectConfig, StrategyResult } from '../domain/types';
 import { apartmentValueToday } from '../domain/valuation';
 import { evaluateCandidate, type EngineContext } from './evaluate';
 import { assessEvaluation } from './feasibility';
@@ -220,4 +220,70 @@ export function developerTargets(dev: DeveloperEconomics, ctx: EngineContext, co
     { code: 'DEVELOPER_RESIDUAL_LAND_PRICE', kind: 'developer', value: dev.residualLandValuePerSqm, unit: 'ils_per_sqm', current: price },
     { code: 'MAX_COMBINATION_AT_TARGET_MARGIN', kind: 'developer', value: dev.maxCombinationAtTargetMargin, unit: 'pct', current: ctx.terms.combinationPct },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Required prices for routes that depend on an unverified price (iteration 4)
+// ---------------------------------------------------------------------------
+
+export function knobValue(config: ProjectConfig, knob: PriceKnob): number {
+  switch (knob) {
+    case 'developer_price':
+      return config.market.developerRightsSaleScenario.pricePerOriginalSqm;
+    case 'post_approval_price':
+      return config.market.postApprovalLandValuePerSqm;
+    case 'immediate_price':
+      return config.market.immediateLandSalePricePerSqm ?? config.market.immediateSaleReferencePerSqm;
+    case 'revenue_share':
+      return config.commercial.revenueShare;
+    case 'buyback_factor':
+      return config.commercial.fractionCashSettlementFactor;
+  }
+}
+
+export function withKnob(config: ProjectConfig, knob: PriceKnob, x: number): ProjectConfig {
+  switch (knob) {
+    case 'developer_price':
+      return withDeveloperPrice(config, x);
+    case 'post_approval_price':
+      return { ...config, market: { ...config.market, postApprovalLandValuePerSqm: x } };
+    case 'immediate_price':
+      return { ...config, market: { ...config.market, immediateLandSalePricePerSqm: x } };
+    case 'revenue_share':
+      return { ...config, commercial: { ...config.commercial, revenueShare: x } };
+    case 'buyback_factor':
+      return { ...config, commercial: { ...config.commercial, fractionCashSettlementFactor: x } };
+  }
+}
+
+const KNOB_RANGE: Record<PriceKnob, [number, number]> = {
+  developer_price: [0, 40000],
+  post_approval_price: [0, 40000],
+  immediate_price: [0, 40000],
+  revenue_share: [0, 1],
+  buyback_factor: [0, 1.5],
+};
+
+/**
+ * The lowest price (or share / factor) at which a price-dependent route is affordable for this household and —
+ * if an evidence-based recommendation exists — at least as good as it. Nothing is assumed about what the price
+ * actually is.
+ */
+export function requiredPrice(
+  c: Candidate,
+  knob: PriceKnob,
+  ctx: EngineContext,
+  config: ProjectConfig,
+  benchmark: Candidate | null,
+): PriceThreshold {
+  const R = ctx.info.apartmentEquivalents;
+  const target = benchmark ? evaluateCandidate(benchmark, ctx, config).valueCreated : null;
+  const [lo, hi] = KNOB_RANGE[knob];
+  const pred = (x: number) => {
+    const cfg = withKnob(config, knob, x);
+    const ev = evaluateCandidate(c, ctx, cfg);
+    if (assessEvaluation(c, ev, ctx.profile, cfg, R).fails.length > 0) return false;
+    return target === null || ev.valueCreated >= target;
+  };
+  return { strategyId: c.id, knob, required: solveMin(lo, hi, pred), against: benchmark?.id ?? null, scenarioValue: knobValue(config, knob) };
 }

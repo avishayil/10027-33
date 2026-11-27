@@ -1,5 +1,4 @@
 import type { ConditionCode, DecisionResult, Goal, StrategyResult, TaxArrangement } from '../../domain/types';
-import { apartmentValueToday } from '../../domain/valuation';
 import { constructionQuotePerApartment } from '../../domain/construction';
 import { PROJECT_CONFIG } from '../../data/config';
 import {
@@ -60,34 +59,114 @@ interface Props {
   developerMarkup: number;
 }
 
+const ROOMS_LABEL = (rooms: number[]) => rooms.map((r) => `${r} חד׳`).join(' + ');
+
+/** Betterment levy — always visible: total proxy, who pays it, when, and how it was estimated. */
+export function LevyCard({ result, r }: { result: DecisionResult; r: StrategyResult | null }) {
+  const info = result.rights;
+  const total = r?.levy.total ?? info.bettermentLevy;
+  const range = result.levyRangeAcrossLots;
+  return (
+    <div className="levy-card">
+      <h3>
+        היטל השבחה משוער{' '}
+        <Tooltip content="אומדן לפי הפרשי השווי בטבלאות האיזון (50% מהעלייה), לא שומת היטל רשמית של הוועדה המקומית. הסכום בפועל עשוי להיות שונה. החבות החוקית היא של הבעלים גם אם היזם מתחייב לשלם." />
+      </h3>
+      <p className="levy-total">
+        {formatCurrency(total)}
+        {result.lotAssumed && range.max - range.min > 1 && (
+          <span className="muted"> (בין {formatCurrency(range.min)} ל-{formatCurrency(range.max)} לפי המגרש — לא הוזן מגרש, חושב לפי 149)</span>
+        )}
+      </p>
+      {r && (
+        <dl className="levy-split">
+          <div>
+            <dt>אתם משלמים</dt>
+            <dd>
+              {formatCurrency(r.levy.owner)}
+              {r.levy.ownerMonth !== null && <span className="muted"> · {r.levy.ownerMonth === 0 ? 'בחתימה' : `חודש ${r.levy.ownerMonth}`}</span>}
+            </dd>
+          </div>
+          <div>
+            <dt>היזם משלם (לפי החוזה)</dt>
+            <dd>{formatCurrency(r.levy.developer)}</dd>
+          </div>
+          {r.levy.buyer > 0 && (
+            <div>
+              <dt>עובר לקונה (מכירה לפני אישור)</dt>
+              <dd>{formatCurrency(r.levy.buyer)}</dd>
+            </div>
+          )}
+          {r.levy.deferred > 0 && (
+            <div>
+              <dt>יחול במימוש מאוחר</dt>
+              <dd>{formatCurrency(r.levy.deferred)}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+      <p className="field-hint">
+        חישוב: (שווי הזכויות בטבלה {formatCurrency(info.table.allocationValue)} − שווי במצב הנכנס{' '}
+        {formatCurrency(info.table.incomingValue)}) × 50%. מקור: טבלאות האיזון 106(ב), 23.11.2026, מגרש {info.lotId}. החלק
+        שלכם כלול בכסף מכיסכם.
+      </p>
+    </div>
+  );
+}
+
+interface Props {
+  result: DecisionResult;
+  goal: Goal;
+  combinationPct: number;
+  developerMarkup: number;
+}
+
 export function Verdict({ result, goal, combinationPct, developerMarkup }: Props) {
   const rec = result.recommendation;
   const R = result.rights.apartmentEquivalents;
 
   if (!rec) {
     return (
-      <section className="card verdict verdict-empty">
-        <p className="verdict-kicker">אין עדיין המלצה</p>
-        <h2>לא נמצא מסלול שמתאים לנתונים שהזנתם</h2>
-        <p>
-          כל המסלולים חורגים מהיכולת הכלכלית או שחסר מידע כדי להעריך אותם. בדקו את השאלות למטה ואת ״מה לבקש
-          מהיזם״ — שם מחושב מה צריך להשתנות כדי שמסלול יתאים.
+      <section className="card verdict verdict-empty" aria-labelledby="verdict-title">
+        <p className="verdict-kicker">
+          {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
         </p>
+        <h2 id="verdict-title">אין מסלול מבוסס-ראיות שמתאים לנתונים שהזנתם — כרגע</h2>
+        <p>
+          כל מסלול שאפשר לחשב בלי להמציא מחירים חורג מהיכולת הכלכלית בתנאים שהנחנו. הנה מה שיכול לשנות את התמונה:
+        </p>
+        {result.nearMiss.length > 0 && (
+          <div className="check-first">
+            <h3>הכי קרוב להתאים</h3>
+            <ul>
+              {result.nearMiss.map((n) => (
+                <li key={n.result.id}>
+                  <strong>{strategyTitle(n.result)}</strong> —{' '}
+                  {n.additionalCapital === null
+                    ? 'לא מתאים גם עם הון נוסף סביר'
+                    : `חסרים כ-${formatCurrency(Math.ceil(n.additionalCapital / 1000) * 1000)} הון עצמי (או עסקת נטו / דחיית מס לפי סעיף 91א)`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <LevyCard result={result} r={null} />
+        <ArrangementTree result={result} />
+        <p className="verdict-note">מכירה ומסלולים שתלויים במחיר שעוד לא ידוע — ראו ״מסלולים שתלויים במחיר״ למטה.</p>
       </section>
     );
   }
 
   const conditions = rec.requiredConditions.map((c) => CONDITION_TEXT[c]);
-  // Check first: tax terms and developer-dependent conditions decide whether the direction holds at all.
-  const PRIORITY: ConditionCode[] = ['NET_TAX_TERMS', 'LEVY_TERMS', 'SALE_DATE_DEFERRAL', 'SERVICES_CAPACITY', 'MIXED_STRUCTURE', 'COMPLETION_PRICE', 'COMPLETION_CLASSIFICATION', 'DEVELOPER_PRICE_UNVERIFIED', 'CONSTRUCTION_FINANCING', 'LENDER_CONFIRMATION'];
+  const PRIORITY: ConditionCode[] = ['NET_TAX_TERMS', 'LEVY_TERMS', 'SALE_DATE_DEFERRAL', 'SERVICES_CAPACITY', 'MIXED_STRUCTURE', 'COMPLETION_PRICE', 'COMPLETION_CLASSIFICATION', 'CONSTRUCTION_FINANCING', 'LENDER_CONFIRMATION'];
   const checkFirst = PRIORITY.filter((c) => rec.requiredConditions.includes(c)).slice(0, 3);
-  const sizes = rec.plan.apartmentSizes;
-  const fallback = result.fallback;
   const why = explainWhy(rec, goal, result.ranked);
-  const kept = Math.max(0, R - rec.rightsSold);
-  const usesCombination = rec.candidate.legs.some((l) => l.kind === 'combination');
-  const builds = rec.plan.apartmentsBuilt > 0;
   const debt = rec.mortgageRequired > 1;
+  const d = rec.delivery;
+  const combRights = rec.plan.rightsInCombination;
+  const builds = rec.plan.apartmentsBuilt > 0;
+  const ownerTax = rec.capitalGainsTaxReserve;
+  const devTax = rec.ledger.filter((e) => e.payer === 'developer' && e.category === 'capital_gains_tax').reduce((s, e) => s + e.amount, 0);
 
   return (
     <section className="card verdict" aria-live="polite" aria-labelledby="verdict-title">
@@ -113,9 +192,13 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
         <div className="big-num">
           <strong>{rec.metrics.wholeApartments}</strong>
           <span>
-            דירות שלמות בסוף
-            {sizes.length > 0 && <> ({sizes.map((x) => `${x} מ״ר`).join(', ')})</>}
+            דירות שלמות
+            {rec.plan.apartmentRooms.length > 0 && <> ({ROOMS_LABEL(rec.plan.apartmentRooms)})</>}
           </span>
+        </div>
+        <div className="big-num">
+          <strong>{d.apartmentsValue + d.fractionValue > 0 ? formatCompactCurrency(d.apartmentsValue + d.fractionValue) : '—'}</strong>
+          <span>שווי הדירות (במחירי היום, תרחיש)</span>
         </div>
         <div className="big-num">
           <strong>{rec.personalCapitalRequired > 1 ? formatCompactCurrency(rec.personalCapitalRequired) : '₪0'}</strong>
@@ -123,60 +206,55 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
         </div>
         <div className="big-num">
           <strong>{debt ? formatCompactCurrency(rec.mortgageRequired) : 'ללא'}</strong>
-          <span>משכנתא בשיא</span>
-        </div>
-        <div className="big-num">
-          <strong>{debt ? formatCompactCurrency(rec.monthlyRepayment) : '—'}</strong>
-          <span>החזר חודשי</span>
+          <span>משכנתא בשיא{debt ? ` · ${formatCurrency(rec.monthlyRepayment)} לחודש` : ''}</span>
         </div>
       </div>
 
+      <LevyCard result={result} r={rec} />
+
       <dl className="verdict-details">
-        <div>
-          <dt>זכויות שנשארות אצלכם</dt>
-          <dd>{formatRights(kept)}</dd>
-        </div>
-        <div>
-          <dt>זכויות שעוברות ליזם או נמכרות</dt>
-          <dd>{formatRights(rec.rightsSold)}</dd>
-        </div>
-        <div>
-          <dt>מתוכו בחתימה</dt>
-          <dd>{formatCurrency(rec.cashAtSigning)}</dd>
-        </div>
-        <div>
-          <dt>שינוי בכסף הפנוי עד המסירה (אחרי מסים ותשלומים)</dt>
-          <dd>{formatCurrency(rec.netCashAtDelivery)}</dd>
-        </div>
-        {usesCombination && (
+        {combRights > 0 && (
           <div>
-            <dt>דירות מהקומבינציה ({formatRights(combinationPct * 100)}%)</dt>
-            <dd>{formatRights(R * combinationPct)}</dd>
+            <dt>
+              דירות מהקומבינציה ({formatRights(combRights)} זכויות × {formatRights(combinationPct * 100)}%)
+            </dt>
+            <dd>{formatRights(combRights * combinationPct)}</dd>
+          </div>
+        )}
+        <div>
+          <dt>מס שבח — עליכם / על היזם</dt>
+          <dd>
+            {formatCurrency(ownerTax)} / {formatCurrency(devTax)}
+          </dd>
+        </div>
+        {rec.purchaseTax > 0 && (
+          <div>
+            <dt>מס רכישה (עליכם)</dt>
+            <dd>{formatCurrency(rec.purchaseTax)}</dd>
+          </div>
+        )}
+        {d.constructionAndCompletionPaid > 0 && (
+          <div>
+            <dt>{builds ? 'תשלומי בנייה והשלמה' : 'תשלום השלמה ליזם'}</dt>
+            <dd>{formatCurrency(d.constructionAndCompletionPaid)}</dd>
           </div>
         )}
         {builds && (
           <div>
-            <dt>עלות שירותי בנייה לדירה (לפני הצמדה)</dt>
+            <dt>הצעת מחיר לבנייה לדירה (לפני הצמדה)</dt>
             <dd>{formatCurrency(constructionQuotePerApartment(PROJECT_CONFIG, developerMarkup))}</dd>
           </div>
         )}
         <div>
-          <dt>שווי דירה חדשה היום</dt>
-          <dd>{formatCurrency(apartmentValueToday(PROJECT_CONFIG))}</dd>
+          <dt>כסף בחתימה</dt>
+          <dd>{formatCurrency(rec.cashAtSigning)}</dd>
         </div>
         <div>
           <dt>
-            שווי מימוש נטו בעוד 10 שנים{' '}
-            <Tooltip content="מה שווה מה שתחזיקו בזכות הקרקע בעוד 10 שנים: דירות (לפי שווי שוק, לפני מכירה), כסף וקרקע — פחות חובות, החזרי משכנתא ומסים, ומעבר למה שהכסף הפנוי שלכם היה צובר ממילא. הנחות: 2% עליית ערך ו-4% תשואה — תרחיש, לא תחזית." />
+            מצב נטו במסירה (במחירי היום){' '}
+            <Tooltip content="שווי הדירות שתקבלו (לפי תרחיש מחיר מבוסס עסקאות השוואה) + כסף שתקבלו − כל מה שתשלמו (מסים, היטל, בנייה, השלמה) − ריבית עד המסירה. בלי עליית מחירים ובלי תשואה. לא כסף ביד." />
           </dt>
-          <dd>{formatCurrency(rec.metrics.valueCreated)}</dd>
-        </div>
-        <div>
-          <dt>
-            לעומת מכירת הקרקע היום{' '}
-            <Tooltip content="ההפרש מול מכירה מיידית בשוק הפתוח במחיר הייחוס של עסקאות העבר בחלקה (לא שומה עדכנית)." />
-          </dt>
-          <dd>{formatCurrency(rec.gainVsSellingToday)}</dd>
+          <dd>{formatCurrency(d.netPosition)}</dd>
         </div>
       </dl>
 
@@ -202,17 +280,29 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
           )}
         </div>
       </div>
-      {fallback && (
+      {result.fallback && (
         <div className="fallback">
           <h3>ואם התנאים לא יתקיימו?</h3>
           <p>
-            <strong>{strategyTitle(fallback)}</strong> — {STRATEGY_DESCRIPTIONS[fallback.strategyType]}
+            <strong>{strategyTitle(result.fallback)}</strong> — {STRATEGY_DESCRIPTIONS[result.fallback.strategyType]}
           </p>
+          {result.fallbackThreshold && (
+            <p className="field-hint">
+              משתלם רק אם תקבלו לפחות{' '}
+              {result.fallbackThreshold.required === null
+                ? '— לא נמצא מחיר סביר'
+                : result.fallbackThreshold.knob === 'revenue_share' || result.fallbackThreshold.knob === 'buyback_factor'
+                  ? `${Math.round(result.fallbackThreshold.required * 100)}%`
+                  : `${formatCurrency(result.fallbackThreshold.required)} למ״ר קרקע`}{' '}
+              — המחיר בפועל עוד לא ידוע.
+            </p>
+          )}
         </div>
       )}
       <ArrangementTree result={result} />
       <p className="verdict-note">
-        זהו כיוון לבדיקה, לא אישור שהעסקה אפשרית עבור משק הבית שלכם. אינו שומה, ייעוץ משפטי, מס או אישור בנק.
+        זהו כיוון לבדיקה, לא אישור שהעסקה אפשרית עבור משק הבית שלכם. אינו שומה, ייעוץ משפטי, מס או אישור בנק. מחירי
+        הדירות הם תרחיש המבוסס על עסקאות השוואה בשמאות הפרויקט — לא מלאי או מחיר מאושר.
       </p>
     </section>
   );
@@ -239,8 +329,8 @@ export function Alternatives({ result }: { result: DecisionResult }) {
                 <dd>{r.mortgageRequired > 1 ? formatCurrency(r.mortgageRequired) : 'ללא'}</dd>
               </div>
               <div>
-                <dt>שווי מימוש נטו (10 שנים)</dt>
-                <dd>{formatCurrency(r.metrics.valueCreated)}</dd>
+                <dt>מצב נטו במסירה (מחירי היום)</dt>
+                <dd>{formatCurrency(r.delivery.netPosition)}</dd>
               </div>
             </dl>
             {r.reasonCodes.includes('FRACTIONAL_UNIT') && <p className="muted">{REASON_TEXT.FRACTIONAL_UNIT}</p>}

@@ -150,7 +150,8 @@ describe('P0 cash flow', () => {
   it('no rental tax on the housing benefit of an apartment the owner lives in; rental tax only when rented', () => {
     const own = evaluateCandidate(cand('S05-1'), { info, profile: MODERATE, terms: TERMS }, C);
     const rented = evaluateCandidate(cand('S08-1'), { info, profile: MODERATE, terms: TERMS }, C);
-    expect(own.sim.monthlyNetRent).toBeCloseTo(5500 * 0.9, 6);
+    expect(own.sim.monthlyNetRent).toBe(0); // not cash
+    expect(own.plan.housingBenefitMonthly).toBeCloseTo(5500 * 0.9, 6); // non-cash benefit, no rental tax
     expect(rented.sim.monthlyNetRent).toBeCloseTo(5500 * 0.8, 6);
   });
 });
@@ -165,7 +166,7 @@ describe('P0 commercial realism', () => {
 
   it('a questionable (negative modelled margin) winner is never the only answer — a fallback is given', () => {
     for (const cfg of [C, NET]) {
-      const d = analyzeProfile(MODERATE, TERMS, cfg);
+      const d = analyzeProfile(profile({ availableCapital: 800000 }), TERMS, cfg);
       if (d.recommendation?.assessment.commercial === 'questionable') {
         expect(d.fallback).not.toBeNull();
         expect(d.fallback!.id).not.toBe(d.recommendation.id);
@@ -187,31 +188,62 @@ describe('P0 commercial realism', () => {
   });
 });
 
-describe('P1 apartment value tiers (illustrative sizes, not confirmed inventory)', () => {
-  it('at 35% the 0.7875 entitlement nearly covers a compact 80 m² apartment: gap ₪31,250 vs ₪531,250', () => {
-    const p80 = plan('S13-80');
-    const paid = sumBy(p80, 'owner', 'completion_payment');
-    expect(paid).toBeCloseTo(31_250, 4);
-    expect(sumBy(plan('S06-1'), 'owner', 'completion_payment')).toBeCloseTo(531_250, 4);
-    expect(p80.wholeApartmentsRetained).toBe(1);
-    expect(p80.apartmentSizes).toEqual([80]);
-    expect(p80.wholeApartmentValueEq).toBeCloseTo(0.8, 12);
+describe('P1 apartment types priced from appraisal comparables (not by area)', () => {
+  // Independent: relative value of a 3-room vs a 4-room apartment in each comparable project, averaged.
+  const r3 = (2024309 / 2331841 + 2360282 / 2683259) / 2;
+  const r5 = (2593285 / 2331841 + 2984968 / 2683259) / 2;
+
+  it('a 3-room apartment is worth ~87.4% of a 4-room one — more per m² than a linear 81% would say', () => {
+    expect(r3).toBeCloseTo(0.87388, 4);
+    expect(C.market.apartmentTypes.find((t) => t.rooms === 3)!.relativeValue).toBeCloseTo(r3, 12);
+    expect(C.market.apartmentTypes.find((t) => t.rooms === 5)!.relativeValue).toBeCloseTo(r5, 12);
   });
 
-  it('at 40% a 90 m² apartment is fully covered by value (zero gap)', () => {
-    const terms40 = { ...TERMS, combinationPct: 0.4 };
-    const c = generateStrategies(info, terms40, C).find((x) => x.id === 'S13-90')!;
-    const p = buildTransactionPlan(c, { info, profile: MODERATE, terms: terms40, config: C });
-    expect(sumBy(p, 'owner', 'completion_payment')).toBeCloseTo(0, 6);
-    expect(p.wholeApartmentsRetained).toBe(1);
+  it('at 35% the gap to a 3-room apartment is ~₪216K (not the ₪31,250 of the linear 80 m² tier)', () => {
+    const p = plan('S13-3r');
+    expect(sumBy(p, 'owner', 'completion_payment')).toBeCloseTo((r3 - 0.7875) * 2_500_000, 4);
+    expect(p.apartmentRooms).toEqual([3]);
+    expect(p.wholeApartmentValueEq).toBeCloseTo(r3, 12);
   });
 
-  it('a smaller apartment than the entitlement pays the owner the excess', () => {
+  it('at 40% the 0.9 entitlement exceeds a 3-room apartment: the owner receives the excess (and that depends on an unverified buy-back price)', () => {
     const terms40 = { ...TERMS, combinationPct: 0.4 };
-    const c = generateStrategies(info, terms40, C).find((x) => x.id === 'S13-80')!;
+    const c = generateStrategies(info, terms40, C).find((x) => x.id === 'S13-3r')!;
     const p = buildTransactionPlan(c, { info, profile: MODERATE, terms: terms40, config: C });
+    expect(sumBy(p, 'owner', 'completion_payment')).toBe(0);
     const excess = p.ledger.find((e) => e.category === 'fraction_settlement')!;
-    expect(excess.amount).toBeCloseTo(0.1 * 2_500_000 * Math.pow(1.02, 5) * 0.8, 2);
+    expect(excess.amount).toBeCloseTo((0.9 - r3) * 2_500_000 * 0.8, 2);
+    const d = analyzeProfile(MODERATE, terms40, C);
+    expect(d.results.find((x) => x.id === 'S13-3r')!.priceDependency).toBe('buyback_factor');
+  });
+});
+
+describe('P0 projection and figures shown', () => {
+  it('2.5M × 1.02^10 = 3,047,486.05 (price only)', () => {
+    expect(2_500_000 * Math.pow(1.02, 10)).toBeCloseTo(3_047_486.05, 1);
+  });
+
+  it('the long-term projection is itemised and reconciles exactly to its total', () => {
+    const d = analyzeProfile(profile({ availableCapital: 1_500_000, maxMonthlyRepayment: 15000 }), TERMS, C);
+    const p = d.projection!;
+    expect(p.assets + p.cash - p.debt - p.mortgagePaymentsFV - p.deferredLiabilities - p.unfunded - p.startingCapitalGrown).toBeCloseTo(p.total, 4);
+    expect(p.apartmentGrowth).toBe(0.02);
+  });
+
+  it('the delivery snapshot reconciles to the ledger', () => {
+    const d = analyzeProfile(profile({ availableCapital: 1_500_000, maxMonthlyRepayment: 15000 }), TERMS, C);
+    const r = d.recommendation!;
+    const out = r.ledger.filter((e) => e.payer === 'owner' && e.direction === 'out' && !e.deferred && e.category !== 'contingency_reserve').reduce((s, e) => s + e.amount, 0);
+    const reserveNet = r.ledger.filter((e) => e.category === 'contingency_reserve').reduce((s, e) => s + e.amount, 0) - r.ledger.filter((e) => e.category === 'contingency_release').reduce((s, e) => s + e.amount, 0);
+    expect(r.delivery.ownerCashOut).toBeCloseTo(out + reserveNet, 6);
+    expect(r.delivery.netPosition).toBeCloseTo(r.delivery.apartmentsValue + r.delivery.fractionValue + r.delivery.ownerCashIn - r.delivery.ownerCashOut - r.delivery.interestToDelivery, 6);
+    expect(r.delivery.apartmentsValue).toBeCloseTo(r.plan.wholeApartmentValueEq * 2_500_000, 6);
+  });
+
+  it('gross sale proceeds never include a released construction reserve', () => {
+    const r = analyzeProfile(profile({ availableCapital: 2_000_000, maxMonthlyRepayment: 20000 }), TERMS, C).results.find((x) => x.id === 'S11-1')!;
+    expect(r.ledger.some((e) => e.category === 'contingency_release')).toBe(true);
+    expect(r.grossSaleProceeds).toBe(0);
   });
 });
 

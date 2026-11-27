@@ -9,10 +9,13 @@ export function apartmentEquivalents(landAreaSqm: number, config: ProjectConfig)
 
 export function calculateRights(landAreaSqm: number, config: ProjectConfig, lotId?: string): RightsInfo {
   const area = Math.max(0, Number(landAreaSqm) || 0);
-  const lot = lotId && config.rights.lotIds.includes(lotId) ? lotId : config.rights.defaultLotId;
+  // Unknown lot → the default lot is assumed and flagged; an invalid lot id is an error, never silently replaced.
+  if (lotId && !config.rights.lotIds.includes(lotId)) throw new Error(`מגרש לא מוכר: ${lotId}`);
+  const lot = lotId || config.rights.defaultLotId;
   const table = computeTableRights(area, config.rights.tableVersion, lot, config.taxation.bettermentLevyRate * 100);
   return {
     landAreaSqm: area,
+    lotAssumed: !lotId,
     apartmentEquivalents: apartmentEquivalents(area, config),
     sqmPerRight: config.rights.originalAreaSqm / config.rights.apartmentEquivalents,
     lotId: lot,

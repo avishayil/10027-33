@@ -144,7 +144,8 @@ describe('transactions', () => {
     const ctx = { info, profile: profile({ availableCapital: 600000 }), terms: TERMS };
     const early = evaluateCandidate(cand('S05-1'), ctx, { ...C, commercial: { ...C.commercial, developerPaymentYear: 2 } });
     const late = evaluateCandidate(cand('S05-1'), ctx, { ...C, commercial: { ...C.commercial, developerPaymentYear: 4 } });
-    expect(late.sim.peakDebt).toBeGreaterThan(early.sim.peakDebt + 1000);
+    // The surplus-rights money arrives two years later, so construction is borrowed for longer.
+    expect(late.sim.interestPaidToCompletion).toBeGreaterThan(early.sim.interestPaidToCompletion + 10000);
   });
 
   it('sold rights are never collateral; retained land is collateral, not cash', () => {

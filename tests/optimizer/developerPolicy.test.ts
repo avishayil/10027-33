@@ -52,7 +52,7 @@ describe('developer policy for construction services', () => {
     const wealthy = run(1.5, { availableCapital: 2_000_000, maxMonthlyRepayment: 15000, goal: 'maximize_apartments' });
     const none = run(1.5, { availableCapital: 0, maxMonthlyRepayment: 0, goal: 'balanced' });
     expect(wealthy.recommendation!.metrics.wholeApartments).toBe(1);
-    expect(none.recommendation!.metrics.wholeApartments).toBe(0);
+    expect(none.recommendation?.metrics.wholeApartments ?? 0).toBe(0);
   });
 
   it('construction-services strategies carry the lot-capacity condition', () => {

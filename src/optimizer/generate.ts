@@ -40,9 +40,9 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, con
 
   // Value-based allocation: a whole apartment of a different (illustrative) size instead of a fraction.
   if (fraction > 0.01) {
-    for (const size of config.market.apartmentTiersSqm) {
-      if (size === config.construction.apartmentSizeSqm) continue; // the standard size is S06
-      add(`S13-${size}`, 'S13', [{ kind: 'combination', rights: R }, { kind: 'tier_apartment', sizeSqm: size }], whole + 1);
+    for (const t of config.market.apartmentTypes) {
+      if (t.rooms === 4) continue; // the standard 4-room apartment is S06
+      add(`S13-${t.rooms}r`, 'S13', [{ kind: 'combination', rights: R }, { kind: 'tier_apartment', rooms: t.rooms }], whole + 1);
     }
   }
 

@@ -110,6 +110,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let postCompletionMonthly = 0;
   let cashAtLiquidity = input.startingCash;
   let cashAtCompletion = input.startingCash;
+  let debtAtCompletion = 0;
+  let interestToCompletion = 0;
   let referenceAtCompletion = input.startingCash;
   let maxCapitalUsed = 0;
   let paidIntoAsset = 0;
@@ -177,6 +179,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     let payment = 0;
     if (debt > 1e-9) {
       const interest = debt * r;
+      if (m <= input.completionMonth) interestToCompletion += interest;
       if (!afterCompletion) {
         payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
@@ -200,6 +203,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if (m === input.liquidityMonth) cashAtLiquidity = cash;
     if (m === input.completionMonth) {
       cashAtCompletion = cash;
+      debtAtCompletion = debt;
       referenceAtCompletion = reference;
     }
     if ((m + 1) % 12 === 0) yearly.push({ year: (m + 1) / 12, cash, debt });
@@ -221,6 +225,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     personalPaymentsFV: paymentsFV,
     cashAtLiquidityDeadline: cashAtLiquidity,
     cashAtCompletion,
+    debtAtCompletion,
+    interestPaidToCompletion: interestToCompletion,
     referenceAtCompletion,
     personalCapitalUsed: Math.max(0, maxCapitalUsed),
     drawsByStage,
