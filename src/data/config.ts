@@ -56,7 +56,12 @@ export const PROJECT_CONFIG: ProjectConfig = {
     confirmed: false,
   },
   developer: {
-    directCostPerSqm: COMMERCIAL.developerDirectCostPerSqm.value,
+    directCostPerSqm: null,
+    survey: {
+      aboveGroundPerSqm: COMMERCIAL.surveyTowerCostPerSqm.value,
+      undergroundPerSqm: COMMERCIAL.surveyUndergroundCostPerSqm.value,
+      balconyShare: COMMERCIAL.surveyBalconyShare.value,
+    },
     softCostRate: COMMERCIAL.developerSoftCostRate.value,
     targetMarginOnRevenue: COMMERCIAL.developerTargetMargin.value,
     equityShare: COMMERCIAL.developerEquityShare.value,

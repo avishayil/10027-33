@@ -24,12 +24,38 @@ import { lotPolicy } from './policy';
 import { calculateRights } from './rights';
 import { buildTransactionPlan } from './transactions';
 import type { Candidate, CommercialTerms, ProjectConfig, RightsInfo, TaxArrangement, TransactionPlan, UserProfile } from './types';
-import { apartmentValueToday } from './valuation';
 
 export interface LotContext {
   info: RightsInfo;
   profile: UserProfile;
   config: ProjectConfig;
+}
+
+/**
+ * The developer's direct construction budget for a lot: the plan's built areas (Table 5) priced at the appraisers'
+ * survey — above ground at the tower rate (the lots are 20 floors, 72 m), underground at the underground rate,
+ * balconies at a share of the main rate. Or an override per saleable m².
+ */
+export function developerBudget(config: ProjectConfig, lotId: string) {
+  const lot = getLot(config.rights.tableVersion, lotId);
+  const s = config.developer.survey;
+  const saleable = lot.residentialArea;
+  const aboveGround = lot.aboveGroundArea * s.aboveGroundPerSqm;
+  const underground = lot.undergroundArea * s.undergroundPerSqm;
+  const balconies = lot.balconyArea * s.aboveGroundPerSqm * s.balconyShare;
+  const direct = config.developer.directCostPerSqm !== null ? config.developer.directCostPerSqm * saleable : aboveGround + underground + balconies;
+  return {
+    direct,
+    perSaleableSqm: direct / saleable,
+    saleableArea: saleable,
+    buildingClass: lot.heightM > 29 ? ('tower' as const) : lot.heightM > 13 ? ('high' as const) : ('low' as const),
+    lines: { aboveGround, underground, balconies },
+  };
+}
+
+/** Direct cost per saleable m² for the lot (the budget, or the override). */
+export function directCostPerSaleableSqm(config: ProjectConfig, lotId: string): number {
+  return developerBudget(config, lotId).perSaleableSqm;
 }
 
 export interface LotOptions {
@@ -39,16 +65,24 @@ export interface LotOptions {
   participation?: number;
   /** A user's route as a change to the lot: monthly flows and its revenue / cost split. */
   delta?: RouteDelta | null;
+  /** Apartments the user builds through construction services: they take quota slots from typical participants. */
+  userServicesUnits?: number;
 }
 
 export interface RouteDelta {
   flows: number[];
   revenue: number;
   costs: number;
+  /** Physical apartments the user receives (whole apartments counted as units, a fraction as its share). */
+  userPhysicalUnits: number;
 }
 
 export interface LotPnL {
   units: number;
+  /** Saleable (door-to-door) residential area of the lot, m². */
+  saleableArea: number;
+  /** Physical apartments the user receives on the route (0 without a route). */
+  userPhysicalUnits: number;
   servicesUnits: number;
   ownerCombinationUnits: number;
   developerUnits: number;
@@ -160,18 +194,18 @@ function horizonOf(config: ProjectConfig, plan?: TransactionPlan): number {
   return Math.max(completionMonth(config) + Math.max(0, config.timeline.settlementDelayMonths), last) + 1;
 }
 
-/** Revenue from developer units (ex VAT): a presale share over construction, the rest at delivery. */
-function addUnitSales(f: Flows, config: ProjectConfig, units: number): number {
-  const a = apartmentValueToday(config) / (1 + config.taxation.vatRate);
-  const sales = units * a;
+/** Revenue from the developer's saleable area (ex VAT): a presale share over construction, the rest at delivery. */
+function addAreaSales(f: Flows, config: ProjectConfig, area: number): number {
+  const perSqm = config.market.apartmentValuePerSqm / (1 + config.taxation.vatRate);
+  const sales = area * perSqm;
   f.spread(permitMonth(config), completionMonth(config), sales * config.developer.presaleShare);
   f.add(completionMonth(config), sales * (1 - config.developer.presaleShare));
   return sales;
 }
 
-/** Direct + soft cost of building `units` physical apartments. */
-function addConstruction(f: Flows, config: ProjectConfig, units: number): { direct: number; soft: number } {
-  const direct = units * config.construction.apartmentSizeSqm * config.developer.directCostPerSqm;
+/** Direct + soft cost of building `area` saleable m² (with their share of service, underground and balcony area). */
+function addConstruction(f: Flows, config: ProjectConfig, lotId: string, area: number): { direct: number; soft: number } {
+  const direct = area * directCostPerSaleableSqm(config, lotId);
   const soft = direct * config.developer.softCostRate;
   f.spread(permitMonth(config), completionMonth(config), -direct);
   f.spread(0, completionMonth(config), -soft);
@@ -193,25 +227,30 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
   const units = lot.units;
   const markup = opts.markup ?? config.commercial.developerMarkup.default;
   const participation = opts.participation ?? expectedParticipation(ctx);
-  const servicesUnits = config.developerPolicy.servicesCapShareOfLot * units * participation;
-  const combinationUnits = units - servicesUnits;
-  const ownerCombinationUnits = c * combinationUnits;
-  const developerUnits = combinationUnits - ownerCombinationUnits;
+  const area = lot.residentialArea;
+  const areaPerUnit = area / units;
+  // Typical services participants, less the slots a user on construction services takes (never beyond the quota).
+  const quota = config.developerPolicy.servicesCapShareOfLot * units;
+  const servicesUnits = Math.max(0, Math.min(quota * participation, quota - (opts.userServicesUnits ?? 0)));
+  const combinationArea = area - servicesUnits * areaPerUnit;
+  const ownerCombinationUnits = (c * combinationArea) / areaPerUnit;
+  const developerUnits = ((1 - c) * combinationArea) / areaPerUnit;
   const H = Math.max(horizonOf(config), opts.delta ? opts.delta.flows.length - 1 : 0);
   const f = new Flows(H);
 
-  const sales = addUnitSales(f, config, developerUnits);
-  const quoteExVat = constructionQuotePerApartment(config, markup) / (1 + vat);
+  const sales = addAreaSales(f, config, (1 - c) * combinationArea);
+  // Services owners pay the owners' price per m² (₪11,000 × (1 + markup)) for their apartment's area.
+  const quoteExVat = (constructionQuotePerApartment(config, markup) / (1 + vat)) * (areaPerUnit / config.construction.apartmentSizeSqm);
   const servicesRevenue = servicesUnits * quoteExVat;
   for (const ms of config.construction.schedule) f.add(milestoneMonth(ms, config), servicesRevenue * ms.share);
-  const { direct, soft } = addConstruction(f, config, units);
+  const { direct, soft } = addConstruction(f, config, ctx.info.lotId, area);
   const publicBuildings = config.publicConstruction.sqmPerLot * config.publicConstruction.costPerSqm;
   f.spread(permitMonth(config), completionMonth(config), -publicBuildings);
 
   // Owners' taxes the developer bears: a typical holding's, times the holdings in combination (ownership shares).
   const terms: CommercialTerms = { combinationPct: c, developerMarkup: markup };
   const holdingPlan = buildTransactionPlan(fullCombination(t.info.apartmentEquivalents), { info: t.info, profile: t.profile, terms, config });
-  const holdings = typicalHoldingsInCombination(ctx, servicesUnits);
+  const holdings = (combinationArea / area) / lot.sharePer167;
   let taxes = 0;
   for (const p of developerPayments(holdingPlan)) {
     f.add(p.month, -p.amount * holdings);
@@ -229,6 +268,8 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
   const profit = revenue - costs - fin.financingCost;
   return {
     units,
+    saleableArea: area,
+    userPhysicalUnits: opts.delta?.userPhysicalUnits ?? 0,
     servicesUnits,
     ownerCombinationUnits,
     developerUnits,
@@ -268,8 +309,9 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
   const vat = config.taxation.vatRate;
   const lot = getLot(config.rights.tableVersion, ctx.info.lotId);
   const R = ctx.info.apartmentEquivalents;
-  if (R <= 0) return { flows: [], revenue: 0, costs: 0 };
-  const physicalPerRight = (ctx.info.table.lotShare * lot.units) / R;
+  if (R <= 0) return { flows: [], revenue: 0, costs: 0, userPhysicalUnits: 0 };
+  // Saleable area per simulation right of this owner (ownership share × the lot's saleable area).
+  const areaPerRight = (ctx.info.table.lotShare * lot.residentialArea) / R;
   const rights = R + plan.rightsPurchased;
   const H = horizonOf(config, plan);
   const f = new Flows(H);
@@ -280,11 +322,11 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
   const t = typical(ctx);
   const tConfig = withArrangement(t.config, config.commercial.taxArrangement);
   const scale = ((rights / R) * ctx.info.table.lotShare) / lot.sharePer167;
-  const slicePhysical = lot.sharePer167 * lot.units * scale;
+  const sliceArea = lot.sharePer167 * lot.residentialArea * scale;
   {
     const g = new Flows(H);
-    const sales = addUnitSales(g, tConfig, slicePhysical * (1 - terms.combinationPct));
-    const build = addConstruction(g, tConfig, slicePhysical);
+    const sales = addAreaSales(g, tConfig, sliceArea * (1 - terms.combinationPct));
+    const build = addConstruction(g, tConfig, ctx.info.lotId, sliceArea);
     const holdingPlan = buildTransactionPlan(fullCombination(t.info.apartmentEquivalents), { info: t.info, profile: t.profile, terms, config: tConfig });
     let taxes = 0;
     for (const p of developerPayments(holdingPlan)) {
@@ -296,12 +338,13 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
     costs -= build.direct + build.soft + taxes;
   }
 
-  // + the user's route.
+  // + the user's route. The lot's unit mix is fixed, so the developer gives up the market value of what it delivers
+  // (in area-equivalents of value); the physical count is tracked separately.
   const pooled = plan.fractionSettled?.mode === 'pool' ? plan.fractionSettled.share : 0;
-  const ownerDelivered = (plan.retainedApartmentEquivalents + plan.apartmentsSoldByOwner + pooled) * physicalPerRight;
-  const unitsBuilt = rights * physicalPerRight;
-  revenue += addUnitSales(f, config, Math.max(0, unitsBuilt - ownerDelivered));
-  const build = addConstruction(f, config, unitsBuilt);
+  const deliveredArea = (plan.retainedApartmentEquivalents + plan.apartmentsSoldByOwner + pooled) * areaPerRight;
+  const rightsArea = rights * areaPerRight;
+  revenue += addAreaSales(f, config, Math.max(0, rightsArea - deliveredArea));
+  const build = addConstruction(f, config, ctx.info.lotId, rightsArea);
   costs += build.direct + build.soft;
   for (const e of plan.ledger) {
     const exVat = e.amount / (1 + vat);
@@ -323,7 +366,8 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
     f.add(completionMonth(config), -subsidy);
     costs += subsidy;
   }
-  return { flows: f.values, revenue, costs };
+  const userPhysicalUnits = plan.wholeApartmentsRetained + plan.apartmentsSoldByOwner + plan.fractionalShare;
+  return { flows: f.values, revenue, costs, userPhysicalUnits };
 }
 
 // ---------------------------------------------------------------------------

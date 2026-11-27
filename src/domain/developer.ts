@@ -9,7 +9,7 @@
  * share paid, fraction buy-backs, and every tax the ledger assigns to the developer (levy, grossed-up owner tax,
  * the developer's own purchase tax).
  */
-import { lotDeveloperPnL, lotViablePct } from './lotDeveloper';
+import { directCostPerSaleableSqm, lotDeveloperPnL, lotViablePct } from './lotDeveloper';
 import { buildTransactionPlan } from './transactions';
 import type { Candidate, CommercialTerms, DeveloperEconomics, DeveloperPnL, ProjectConfig, RightsInfo, TransactionPlan, UserProfile } from './types';
 import { apartmentValueToday } from './valuation';
@@ -24,7 +24,8 @@ export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: 
   if (!involvesDeveloper(candidate)) return null;
   const vat = config.taxation.vatRate;
   const a = apartmentValueToday(config) / (1 + vat);
-  const d = config.construction.apartmentSizeSqm * config.developer.directCostPerSqm;
+  // Developer's direct cost per standard apartment: the lot's budget per saleable m² (plan areas × survey rates).
+  const d = config.construction.apartmentSizeSqm * directCostPerSaleableSqm(config, info.lotId);
   const build = d * (1 + config.developer.softCostRate);
   const sum = (pred: (e: TransactionPlan['ledger'][number]) => boolean) => plan.ledger.filter(pred).reduce((s, e) => s + e.amount, 0);
 

@@ -162,8 +162,13 @@ export interface ProjectConfig {
     confirmed: boolean;
   };
   developer: {
-    /** Developer's own direct construction cost per m² (no markup). */
-    directCostPerSqm: number;
+    /**
+     * Override of the developer's direct construction cost per saleable m² (matrix / break-even rows). null = the
+     * evidence-based budget: the plan's built areas per lot × the appraisers' survey rates.
+     */
+    directCostPerSqm: number | null;
+    /** June 2026 construction-cost survey (Sharon): per licensed m² above ground (tower), underground; balcony share. */
+    survey: { aboveGroundPerSqm: number; undergroundPerSqm: number; balconyShare: number };
     /** Planning, fees, financing, marketing and overhead as a share of direct cost. */
     softCostRate: number;
     /** Indicative profit a developer requires, as a share of revenue net of VAT. */
@@ -783,6 +788,8 @@ export interface LotPnLSummary {
   profit: number;
   margin: number;
   profitOnCost: number;
+  /** Physical apartments this owner receives on the route. */
+  userPhysicalUnits: number;
 }
 
 export interface DeveloperThresholds {
@@ -797,6 +804,13 @@ export interface DeveloperThresholds {
   project: { lots: { lotId: string; profit: number; margin: number; units: number }[]; profit: number; margin: number; units: number };
   /** Lot margin at the offer's % with 0 / 50 / 100% of the services quota taken up. */
   participation: { share: number; margin: number }[];
+  /** The evidence-based budget of the owner's lot and its sensitivities (survey ±10%, the appraisal's 27% indirect). */
+  budget: {
+    direct: number;
+    perSaleableSqm: number;
+    lines: { aboveGround: number; underground: number; balconies: number };
+    sensitivity: { label: string; margin: number }[];
+  };
 }
 
 export type FundingMethod = 'developer_loan' | 'other_property';

@@ -641,12 +641,41 @@ function DeveloperThresholdsView({ result, combinationPct }: { result: DecisionR
       <h3>מה היה צריך להשתנות כדי ש-{pctFmt(combinationPct)} ישתלם ליזם?</h3>
       <p className="field-hint">
         יעד היזם: {pctFmt(t.targetMarginOnRevenue)} רווח מההכנסות (שקול ל-{pctFmt(t.profitOnCostAtTarget)} רווח על העלות). עלות הבנייה
-        שהבעלים משלמים (₪11,000 למ״ר) נשארת ההנחה שלכם; עלות הבנייה הישירה של היזם היא גודל נפרד.
+        שהבעלים משלמים (₪11,000 למ״ר) נשארת ההנחה שלכם; עלות הבנייה הישירה של היזם (כרגע כ-{formatCurrency(t.budget.perSaleableSqm)} למ״ר מכר
+        לפי התקציב) היא גודל נפרד.
+      </p>
+      <h3>תקציב הבנייה של היזם — לפי שטחי התכנית ואומדן השמאים</h3>
+      <p className="field-hint">
+        שטחי הבנייה במגרש לפי טבלה 5 בהוראות התכנית, בתעריפי אומדן עלויות הבנייה של לשכת שמאי המקרקעין (יוני 2026,
+        השרון, בניין רב קומות): ₪6,600 למ״ר עילי, ₪3,400 למ״ר תת-קרקעי, מרפסות 40% מהתעריף. ללא מע״מ, תכנון, אגרות,
+        היטלים, פיתוח ומימון. זה תקציב היזם בלבד — המחיר שהבעלים משלמים על שירותי בנייה נשאר ₪11,000 למ״ר.
       </p>
       <table className="kv-table">
         <tbody>
           <tr>
-            <th>עלות בנייה ישירה מקסימלית ליזם (בשווי דירה של ₪25,000 למ״ר)</th>
+            <th>בנייה עילית · תת-קרקעית · מרפסות</th>
+            <td>
+              {formatCurrency(t.budget.lines.aboveGround)} · {formatCurrency(t.budget.lines.underground)} · {formatCurrency(t.budget.lines.balconies)}
+            </td>
+          </tr>
+          <tr className="row-total">
+            <th>סה״כ עלות ישירה · למ״ר מכר (פלדלת)</th>
+            <td>
+              {formatCurrency(t.budget.direct)} · {formatCurrency(t.budget.perSaleableSqm)}
+            </td>
+          </tr>
+          {t.budget.sensitivity.map((x) => (
+            <tr key={x.label}>
+              <th>רווח היזם במגרש — {x.label}</th>
+              <td className={x.margin < 0 ? 'cell-fail' : ''}>{pctFmt(x.margin)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <table className="kv-table">
+        <tbody>
+          <tr>
+            <th>עלות בנייה ישירה מקסימלית ליזם, למ״ר מכר (בשווי דירה של ₪25,000 למ״ר)</th>
             <td>{t.maxDirectCostPerSqm === null ? 'לא נמצאה' : `${formatCurrency(t.maxDirectCostPerSqm)} למ״ר`}</td>
           </tr>
           <tr>
@@ -661,7 +690,7 @@ function DeveloperThresholdsView({ result, combinationPct }: { result: DecisionR
           <caption>אחוז קומבינציה מקסימלי שמשאיר ליזם את יעד הרווח</caption>
           <thead>
             <tr>
-              <th>עלות ישירה ליזם \ שווי דירה למ״ר</th>
+              <th>עלות ישירה ליזם למ״ר מכר \ שווי דירה למ״ר</th>
               {t.matrix.apartmentPrices.map((p) => (
                 <th key={p}>{formatCurrency(p)}</th>
               ))}

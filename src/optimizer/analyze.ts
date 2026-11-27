@@ -8,6 +8,7 @@ import { TAX_ARRANGEMENTS, withArrangement } from '../domain/arrangements';
 import { candidatePnL, developerEconomics } from '../domain/developer';
 import {
   developerBreakEvens,
+  developerBudget,
   lotDeveloperPnL,
   lotViablePct,
   profitabilityMatrix,
@@ -130,7 +131,11 @@ export function buildResult(
   if (developerPnL && withLot) {
     const lotCtx = { info: ctx.info, profile: ctx.profile, config };
     const delta = routeDelta(lotCtx, plan, ctx.terms, sim.taxLoanSubsidy);
-    const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, ctx.terms.combinationPct, { markup: ctx.terms.developerMarkup, delta });
+    const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, ctx.terms.combinationPct, {
+      markup: ctx.terms.developerMarkup,
+      delta,
+      userServicesUnits: plan.apartmentsBuilt,
+    });
     developerMargin = lot.margin;
     developerLot = {
       units: lot.units,
@@ -141,6 +146,7 @@ export function buildResult(
       profit: lot.profit,
       margin: lot.margin,
       profitOnCost: lot.profitOnCost,
+      userPhysicalUnits: lot.userPhysicalUnits,
     };
   }
   const blocked = policyBlock(candidate, R, config);
@@ -690,6 +696,31 @@ function developerThresholdsFor(ctx: EngineContext, terms: CommercialTerms, conf
       units: project.units,
     },
     participation: [0, 0.5, 1].map((share) => ({ share, margin: lotDeveloperPnL(lotCtx, arr, terms.combinationPct, { ...opts, participation: share }).margin })),
+    budget: budgetView(lotCtx, arr, terms, opts),
+  };
+}
+
+function budgetView(lotCtx: { info: EngineContext['info']; profile: UserProfile; config: ProjectConfig }, arr: TaxArrangement, terms: CommercialTerms, opts: { markup: number }) {
+  const config = lotCtx.config;
+  const b = developerBudget(config, lotCtx.info.lotId);
+  const scaled = (f: number): ProjectConfig => ({
+    ...config,
+    developer: {
+      ...config.developer,
+      survey: { ...config.developer.survey, aboveGroundPerSqm: config.developer.survey.aboveGroundPerSqm * f, undergroundPerSqm: config.developer.survey.undergroundPerSqm * f },
+    },
+  });
+  const margin = (cfg: ProjectConfig) => lotDeveloperPnL({ ...lotCtx, config: cfg }, arr, terms.combinationPct, opts).margin;
+  return {
+    direct: b.direct,
+    perSaleableSqm: b.perSaleableSqm,
+    lines: b.lines,
+    sensitivity: [
+      { label: 'עלות לפי הסקר', margin: margin(config) },
+      { label: 'הסקר −10%', margin: margin(scaled(0.9)) },
+      { label: 'הסקר +10%', margin: margin(scaled(1.1)) },
+      { label: 'עלויות עקיפות 27% (כמו בשמאות למבני ציבור)', margin: margin({ ...config, developer: { ...config.developer, softCostRate: 0.27 } }) },
+    ],
   };
 }
 

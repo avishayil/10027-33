@@ -240,7 +240,9 @@ describe('developer economics', () => {
 
   it('matches an independent developer P&L for the S02 candidate (headline: mixed deal)', () => {
     const a = 2_500_000 / 1.18;
-    const build = 1_100_000 * 1.12;
+    // Developer's direct cost per standard apartment: the plan-area budget per saleable m² (iteration 8) × 100 m².
+    const perSaleable = (14269 * 6600 + 4770 * 3400 + 1530 * 6600 * 0.4) / 11209;
+    const build = 100 * perSaleable * 1.12;
     const L = info.bettermentLevy;
     const services = 0.7875 * 1_100_000 * 1.175 * 1.18; // incl. ordinary contractor profit
     const rev = 0.65 * 2.25 * a;
@@ -281,10 +283,14 @@ describe('developer economics', () => {
   });
 
   it('flags strategies whose developer deal is unprofitable as commercially questionable — without changing affordability', () => {
-    const s = analyzeProfile(profile({ availableCapital: 1_500_000, maxMonthlyRepayment: 15000 }), TERMS, C).results.find((x) => x.id === 'S02')!;
+    // Since iteration 8 the plan-area budget leaves 35% mixed slightly profitable; a higher developer cost makes it not.
+    const costly = { ...C, developer: { ...C.developer, directCostPerSqm: 13000 } };
+    const p = profile({ availableCapital: 1_500_000, maxMonthlyRepayment: 15000 });
+    const s = analyzeProfile(p, TERMS, costly).results.find((x) => x.id === 'S02')!;
+    const base = analyzeProfile(p, TERMS, C).results.find((x) => x.id === 'S02')!;
     expect(s.developerMargin).toBeLessThan(0);
     expect(s.assessment.commercial).toBe('questionable');
-    expect(s.assessment.affordability).not.toBe('does_not_fit');
+    expect(s.assessment.affordability).toBe(base.assessment.affordability);
   });
 });
 
