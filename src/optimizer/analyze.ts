@@ -407,9 +407,11 @@ export function analyzeProfile(
   }
 
   // --- Tax arrangements: the same household under gross / mixed / net combination terms --------------------
+  const arrangementTops: { arrangement: TaxArrangement; top: StrategyResult | null }[] = [];
   const arrangements: ArrangementOutcome[] = (['gross', 'mixed', 'net'] as TaxArrangement[]).map((arrangement) => {
     const c2 = arrangement === config.commercial.taxArrangement ? core : coreAnalysis(profile, terms, withArrangement(config, arrangement));
     const top = c2.ranked[0] ?? null;
+    arrangementTops.push({ arrangement, top });
     return {
       arrangement,
       recommendationId: top?.id ?? null,
@@ -428,6 +430,20 @@ export function analyzeProfile(
     ranked.find((r) => r !== recommendation && r.strategyType !== recommendation?.strategyType && r.assessment.commercial !== 'questionable') ??
     null;
   const negotiationOnly = results.filter((r) => r.assessment.commercial === 'negotiable');
+  // Nothing fits under the headline terms? Give a direction anyway: the route that fits under the least demanding
+  // other arrangement (mixed before net), clearly conditional on obtaining those terms.
+  let conditionalRecommendation: DecisionResult['conditionalRecommendation'] = null;
+  if (!recommendation) {
+    const order: TaxArrangement[] = ['mixed', 'net'];
+    for (const arr of order) {
+      if (arr === config.commercial.taxArrangement) continue;
+      const hit = arrangementTops.find((x) => x.arrangement === arr && x.top);
+      if (hit?.top) {
+        conditionalRecommendation = { result: hit.top, arrangement: arr };
+        break;
+      }
+    }
+  }
   // A questionable or unconfirmed winner is never the only answer: if no evidence-based alternative exists, the
   // fallback is a price-dependent route (sale first), shown with the price it would need.
   let finalFallback = fallback;
@@ -491,6 +507,7 @@ export function analyzeProfile(
     levyRangeAcrossLots: { min: Math.min(...levies), max: Math.max(...levies) },
     projection,
     nearMiss,
+    conditionalRecommendation,
   };
 }
 

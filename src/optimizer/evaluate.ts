@@ -68,6 +68,8 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     preCompletionLandCollateral: plan.preCompletionLandCollateral,
     postCompletionCollateral: plan.postCompletionCollateral,
     workInProgressRecognition: config.financing.workInProgressRecognition,
+    // Only when the household said it owns another property and has not ruled out borrowing.
+    taxesFinanceableBySecuredLoan: ctx.profile.soleHome === false && ctx.profile.maxMonthlyRepayment !== 0,
   });
 
   // Whole apartments at market value; an unresolved fractional share at an illiquidity discount.

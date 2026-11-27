@@ -390,6 +390,8 @@ export interface SimulationResult {
   drawsByStage: Record<FinancingStage, number>;
   /** Obligations no lender finances (taxes, levy, costs) that cash could not cover. Not a loan — no interest. */
   unfunded: number;
+  /** Taxes/levy/costs financed by a loan secured on another property the household owns (conditional). */
+  taxesFinancedBySecuredLoan: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -450,7 +452,8 @@ export type ConditionCode =
   | 'SALE_DATE_DEFERRAL'
   | 'COMPLETION_CLASSIFICATION'
   | 'NET_TAX_TERMS'
-  | 'LEVY_TERMS';
+  | 'LEVY_TERMS'
+  | 'SECURED_LOAN_OTHER_PROPERTY';
 
 export interface ScenarioAssessment {
   fails: ReasonCode[];
@@ -616,6 +619,11 @@ export interface DecisionResult {
   /** True when the lot was not given and lot 149 was assumed (levy shown as a range across lots). */
   lotAssumed: boolean;
   levyRangeAcrossLots: { min: number; max: number };
+  /**
+   * When nothing fits under the headline terms but a route fits under a different tax arrangement: that route,
+   * presented as a conditional direction ("works if the developer bears the taxes").
+   */
+  conditionalRecommendation: { result: StrategyResult; arrangement: TaxArrangement } | null;
   /** When no evidence-based route fits: the closest ones and the extra capital each would need. */
   nearMiss: { result: StrategyResult; additionalCapital: number | null }[];
   /** Optional illustrative long-term projection for the recommendation, itemised so every shekel is explained. */

@@ -74,6 +74,15 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   let settleFraction: 'cash' | 'pool' | null = null;
   let fractionSettled: TransactionPlan['fractionSettled'] = null;
   let tierRooms: number | null = null;
+  // Asset-level basis of apartment entitlement received in combination: the taxable services value (already the
+  // consideration for the land sold) + the original land basis of the retained share.
+  let combinationReceived = 0;
+  let combinationBasis = 0;
+  /** Capital-gains reserve on disposing of `share` of the combination entitlement for `amount`. */
+  const disposalTax = (amount: number, share: number) => {
+    const basisPerEq = combinationReceived > 0 ? combinationBasis / combinationReceived : 0;
+    return Math.max(0, amount - basisPerEq * share) * config.taxation.indicativeCapitalGainsRate;
+  };
   let heldLandValueAtHorizon = 0;
   let deferredLiabilities = 0;
 
@@ -150,6 +159,10 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         // VAT) + any owner taxes the developer pays (§17(d)). Only the levy share attributable to the land sold
         // is deducted (proportional allocation — to be confirmed professionally).
         const services = received * constructionServiceTaxValuePerApartment(config);
+        combinationReceived += received;
+        // Retained-land basis share is unknown unless the user gave it (then pro rata on the rights kept).
+        const knownBasis = typeof profile.acquisitionBasis === 'number' ? profile.acquisitionBasis : 0;
+        combinationBasis += services + (info.apartmentEquivalents > 0 ? (knownBasis * leg.rights * terms.combinationPct) / info.apartmentEquivalents : 0);
         const levy = leg.rights * levyUnit;
         out(permit, levy, levyPayer === 'owner' ? 'היטל השבחה — עליכם (עסקת ברוטו)' : 'היטל השבחה — משולם ע״י היזם', 'betterment_levy', levyPayer, {
           rightsPortion: leg.rights,
@@ -319,7 +332,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     } else if (gap < -1e-9) {
       const amount = -gap * aptAtCompletion * config.commercial.fractionCashSettlementFactor;
       inflow(completion, amount, 'איזון כספי על ההפרש לדירה הקטנה', 'fraction_settlement');
-      const tax = amount * config.taxation.indicativeCapitalGainsRate;
+      const tax = disposalTax(amount, -gap);
       cgRange.low += tax;
       cgRange.high += tax;
       out(completion, tax, 'מס שבח על האיזון (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
@@ -339,8 +352,9 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     const factor = settleFraction === 'cash' ? config.commercial.fractionCashSettlementFactor : 1 - costRate;
     const amount = fractionalShare * aptAtCompletion * factor;
     inflow(completion, amount, settleFraction === 'cash' ? 'פיצוי כספי על חלק הדירה' : 'חלקכם ממכירת יחידת הסל', 'fraction_settlement');
-    // Extra land-sale consideration: the land share was already allocated — no further basis (conservative).
-    const tax = amount * config.taxation.indicativeCapitalGainsRate;
+    // Disposal of retained property (the apartment entitlement received), not extra land consideration: the gain is
+    // measured over its basis — the services value already taxed when it was received.
+    const tax = disposalTax(amount, fractionalShare);
     cgRange.low += tax;
     cgRange.high += tax;
     out(completion, tax, 'מס שבח על הפיצוי (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });

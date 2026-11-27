@@ -52,6 +52,11 @@ export interface SimulationInput {
   postCompletionCollateral?: number;
   /** Share of amounts paid into the asset recognised as security before completion (default 1). */
   workInProgressRecognition?: number;
+  /**
+   * The household owns another property and can borrow against it: taxes, levy and costs that cash cannot cover may
+   * be financed by that secured loan (conditional on lender approval) instead of being unfunded.
+   */
+  taxesFinanceableBySecuredLoan?: boolean;
 }
 
 const EPS = 0.5;
@@ -100,6 +105,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let peakDebt = 0;
   let totalDrawn = 0;
   let unfunded = 0;
+  let taxesFinanced = 0;
   const unfundedItems: SimulationResult['unfundedItems'] = [];
   const drawsByStage: Record<FinancingStage, number> = { bridge: 0, construction: 0, mortgage: 0 };
   let amortPayment = 0;
@@ -136,8 +142,16 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const fromCash = Math.min(Math.max(cash, 0), need);
       cash -= fromCash;
       if (need - fromCash > EPS) {
-        unfunded += need - fromCash;
-        unfundedItems.push({ month: m, category: e.category, label: e.label, amount: need - fromCash });
+        if (input.taxesFinanceableBySecuredLoan) {
+          const draw = need - fromCash;
+          debt += draw;
+          totalDrawn += draw;
+          drawsByStage[stage] += draw;
+          taxesFinanced += draw;
+        } else {
+          unfunded += need - fromCash;
+          unfundedItems.push({ month: m, category: e.category, label: e.label, amount: need - fromCash });
+        }
       }
     }
 
@@ -232,6 +246,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     drawsByStage,
     unfunded,
     unfundedItems,
+    taxesFinancedBySecuredLoan: taxesFinanced,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,
