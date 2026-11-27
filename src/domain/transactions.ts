@@ -227,7 +227,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         if (leg.rights <= 0) break;
         rightsPurchased += leg.rights;
         // Bought from other owners at the open-market reference — not at the developer's buying price.
-        const price = leg.rights * info.sqmPerRight * config.market.postApprovalLandValuePerSqm;
+        const price = leg.rights * info.sqmPerRight * (config.market.complementaryRightsPricePerSqm ?? config.market.postApprovalLandValuePerSqm);
         out(0, price, 'רכישת זכויות משלימות (מבעלים אחרים)', 'rights_purchase');
         out(0, price * buyerPurchaseTax, 'מס רכישה', 'purchase_tax');
         out(0, price * costRate, 'עלויות עסקה', 'transaction_costs');
@@ -259,8 +259,16 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         const tax = capitalGainsReserve({ consideration: share + devLevy, deductibleCosts: 0, deductibleLevy: levy, rightsPortion: leg.rights, info, profile, config });
         // Cash consideration: §19(3א) deferral does not apply — assessed at signing (conservative).
         const taxMonth = config.taxation.revenueShareTaxAtSigning ? 0 : completion;
-        out(taxMonth, addCg(tax), 'מס שבח על התמורה הצפויה (רזרבה)', 'capital_gains_tax', 'owner', { range: { low: tax.low, high: tax.high }, saleRelated: true });
-        out(0, (share + devLevy) * buyerPurchaseTax, 'מס רכישה על הקרקע — על היזם', 'purchase_tax', 'developer');
+        let devTax = 0;
+        if (payers.capitalGainsTax === 'developer') {
+          // Net terms: the developer pays the owner's tax; the payment is itself consideration → gross-up.
+          const g = 1 / (1 - cgRate);
+          devTax = tax.used * g;
+          out(taxMonth, devTax, 'מס שבח — משולם ע״י היזם (נטו, כולל גילום)', 'capital_gains_tax', 'developer', { range: { low: tax.low * g, high: tax.high * g } });
+        } else {
+          out(taxMonth, addCg(tax), 'מס שבח על התמורה הצפויה (רזרבה)', 'capital_gains_tax', 'owner', { range: { low: tax.low, high: tax.high }, saleRelated: true });
+        }
+        out(0, (share + devLevy + devTax) * buyerPurchaseTax, 'מס רכישה על הקרקע — על היזם', 'purchase_tax', 'developer');
         break;
       }
       case 'sell_apartments': {
@@ -387,7 +395,9 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     ? 0
     : wholeApartmentValueEq * config.market.monthlyRentPerApartment * (1 - config.market.rentalExpenseReserve);
 
-  const landPrice = info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm;
+  // Land a lender could recognise: the planning appraisal's allocation value per right — never the unverified
+  // developer-price scenario (a hypothetical price must not decide whether a route is financeable).
+  const landPrice = info.apartmentEquivalents > 0 ? info.table.allocationValue / info.apartmentEquivalents : 0;
   const preCompletionLandCollateral = retainedLandRights * landPrice;
   const postCompletionCollateral = wholeApartmentValueEq * aptToday + rightsHeld * landPrice;
 

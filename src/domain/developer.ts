@@ -19,7 +19,7 @@ export function involvesDeveloper(candidate: Candidate): boolean {
   );
 }
 
-export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: RightsInfo, config: ProjectConfig, terms: CommercialTerms): DeveloperPnL | null {
+export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: RightsInfo, config: ProjectConfig, _terms: CommercialTerms): DeveloperPnL | null {
   if (!involvesDeveloper(candidate)) return null;
   const vat = config.taxation.vatRate;
   const a = apartmentValueToday(config) / (1 + vat);
@@ -36,9 +36,9 @@ export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: 
   const completionRevenue = sum((e) => e.category === 'completion_payment') / (1 + vat);
   const servicesRevenue = sum((e) => e.category === 'construction' && e.payer === 'owner') / (1 + vat);
   const constructionCost = unitsBuilt * build;
-  // VAT on barter services is a developer cost only when it bears it; VAT the owner pays is collected and remitted.
-  const developerBearsVat = plan.ledger.some((e) => e.category === 'services_vat' && e.payer === 'developer');
-  const barterVat = developerBearsVat ? plan.rightsInCombination * terms.combinationPct * d * vat : 0;
+  // Output VAT on the barter services (services incl. contractor profit — the same amount as the owner-side
+  // ledger). A developer cost only when it bears it; VAT the owner pays is collected and remitted.
+  const barterVat = sum((e) => e.category === 'services_vat' && e.payer === 'developer');
   const landPaid = sum((e) => e.category === 'sale_proceeds' && e.direction === 'in');
   const revenueSharePaid = sum((e) => e.category === 'revenue_share' && e.direction === 'in');
   const buyBack = plan.fractionSettled?.mode === 'cash' ? sum((e) => e.category === 'fraction_settlement') : 0;

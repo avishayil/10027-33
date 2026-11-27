@@ -116,6 +116,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let taxLoanBalance = 0;
   let taxLoanDrawn = 0;
   let taxLoanInterest = 0;
+  let taxLoanAtMaturity = 0;
+  let interestAfterCompletion = 0;
   const taxLoanMonthly = input.taxLoan ? input.taxLoan.annualRate / 12 : 0;
   // Principal repaid so far (prepayments + amortisation), attributed to the secured tax loan first — so the debt
   // counted against the project's own collateral is never understated.
@@ -201,7 +203,10 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     }
 
     // At delivery the tax loan (principal + capitalised interest) is refinanced as a mortgage on the apartment.
+    // Maximum exposure is measured before any same-month repayment.
+    peakDebt = Math.max(peakDebt, debt + taxLoanBalance);
     if (taxLoanBalance > 0 && m >= input.completionMonth) {
+      taxLoanAtMaturity = taxLoanBalance;
       debt += taxLoanBalance;
       drawsByStage.mortgage += taxLoanBalance;
       taxLoanBalance = 0;
@@ -240,6 +245,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if (debt > 1e-9) {
       const interest = debt * r;
       if (m <= input.completionMonth) interestToCompletion += interest;
+      else interestAfterCompletion += interest;
       if (!afterCompletion) {
         payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
@@ -297,6 +303,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxesFinancedBySecuredLoan: taxesFinanced,
     taxLoanDrawn,
     taxLoanInterest,
+    taxLoanAtMaturity,
+    interestAfterCompletion,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

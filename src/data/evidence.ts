@@ -42,22 +42,24 @@ export interface LandTransaction {
 }
 
 /**
- * Reported land transactions inside מתחם 13 (not individually reconciled with Tax Authority records).
+ * Reported land transactions inside מתחם 13 (not individually reconciled with Tax Authority records). Each row
+ * names its own source: the appraisal p.63 lists only the 2024 parcel-33 deals (checked against the local PDF,
+ * 2026-11-27); the 2025–2026 parcel-33 deals come from LandCheck alone.
  * Excluded pending verification: an 08/07/2025 deal with no reliable area, and two ₪235,000/167 m² rows on
  * p.63 dated 02/08/2024 and 02/08/2026 (possible duplicate / date error).
  */
 export const LAND_TRANSACTIONS: LandTransaction[] = [
-  { parcel: 33, date: '2026-04-16', areaSqm: 167, price: 300000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2025-11-19', areaSqm: 167, price: 400000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2025-06-23', areaSqm: 167, price: 320000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2025-04-27', areaSqm: 167, price: 340000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2025-04-10', areaSqm: 167, price: 320000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2025-04-10', areaSqm: 167, price: 305000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2024-10-01', areaSqm: 167, price: 275000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2024-08-26', areaSqm: 167, price: 230000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2024-08-20', areaSqm: 167, price: 170000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2024-07-07', areaSqm: 167, price: 250000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
-  { parcel: 33, date: '2024-06-27', areaSqm: 334, price: 450000, source: 'LandCheck; שמאות עמ׳ 63', page: 63 },
+  { parcel: 33, date: '2026-04-16', areaSqm: 167, price: 300000, source: 'LandCheck', note: 'לא מופיעה בשמאות (עמ׳ 63 מפרט רק עסקאות 2024)' },
+  { parcel: 33, date: '2025-11-19', areaSqm: 167, price: 400000, source: 'LandCheck', note: 'לא מופיעה בשמאות (עמ׳ 63 מפרט רק עסקאות 2024)' },
+  { parcel: 33, date: '2025-06-23', areaSqm: 167, price: 320000, source: 'LandCheck', note: 'לא מופיעה בשמאות (עמ׳ 63 מפרט רק עסקאות 2024)' },
+  { parcel: 33, date: '2025-04-27', areaSqm: 167, price: 340000, source: 'LandCheck', note: 'לא מופיעה בשמאות (עמ׳ 63 מפרט רק עסקאות 2024)' },
+  { parcel: 33, date: '2025-04-10', areaSqm: 167, price: 320000, source: 'LandCheck', note: 'לא מופיעה בשמאות (עמ׳ 63 מפרט רק עסקאות 2024)' },
+  { parcel: 33, date: '2025-04-10', areaSqm: 167, price: 305000, source: 'LandCheck', note: 'לא מופיעה בשמאות (עמ׳ 63 מפרט רק עסקאות 2024)' },
+  { parcel: 33, date: '2024-10-01', areaSqm: 167, price: 275000, source: 'שמאות עמ׳ 63; LandCheck', page: 63 },
+  { parcel: 33, date: '2024-08-26', areaSqm: 167, price: 230000, source: 'שמאות עמ׳ 63; LandCheck', page: 63 },
+  { parcel: 33, date: '2024-08-20', areaSqm: 167, price: 170000, source: 'שמאות עמ׳ 63; LandCheck', page: 63 },
+  { parcel: 33, date: '2024-07-07', areaSqm: 167, price: 250000, source: 'שמאות עמ׳ 63; LandCheck', page: 63 },
+  { parcel: 33, date: '2024-06-27', areaSqm: 334, price: 450000, source: 'שמאות עמ׳ 63; LandCheck', page: 63 },
   { parcel: 32, date: '2026-05-24', areaSqm: 83, price: 566400, source: 'LandCheck / Zips', note: 'מקורות חלוקים על השטח (79/83 מ״ר)' },
   { parcel: 32, date: '2026-05-31', areaSqm: 83, price: 684400, source: 'LandCheck / Zips' },
   { parcel: 32, date: '2026-04-13', areaSqm: 79, price: 507400, source: 'LandCheck / Zips' },
@@ -157,7 +159,7 @@ export const COMBINATION_DEALS: CombinationDeal[] = [
     date: '2022-05',
     ownerShare: '40% מגורים (35% מסחר, 28% תעסוקה)',
     taxes: 'הבעלים: היטל, מס שבח, מע״מ. היזם: אגרות והיטלי פיתוח',
-    financing: 'הלוואה לבעלים כ-₪16 מיליון, פריים + 2%',
+    financing: 'הלוואה לבעלים כ-₪16 מיליון בשעבוד הקרקע, פריים + 2% בתוספת מע״מ על הריבית',
     source: 'דוח תקופתי 2024, ביאור 10',
   },
   {
@@ -177,6 +179,24 @@ export const COMBINATION_DEALS: CombinationDeal[] = [
     taxes: 'המוכר: מס שבח, היטל, מע״מ. היזם: אגרות והיטלי פיתוח',
     financing: 'מסגרת אשראי למסים כנגד שעבוד הקרקע',
     source: 'דוח תקופתי 2024, ביאור 10',
+  },
+  {
+    developer: 'רוטשטיין',
+    place: 'עסקה עם תמורה במגורים ובמסחר',
+    date: '—',
+    ownerShare: '32.5% מגורים (45% מסחר)',
+    taxes: 'לפי ההסכם',
+    financing: 'מקדמה/הלוואה נוספת כ-₪46 מיליון (כולל מסים והוצאות פיתוח); הריבית על המיזם המשותף',
+    source: 'דוח תקופתי 2024 (לפי סקירה בלתי תלויה)',
+  },
+  {
+    developer: 'רוטשטיין',
+    place: 'פרויקט נוסף',
+    date: '—',
+    ownerShare: '—',
+    taxes: '—',
+    financing: 'הלוואות מסים לבעלים כ-₪27 מיליון, פריים + 1.9%',
+    source: 'דוח תקופתי 2024 (לפי סקירה בלתי תלויה)',
   },
   {
     developer: 'קרדן נדל״ן',

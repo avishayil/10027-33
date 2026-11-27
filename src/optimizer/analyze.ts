@@ -74,7 +74,7 @@ export function priceDependencyOf(candidate: Candidate, plan: { fractionSettled:
     if (leg.kind === 'sell_rights' && leg.market === 'developer') return 'developer_price';
     if (leg.kind === 'sell_rights' && leg.market === 'post_approval') return 'post_approval_price';
     if (leg.kind === 'sell_rights' && leg.market === 'open_market') return 'immediate_price';
-    if (leg.kind === 'buy_rights') return 'post_approval_price';
+    if (leg.kind === 'buy_rights') return 'complementary_price';
     if (leg.kind === 'revenue_share') return 'revenue_share';
   }
   if (plan.fractionSettled?.mode === 'cash') return 'buyback_factor';
@@ -140,9 +140,10 @@ export function buildResult(
     ownerCashIn,
     ownerCashOut: ownerCashOut + reserveNet,
     constructionAndCompletionPaid: sum(ledger, (e) => owner(e) && (e.category === 'construction' || e.category === 'completion_payment')),
-    interestToDelivery: sim.interestPaidToCompletion,
+    // Interest paid during construction plus the tax-loan interest capitalised to delivery.
+    interestToDelivery: sim.interestPaidToCompletion + sim.taxLoanInterest,
     debtAtDelivery: sim.debtAtCompletion,
-    netPosition: apartmentsValue + fractionValue + ownerCashIn - (ownerCashOut + reserveNet) - sim.interestPaidToCompletion,
+    netPosition: apartmentsValue + fractionValue + ownerCashIn - (ownerCashOut + reserveNet) - sim.interestPaidToCompletion - sim.taxLoanInterest,
   };
   const levyEntries = ledger.filter((e) => e.category === 'betterment_levy' && e.payer !== 'seller');
   const ownerLevyPaid = levyEntries.filter((e) => e.payer === 'owner' && !e.deferred);
@@ -451,8 +452,10 @@ export function analyzeProfile(
   });
   // Fallback if the headline's unconfirmed terms fail: the gross-deal winner if different, otherwise the best
   // alternative that is not commercially questionable.
-  const grossTop = arrangements.find((x) => x.arrangement === 'gross')?.recommendationId ?? null;
-  const grossFallback = grossTop && grossTop !== recommendation?.id ? results.find((r) => r.id === grossTop) : undefined;
+  // The gross run's own result (its ledger and % are gross terms) — never a same-id result from the headline run.
+  const gross = arrangementTops.find((x) => x.arrangement === 'gross' && x.arrangement !== headline);
+  const grossFallback = gross?.top && gross.top.id !== recommendation?.id && gross.combinationPct !== null ? gross.top : undefined;
+  const fallbackTerms: DecisionResult['fallbackTerms'] = grossFallback ? { arrangement: 'gross', combinationPct: gross!.combinationPct! } : null;
   const fallback =
     grossFallback ??
     ranked.find((r) => r !== recommendation && r.strategyType !== recommendation?.strategyType && r.assessment.commercial !== 'questionable') ??
@@ -528,6 +531,7 @@ export function analyzeProfile(
     arrangements,
     fallback: finalFallback,
     fallbackThreshold,
+    fallbackTerms,
     negotiationOnly,
     priceConditional,
     landReferences,

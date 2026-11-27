@@ -150,7 +150,8 @@ describe('transactions', () => {
 
   it('sold rights are never collateral; retained land is collateral, not cash', () => {
     const hybrid = plan('S05-1');
-    const landPerRight = (167 / 2.25) * 6900;
+    // Planning appraisal allocation value per right (lot 149: ₪714,371 / 2.25) — not the unverified ₪6,900 scenario.
+    const landPerRight = info.table.allocationValue / 2.25;
     expect(hybrid.preCompletionLandCollateral).toBeCloseTo(1 * landPerRight, 4);
     const comb = plan('S02');
     expect(comb.preCompletionLandCollateral).toBeCloseTo(2.25 * 0.35 * landPerRight, 4);

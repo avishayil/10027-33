@@ -61,7 +61,8 @@ describe('LEGACY golden fixture (iteration-2 assumptions, owner pays the tax at 
   });
 
   it('uses stage-specific collateral (land + 80% of amounts paid in)', () => {
-    const land = received * (167 / 2.25) * 6900;
+    // Retained land at the appraisal allocation value per right (iteration 6), not the ₪6,900 scenario.
+    const land = received * (calculateRights(167, C).table.allocationValue / 2.25);
     expect(ev.sim.peakPreCompletionLtv).toBeCloseTo(constructionDraw / (land + 0.8 * completion / 2), 6);
     expect(ev.sim.peakPostCompletionLtv).toBeCloseTo(peak / 2_500_000, 6);
   });

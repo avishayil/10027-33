@@ -170,6 +170,8 @@ export interface ProjectConfig {
     /** Discount applied to an unresolved fractional apartment share (illiquid co-ownership). */
     fractionIlliquidityDiscount: number;
     developerRightsSaleScenario: { pricePerOriginalSqm: number; confirmedOffer: boolean };
+    /** Price per original m² for buying complementary rights from other owners; null = the post-approval reference. */
+    complementaryRightsPricePerSqm: number | null;
   };
   taxation: {
     bettermentLevyRate: number;
@@ -409,6 +411,10 @@ export interface SimulationResult {
   taxLoanDrawn: number;
   /** Interest capitalised on the tax loan until delivery (then refinanced as a mortgage). */
   taxLoanInterest: number;
+  /** Tax-loan balance due at delivery (principal + capitalised interest), before any repayment. */
+  taxLoanAtMaturity: number;
+  /** Interest on regular debt paid after delivery, within the horizon. */
+  interestAfterCompletion: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -630,6 +636,8 @@ export interface DecisionResult {
   fallback: StrategyResult | null;
   /** When the fallback depends on an unverified price: the price it would need. */
   fallbackThreshold: PriceThreshold | null;
+  /** When the fallback comes from another arrangement's run: those terms (its % is the equivalent %). */
+  fallbackTerms: { arrangement: TaxArrangement; combinationPct: number } | null;
   /** Strategies outside the expected developer policy — negotiation-only, not recommended. */
   negotiationOnly: StrategyResult[];
   /** Strategies whose outcome depends on an unverified price — with the price they would need. */
@@ -716,7 +724,14 @@ export interface DeveloperPnL {
   lines: { label: string; amount: number }[];
 }
 
-export type PriceKnob = 'developer_price' | 'post_approval_price' | 'immediate_price' | 'revenue_share' | 'buyback_factor';
+export type PriceKnob =
+  | 'developer_price'
+  | 'post_approval_price'
+  | 'immediate_price'
+  | 'revenue_share'
+  | 'buyback_factor'
+  /** Price paid to other owners for complementary rights — a cost, so the threshold is a maximum. */
+  | 'complementary_price';
 
 export interface DeliverySnapshot {
   /** Value of the whole apartments kept, at today's comparable-based scenario price. */
@@ -750,6 +765,8 @@ export interface PriceThreshold {
   knob: PriceKnob;
   /** Required value (₪ per original m², or a fraction for share/factor). null = not reached in the searched range. */
   required: number | null;
+  /** 'min': at least this much (a price you receive); 'max': at most this much (a price you pay). */
+  direction: 'min' | 'max';
   /** What it must beat: the evidence-based recommendation, or affordability only. */
   against: string | null;
   /** The unverified scenario value the engine would otherwise have used. */

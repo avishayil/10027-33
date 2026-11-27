@@ -74,6 +74,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
       pricePerOriginalSqm: MARKET.developerRightsPricePerOriginalSqm.value,
       confirmedOffer: false,
     },
+    complementaryRightsPricePerSqm: null,
   },
   taxation: {
     bettermentLevyRate: REGULATION.bettermentLevyRate.value,

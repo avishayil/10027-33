@@ -1,5 +1,5 @@
 import { SCENARIO_LABELS } from '../../data/scenarios';
-import type { DecisionResult, Goal, LedgerEntry, NegotiationTarget, PriceKnob, StrategyResult } from '../../domain/types';
+import type { DecisionResult, Goal, LedgerEntry, NegotiationTarget, StrategyResult } from '../../domain/types';
 import {
   CONDITION_TEXT,
   NEGOTIATION_LABELS,
@@ -584,19 +584,8 @@ function titleFor(result: DecisionResult, id?: string): string {
   return r ? strategyTitle(r) : '';
 }
 
-export const KNOB_LABELS: Record<PriceKnob, string> = {
-  developer_price: 'מחיר שהיזם ישלם על הזכויות',
-  post_approval_price: 'מחיר קרקע בשוק אחרי אישור התכנית',
-  immediate_price: 'מחיר מכירה בשוק היום',
-  revenue_share: 'אחוז התמורות מהכנסות המכירה',
-  buyback_factor: 'פיצוי על חלק הדירה (ביחס לשווי שוק)',
-};
-
-export function formatKnob(knob: PriceKnob, x: number | null): string {
-  if (x === null) return 'לא נמצא בטווח סביר';
-  if (knob === 'revenue_share' || knob === 'buyback_factor') return `${formatNumber(x * 100, 0)}%`;
-  return `${formatCurrency(x)} למ״ר קרקע`;
-}
+export { formatKnob, KNOB_LABELS, thresholdBound } from './thresholds';
+import { formatKnob, KNOB_LABELS, thresholdBound } from './thresholds';
 
 /** Routes whose outcome depends on a price nobody has verified: the price they would need — not an assumed price. */
 export function PriceConditionalRoutes({ result }: { result: DecisionResult }) {
@@ -605,7 +594,8 @@ export function PriceConditionalRoutes({ result }: { result: DecisionResult }) {
   return (
     <Section title="מסלולים שתלויים במחיר שעוד לא ידוע" sub="מכירה, תמורות ופיצוי כספי — כמה תצטרכו לקבל כדי שישתלמו" open>
       <p className="field-hint">
-        אין מחיר שוק עדכני, הצעת יזם מאושרת או מחיר אחרי אישור התכנית. לכן לא מניחים מחיר — מחשבים את המחיר המינימלי
+        אין מחיר שוק עדכני, הצעת יזם מאושרת או מחיר אחרי אישור התכנית. לכן לא מניחים מחיר — מחשבים את המחיר (המינימלי
+        למה שתמכרו, המקסימלי למה שתקנו)
         {against ? <> שבו המסלול מתאים ליכולת שלכם ושווה לפחות כמו <strong>{against}</strong>.</> : ' שבו המסלול מתאים ליכולת שלכם (אין מסלול מבוסס-ראיות להשוות אליו).'}
       </p>
       <div className="table-scroll">
@@ -619,11 +609,11 @@ export function PriceConditionalRoutes({ result }: { result: DecisionResult }) {
                 </th>
                 <td>
                   <strong>
-                    {t.required !== null && t.required <= 0
+                    {t.direction === 'min' && t.required !== null && t.required <= 0
                       ? t.against
                         ? 'משתלם בכל מחיר'
                         : 'ישים בכל מחיר — אין מסלול להשוות אליו; השוו לעוגני השווי'
-                      : formatKnob(t.knob, t.required)}
+                      : thresholdBound(t)}
                   </strong>
                   <span className="summary-sub">תרחיש היפותטי לשם השוואה בלבד: {formatKnob(t.knob, t.scenarioValue)}</span>
                 </td>

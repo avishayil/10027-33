@@ -73,7 +73,16 @@ function solve(f: (c: number) => number, target: number): number | null {
   return (lo + hi) / 2;
 }
 
-export function developerEquivalentPct(ctx: EquivalenceContext, fromArr: TaxArrangement, fromPct: number, toArr: TaxArrangement): number | null {
+/** Which developer model the equivalence holds the profit of: the per-owner standalone P&L or the lot-level P&L. */
+export type DeveloperModel = 'standalone';
+
+export function developerEquivalentPct(
+  ctx: EquivalenceContext,
+  fromArr: TaxArrangement,
+  fromPct: number,
+  toArr: TaxArrangement,
+  _model: DeveloperModel = 'standalone',
+): number | null {
   if (fromArr === toArr) return fromPct;
   const target = developerCombinationProfit(ctx, fromArr, fromPct);
   return solve((c) => developerCombinationProfit(ctx, toArr, c), target);

@@ -238,6 +238,8 @@ export function knobValue(config: ProjectConfig, knob: PriceKnob): number {
       return config.commercial.revenueShare;
     case 'buyback_factor':
       return config.commercial.fractionCashSettlementFactor;
+    case 'complementary_price':
+      return config.market.complementaryRightsPricePerSqm ?? config.market.postApprovalLandValuePerSqm;
   }
 }
 
@@ -253,6 +255,8 @@ export function withKnob(config: ProjectConfig, knob: PriceKnob, x: number): Pro
       return { ...config, commercial: { ...config.commercial, revenueShare: x } };
     case 'buyback_factor':
       return { ...config, commercial: { ...config.commercial, fractionCashSettlementFactor: x } };
+    case 'complementary_price':
+      return { ...config, market: { ...config.market, complementaryRightsPricePerSqm: x } };
   }
 }
 
@@ -262,12 +266,23 @@ const KNOB_RANGE: Record<PriceKnob, [number, number]> = {
   immediate_price: [0, 40000],
   revenue_share: [0, 1],
   buyback_factor: [0, 1.5],
+  complementary_price: [0, 40000],
+};
+
+/** Prices you receive must be at least the threshold; prices you pay at most. */
+export const KNOB_DIRECTION: Record<PriceKnob, 'min' | 'max'> = {
+  developer_price: 'min',
+  post_approval_price: 'min',
+  immediate_price: 'min',
+  revenue_share: 'min',
+  buyback_factor: 'min',
+  complementary_price: 'max',
 };
 
 /**
- * The lowest price (or share / factor) at which a price-dependent route is affordable for this household and —
- * if an evidence-based recommendation exists — at least as good as it. Nothing is assumed about what the price
- * actually is.
+ * The price (or share / factor) at which a price-dependent route is affordable for this household and — if an
+ * evidence-based recommendation exists — at least as good as it: the lowest price you would accept for what you sell,
+ * the highest you could pay for what you buy. Nothing is assumed about what the price actually is.
  */
 export function requiredPrice(
   c: Candidate,
@@ -285,5 +300,7 @@ export function requiredPrice(
     if (assessEvaluation(c, ev, ctx.profile, cfg, R).fails.length > 0) return false;
     return target === null || ev.valueCreated >= target;
   };
-  return { strategyId: c.id, knob, required: solveMin(lo, hi, pred), against: benchmark?.id ?? null, scenarioValue: knobValue(config, knob) };
+  const direction = KNOB_DIRECTION[knob];
+  const required = direction === 'min' ? solveMin(lo, hi, pred) : solveMax(lo, hi, pred);
+  return { strategyId: c.id, knob, required, direction, against: benchmark?.id ?? null, scenarioValue: knobValue(config, knob) };
 }

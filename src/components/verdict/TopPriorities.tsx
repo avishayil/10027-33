@@ -17,7 +17,7 @@ import {
 import { formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
 
 const formatPct = (x: number) => `${formatNumber(Math.round(x * 200) / 2, 1)}%`;
-import { formatKnob, KNOB_LABELS } from '../comparisons/DetailSections';
+import { KNOB_LABELS, thresholdBound } from '../comparisons/thresholds';
 
 const CONDITION_FOR: Record<TaxArrangement, string> = {
   gross: '',
@@ -108,9 +108,9 @@ function noteFor(p: RouteOption, conditionPct?: number): string | null {
       return p.condition ? conditionText(p.condition, conditionPct) : null;
     case 'price': {
       const t = p.threshold;
-      if (t.required !== null && t.required <= 0) return t.against ? 'משתלם בכל מחיר סביר' : 'תלוי במחיר שעוד לא ידוע';
+      if (t.direction === 'min' && t.required !== null && t.required <= 0) return t.against ? 'משתלם בכל מחיר סביר' : 'תלוי במחיר שעוד לא ידוע';
       if (t.required === null) return `תלוי במחיר שעוד לא ידוע — ובהנחות שלנו לא נמצא ${KNOB_LABELS[t.knob]} סביר שבו זה משתלם לכם`;
-      return `תלוי במחיר שעוד לא ידוע — משתלם רק אם ${KNOB_LABELS[t.knob]} יהיה לפחות ${formatKnob(t.knob, t.required)}`;
+      return `תלוי במחיר שעוד לא ידוע — משתלם רק אם ${KNOB_LABELS[t.knob]} יהיה ${thresholdBound(t)}`;
     }
     case 'short':
       return p.additionalCapital === null

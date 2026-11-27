@@ -17,6 +17,7 @@ import {
 import { formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
 
 const pctHalf = (x: number) => `${formatNumber(Math.round(x * 200) / 2, 1)}%`;
+import { KNOB_LABELS, thresholdBound } from '../comparisons/thresholds';
 import { Tooltip } from '../Tooltip';
 
 const AFF_CLASS = { fits: 'estimated_feasible', fits_with_financing: 'conditional', does_not_fit: 'infeasible', unknown: 'unknown' } as const;
@@ -311,17 +312,14 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
         <div className="fallback">
           <h3>ואם התנאים לא יתקיימו?</h3>
           <p>
-            <strong>{strategyTitle(result.fallback)}</strong> — {STRATEGY_DESCRIPTIONS[result.fallback.strategyType]}
+            <strong>{strategyTitle(result.fallback)}</strong>
+            {result.fallbackTerms && <> — בעסקת ברוטו, בכ-{pctHalf(result.fallbackTerms.combinationPct)}</>} —{' '}
+            {STRATEGY_DESCRIPTIONS[result.fallback.strategyType]}
           </p>
           {result.fallbackThreshold && (
             <p className="field-hint">
-              משתלם רק אם תקבלו לפחות{' '}
-              {result.fallbackThreshold.required === null
-                ? '— לא נמצא מחיר סביר'
-                : result.fallbackThreshold.knob === 'revenue_share' || result.fallbackThreshold.knob === 'buyback_factor'
-                  ? `${Math.round(result.fallbackThreshold.required * 100)}%`
-                  : `${formatCurrency(result.fallbackThreshold.required)} למ״ר קרקע`}{' '}
-              — המחיר בפועל עוד לא ידוע.
+              משתלם רק אם {KNOB_LABELS[result.fallbackThreshold.knob]} יהיה {thresholdBound(result.fallbackThreshold)} — המחיר בפועל
+              עוד לא ידוע.
             </p>
           )}
         </div>

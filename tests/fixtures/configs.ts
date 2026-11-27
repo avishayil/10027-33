@@ -41,3 +41,9 @@ export const ITERATION4_TAX_TERMS: ProjectConfig = { ...NO_TAX_LOAN, taxation: V
 
 export const NET = withArrangement(C, 'net');
 export const GROSS = withArrangement(C, 'gross');
+
+/** The tax loan switched on at the original iteration-5 terms (6.75%, no VAT on interest, no cap). */
+export const WITH_TAX_LOAN: ProjectConfig = {
+  ...C,
+  financing: { ...C.financing, taxLoan: { ...C.financing.taxLoan, available: true, annualRate: 0.0675 } },
+};

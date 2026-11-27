@@ -75,6 +75,7 @@ export function Assumptions() {
                 <th>שטח</th>
                 <th>תמורה</th>
                 <th>למ״ר</th>
+                <th>מקור</th>
               </tr>
             </thead>
             <tbody>
@@ -85,6 +86,7 @@ export function Assumptions() {
                   <td>{t.areaSqm}</td>
                   <td>{formatCurrency(t.price)}</td>
                   <td>{formatCurrency(t.price / t.areaSqm)}</td>
+                  <td>{t.source}</td>
                 </tr>
               ))}
             </tbody>
