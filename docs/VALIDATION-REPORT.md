@@ -337,3 +337,11 @@ the whole-apartment goal is respected; the exact developer maximum equals `lotVi
 restores the developer's target. Example (that household): no overlap in 25–45%; mixed deal — the developer's maximum is
 ≈ 24.7%, and there the household would need ≈ ₪39K more own capital; net deal — at 25% it works for the developer only
 at ≤ ₪8,920/m² direct cost or ≥ ₪28,701/m² apartment price. Model thresholds, not market data.
+
+### Iteration 9 — phase F (group planner, contracts with an option)
+`tests/optimizer/collective.test.ts`: slots never exceeded; a pool forms only with ≥ one apartment of shares; no owner
+below their baseline; totals reconcile; more slots never lower first choices; at most eight owners; with the review's
+illustrative four owners and two slots, a pool-dependent owner's 0.79 share is completed by another owner joining (alone
+the pool would not form). `tests/optimizer/contingent.test.ts`: fallback is the full combination; regret is zero for the
+best choice per state and never negative; option rows take the target's value when financed and the combination's
+otherwise; ordering by largest regret. Main recommendation and household matrix unchanged.
