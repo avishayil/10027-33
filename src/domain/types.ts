@@ -127,6 +127,8 @@ export interface ProjectConfig {
     combinationSaleDate: 'approval' | 'signing';
     /** Ordinary contractor profit inside the taxable market value of construction services (instruction 23/98). */
     contractorProfitRate: number;
+    /** Terms of an actual developer offer that override the arrangement template (advanced, optional). */
+    offer: { levyCap: number | null; developerPaysTaxLoanInterest: boolean };
   };
   /** Expected developer policy for construction services (שירותי בנייה) inside a lot. Planning assumption. */
   developerPolicy: {

@@ -42,6 +42,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     taxArrangement: 'mixed',
     combinationSaleDate: 'approval',
     contractorProfitRate: COMMERCIAL.contractorProfitRate.value,
+    offer: { levyCap: null, developerPaysTaxLoanInterest: false },
   },
   developerPolicy: {
     servicesCapShareOfLot: COMMERCIAL.servicesCapShareOfLot.value,
