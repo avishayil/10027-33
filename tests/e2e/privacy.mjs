@@ -13,7 +13,8 @@ import { createRequire } from 'node:module';
 // Resolved with require() so a globally installed Playwright (NODE_PATH) also works.
 const { chromium } = createRequire(import.meta.url)('playwright');
 
-const DIST = new URL('../../dist/', import.meta.url).pathname;
+// E2E_DIST lets CI test a build made for the root path while the deployed build uses the repository sub-path.
+const DIST = process.env.E2E_DIST ? new URL(`../../${process.env.E2E_DIST.replace(/\/?$/, '/')}`, import.meta.url).pathname : new URL('../../dist/', import.meta.url).pathname;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.pdf': 'application/pdf' };
 const shotDir = process.argv[2];
 

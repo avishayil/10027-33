@@ -5,7 +5,7 @@
 import type { ProjectConfig, RightsInfo, UserProfile } from './types';
 
 export interface TaxReserve {
-  /** Amount used by the engine (conservative end when the basis is unknown). */
+  /** Amount used by the engine. With an unknown basis this is the zero-basis scenario — a test scenario, not a legal upper bound (historical/inherited basis, surtax or business-income classification can change it). */
   used: number;
   low: number;
   high: number;

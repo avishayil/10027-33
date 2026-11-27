@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+  pull_request:
 
 permissions:
   contents: read
@@ -28,14 +29,23 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      # Browser privacy check on a production build served from the root path: no network requests from inputs,
+      # no cross-origin requests, no console errors, no horizontal scroll.
+      - run: npm run build -- --base / --outDir dist-e2e
+      - run: npm install --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          E2E_DIST: dist-e2e
       - run: npm run build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
-      - uses: actions/upload-pages-artifact@v5
+      - if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   deploy:
+    if: github.event_name == 'push'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
