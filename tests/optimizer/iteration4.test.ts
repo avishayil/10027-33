@@ -169,6 +169,26 @@ describe('regression: no cash, ₪5K/month, owns another property (reported scen
     }
   });
 
+  it('the tax loan is secured on the other property, so it does not count against the project’s LTV', () => {
+    const d = analyzeProfile({ ...base, soleHome: false }, terms, C);
+    const s13 = d.results.find((r) => r.id === 'S13-3r')!;
+    expect(s13.reasonCodes).not.toContain('LTV_EXCEEDED');
+    expect(s13.simulation.taxesFinancedBySecuredLoan).toBeGreaterThan(200000);
+    expect(s13.simulation.peakPostCompletionLtv).toBeLessThan(0.75);
+  });
+
+  it('with the goal "as many apartments as possible" the household gets a whole apartment within its ₪5K/month', () => {
+    const d = analyzeProfile({ ...base, soleHome: false, goal: 'maximize_apartments' }, terms, C);
+    const r = d.recommendation!;
+    expect(r.metrics.wholeApartments).toBeGreaterThanOrEqual(1);
+    expect(r.monthlyRepayment).toBeLessThanOrEqual(5000);
+  });
+
+  it('without the secured loan the project LTV is unchanged (no other property)', () => {
+    const r = analyzeProfile({ ...base, availableCapital: 300000, soleHome: true }, terms, C).results.find((x) => x.id === 'S06-1')!;
+    expect(r.simulation.taxesFinancedBySecuredLoan).toBe(0);
+  });
+
   it('never finances taxes with a loan when the household ruled out borrowing', () => {
     const d = analyzeProfile({ ...base, soleHome: false, maxMonthlyRepayment: 0 }, terms, C);
     for (const r of d.results) expect(r.simulation.taxesFinancedBySecuredLoan).toBe(0);

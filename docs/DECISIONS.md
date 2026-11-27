@@ -131,3 +131,7 @@
 51. **Selling the fractional share (pool / buy-back / smaller-apartment excess) is a disposal of retained property**:
     capital gains are on the proceeds minus its basis (the services value already taxed when received + the retained
     land basis), not on the gross amount.
+52. **A tax loan secured on another property does not count against the project's LTV.** Project LTV uses only the
+    debt secured on the project; repayments are attributed to the secured tax loan first (conservative for the
+    project). In the reported scenario this makes "combination + whole 3-room apartment" (₪651K total loans,
+    ₪3,806/month) the recommendation for the balanced goal.

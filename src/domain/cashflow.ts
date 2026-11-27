@@ -106,6 +106,10 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let totalDrawn = 0;
   let unfunded = 0;
   let taxesFinanced = 0;
+  // Principal repaid so far (prepayments + amortisation), attributed to the secured tax loan first — so the debt
+  // counted against the project's own collateral is never understated.
+  let principalRepaid = 0;
+  const projectDebt = () => Math.max(0, debt - Math.max(0, taxesFinanced - principalRepaid));
   const unfundedItems: SimulationResult['unfundedItems'] = [];
   const drawsByStage: Record<FinancingStage, number> = { bridge: 0, construction: 0, mortgage: 0 };
   let amortPayment = 0;
@@ -173,6 +177,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if (debt > 0) {
       const repay = Math.min(debt, Math.max(0, cash - reserveAfter[m]));
       debt -= repay;
+      principalRepaid += repay;
       cash -= repay;
     }
 
@@ -183,10 +188,11 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if (debt > EPS) {
       if (!afterCompletion) {
         const collateral = (input.preCompletionLandCollateral ?? 0) + paidIntoAsset * wip;
-        peakPreLtv = Math.max(peakPreLtv, collateral > 0 ? debt / collateral : Infinity);
+        // The tax loan is secured on the household's other property, not on this project.
+        peakPreLtv = Math.max(peakPreLtv, collateral > 0 ? projectDebt() / collateral : projectDebt() > EPS ? Infinity : 0);
       } else {
         const collateral = input.postCompletionCollateral ?? 0;
-        peakPostLtv = Math.max(peakPostLtv, collateral > 0 ? debt / collateral : Infinity);
+        peakPostLtv = Math.max(peakPostLtv, collateral > 0 ? projectDebt() / collateral : projectDebt() > EPS ? Infinity : 0);
       }
     }
 
@@ -203,7 +209,9 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         }
         payment = Math.min(amortPayment, debt + interest);
         postCompletionMonthly = Math.max(postCompletionMonthly, payment);
+        const before = debt;
         debt = Math.max(0, debt - (payment - interest));
+        principalRepaid += before - debt;
         amortBase = debt;
       }
     }
