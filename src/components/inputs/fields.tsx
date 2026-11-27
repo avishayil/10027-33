@@ -8,15 +8,26 @@ import { GOAL_LABELS } from '../../optimizer/explain';
 import { formatCurrency, formatNumber } from '../../utils/format';
 import { SegmentedToggle } from '../SegmentedToggle';
 
-export const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'passive_income', 'immediate_cash', 'minimize_risk'];
+/**
+ * The three questions a landowner actually asks: what pays best, do I end up with an apartment, can I avoid debt.
+ * "Most apartments" became "a whole apartment" — the developer releases at most one apartment per owner, so for
+ * almost everyone "more apartments" means one whole apartment. Rental income follows from keeping that apartment,
+ * and "cash soon" is what the no-debt route already favours (combination or selling, no loans). The engine still
+ * understands the two retired goals so older saved answers keep working (they are migrated on load).
+ */
+export const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'minimize_risk'];
 
 export const GOAL_HINTS: Record<Goal, string> = {
-  balanced: 'מאזנים בין רווח, ביטחון ופשטות. מתאים לרוב האנשים.',
-  maximize_apartments: 'העדיפות היא לסיים עם כמה שיותר דירות שלמות — גם אם זה דורש משכנתא.',
+  balanced: 'מה שמשאיר לכם הכי הרבה ערך בסוף, בלי להסתכן יותר מדי. מתאים לרוב האנשים.',
+  maximize_apartments: 'לגור בה או להשכיר אותה. גם אם צריך להשלים תשלום ליזם או לקחת משכנתא.',
   passive_income: 'העדיפות היא הכנסה חודשית קבועה אחרי החזרי המשכנתא.',
   immediate_cash: 'העדיפות היא לקבל כסף ביד בתוך זמן קצר.',
-  minimize_risk: 'העדיפות היא בלי חובות ובלי הימורים על מחירים או ריביות.',
+  minimize_risk: 'בלי משכנתא ובלי התחייבויות. גם אם זה פחות רווחי, או אומר למכור.',
 };
+
+/** Presets chosen from the engine's own thresholds for 167 m² (2.25 rights) — see DECISIONS #53. */
+export const CAPITAL_PRESETS = [0, 250_000, 500_000];
+export const REPAYMENT_PRESETS = [2_500, 4_000, 6_000];
 
 const pct = (x: number) => `${formatNumber(x * 100, (x * 100) % 1 === 0 ? 0 : 1)}%`;
 
@@ -151,10 +162,18 @@ export function CapitalField({ engine }: { engine: DecisionEngine }) {
           describedBy={ids.hint}
         />
       </div>
-      <div className="chip-row">
-        <button type="button" className={`btn-chip ${i.capitalText === '0' ? 'active' : ''}`} onClick={() => i.setCapitalText('0')}>
-          אין לי כסף פנוי (0)
-        </button>
+      <div className="chip-row" role="group" aria-label="סכומים נפוצים">
+        {CAPITAL_PRESETS.map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={i.capitalText === String(v)}
+            className={`btn-chip ${i.capitalText === String(v) ? 'active' : ''}`}
+            onClick={() => i.setCapitalText(String(v))}
+          >
+            {v === 0 ? 'אין (0 ₪)' : formatCurrency(v)}
+          </button>
+        ))}
       </div>
       <p className="field-hint" id={ids.hint}>
         לא כולל כסף שתרצו לשמור בצד למקרי חירום. מסים והיטל השבחה משולמים מכסף פנוי — בנקים לא מממנים אותם.
@@ -186,6 +205,25 @@ export function RepaymentFields({ engine }: { engine: DecisionEngine }) {
           invalid={!!errors.repayment}
           describedBy={ids.hint}
         />
+      </div>
+      <div className="chip-row" role="group" aria-label="סכומים נפוצים">
+        {REPAYMENT_PRESETS.map((v) => {
+          const on = i.repaymentMode === 'amount' && i.repaymentText === String(v);
+          return (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={on}
+              className={`btn-chip ${on ? 'active' : ''}`}
+              onClick={() => {
+                i.setRepaymentMode('amount');
+                i.setRepaymentText(String(v));
+              }}
+            >
+              {formatCurrency(v)}
+            </button>
+          );
+        })}
       </div>
       <div className="chip-row" role="group" aria-label="תשובות אחרות">
         <button
@@ -230,18 +268,6 @@ export function GoalFields({ engine, name = 'goal' }: { engine: DecisionEngine; 
           </span>
         </label>
       ))}
-      {i.goal === 'immediate_cash' && (
-        <label className="field">
-          <span>תוך כמה זמן אתם צריכים את הכסף?</span>
-          <select value={i.deadlineYears} onChange={(e) => i.setDeadlineYears(Number(e.target.value))}>
-            {[1, 2, 3, 5].map((y) => (
-              <option key={y} value={y}>
-                {y === 1 ? 'שנה' : `${y} שנים`}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
     </fieldset>
   );
 }

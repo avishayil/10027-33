@@ -135,3 +135,11 @@
     debt secured on the project; repayments are attributed to the secured tax loan first (conservative for the
     project). In the reported scenario this makes "combination + whole 3-room apartment" (₪651K total loans,
     ₪3,806/month) the recommendation for the balanced goal.
+53. **The wizard offers three goals and preset amounts.** Goals: "הכי משתלם, בסיכון סביר" (balanced), "לסיים עם דירה
+    שלמה" (maximize_apartments — under the one-apartment-per-owner policy "most apartments" means one whole
+    apartment; rent follows from keeping it), "בלי חובות ובלי סיכון" (minimize_risk — favours combination or a sale,
+    which also covers "cash soon"). The engine keeps the two retired goals; saved answers migrate passive_income →
+    maximize_apartments and immediate_cash → minimize_risk. Presets come from an engine sweep at 167 m²: free cash
+    ₪0 / ₪250K / ₪500K (₪0 → combination only; ₪250K → whole 3-room apartment with ~₪306K loan; ₪500K → small
+    or no loan) and monthly ₪2,500 / ₪4,000 / ₪6,000 (₪2,500 is below the ~₪3,250 a whole apartment needs with no
+    cash; ₪4,000 covers it; ₪6,000 leaves headroom or suits 334 m²). Free entry remains.

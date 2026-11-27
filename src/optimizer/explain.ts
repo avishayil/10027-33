@@ -10,11 +10,11 @@ import type {
 } from '../domain/types';
 
 export const GOAL_LABELS: Record<Goal, string> = {
-  balanced: 'כדאיות כלכלית תוך שמירה על סיכון סביר',
-  maximize_apartments: 'לקבל כמה שיותר דירות',
+  balanced: 'הכי משתלם, בסיכון סביר',
+  maximize_apartments: 'לסיים עם דירה שלמה',
   passive_income: 'הכנסה חודשית משכירות',
   immediate_cash: 'לקבל כסף בהקדם האפשרי',
-  minimize_risk: 'מינימום סיכון והתחייבויות',
+  minimize_risk: 'בלי חובות ובלי סיכון',
 };
 
 export const FEASIBILITY_LABELS: Record<Feasibility, string> = {
