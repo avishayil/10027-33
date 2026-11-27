@@ -33,8 +33,13 @@ describe('decision correctness', () => {
     for (const r of d.results) {
       if (r.mortgageRequired > 1) expect(r.feasibility).toBe('infeasible');
     }
-    expect(d.recommendation).not.toBeNull();
-    expect(d.recommendation!.mortgageRequired).toBeLessThanOrEqual(1);
+    // Evidence-first: no route that needs unfunded cash is recommended; if none fits, the answer is "none" plus
+    // the decision under a net deal and the price sale routes would need.
+    if (d.recommendation) expect(d.recommendation.mortgageRequired).toBeLessThanOrEqual(1);
+    else {
+      expect(d.arrangements.find((a) => a.arrangement === 'net')!.recommendationId).not.toBeNull();
+      expect(d.priceConditional.length).toBeGreaterThan(0);
+    }
   });
 
   it('moderate means: evaluates a one-apartment hybrid and explains what would make it feasible', () => {
@@ -54,7 +59,7 @@ describe('decision correctness', () => {
   });
 
   it('households with different means receive different recommendations', () => {
-    const recs = new Set([NO_MEANS, MODERATE].map((p) => run({ ...p, goal: 'maximize_apartments' }).recommendation?.id));
+    const recs = new Set([NO_MEANS, WEALTHY].map((p) => run({ ...p, goal: 'maximize_apartments' }).recommendation?.id ?? 'none'));
     expect(recs.size).toBe(2);
   });
 
@@ -66,14 +71,19 @@ describe('decision correctness', () => {
   });
 
   it('immediate cash: prioritises realisable near-term proceeds', () => {
+    // Sale routes depend on an unknown price: they are reported with the price they need, never as the verdict.
     const d = run({ ...MODERATE, goal: 'immediate_cash' });
-    expect(d.recommendation!.metrics.liquidity).toBeGreaterThan(0);
+    if (d.recommendation) expect(d.recommendation.priceDependency).toBeNull();
+    const sellNow = d.priceConditional.find((p) => p.result.strategyType === 'S01M');
+    expect(sellNow?.threshold.knob).toBe('immediate_price');
   });
 
   it('passive income: compares net rent after mortgage and expenses', () => {
     const d = run({ ...WEALTHY, goal: 'passive_income' });
     const best = Math.max(...d.ranked.map((r) => r.metrics.sustainableMonthlyIncome));
-    expect(d.recommendation!.metrics.sustainableMonthlyIncome).toBeGreaterThan(best * 0.8);
+    expect(d.recommendation!.metrics.sustainableMonthlyIncome).toBeGreaterThanOrEqual(best * 0.8);
+    // No phantom rent: an owner-occupied apartment produces no cash.
+    for (const r of d.results) if (!r.plan.rentCountsForRepayment) expect(r.simulation.monthlyNetRent).toBe(0);
   });
 
   it('minimum risk: never recommends a fragile or debt-dependent strategy when a debt-free one exists', () => {
@@ -103,21 +113,19 @@ describe('decision correctness', () => {
     expect(byId(d, 'S02').reasonCodes).toContain('COMBINATION_BELOW_WHOLE_UNIT');
   });
 
-  it('an immediate open-market sale is ranked across valuation scenarios with a break-even price', () => {
-    const d = run();
+  it('selling today is never ranked on a historical price; the current price stays unknown', () => {
+    const d = run(WEALTHY);
     const s = byId(d, 'S01M');
-    expect(s.feasibility).not.toBe('unknown');
-    expect(s.requiredConditions).toContain('CURRENT_APPRAISAL');
-    const values = s.scenarioResults.map((x) => x.valueCreated);
-    expect(values[0]).toBeGreaterThan(values[1]);
-    expect(values[1]).toBeGreaterThan(values[2]);
-    const t = d.negotiationTargets.find((n) => n.code === 'IMMEDIATE_SALE_MIN_PRICE');
-    expect(t?.value).toBeGreaterThan(C.market.immediateSaleReferencePerSqm);
+    expect(s.priceDependency).toBe('immediate_price');
+    expect(d.ranked).not.toContain(s);
+    expect(d.landReferences.find((l) => l.label.includes('בשוק החופשי היום'))!.amount).toBeNull();
+    const t = d.priceConditional.find((p) => p.result.id === 'S01M')!.threshold;
+    expect(t.required).toBeGreaterThan(C.market.immediateSaleReferencePerSqm);
   });
 
   it('reports which scenario assumptions change the recommendation', () => {
     const d = run(MODERATE);
-    expect(d.sensitivity.byScenario.base).toBe(d.recommendation!.id);
+    expect(d.sensitivity.byScenario.base).toBe(d.recommendation?.id ?? null);
     expect(Array.isArray(d.sensitivity.drivers)).toBe(true);
   });
 });

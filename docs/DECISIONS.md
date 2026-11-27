@@ -103,3 +103,18 @@
 41. **Only the updated 106(b) tables (23/11/2026) are used.** The deposited version (lot 44) was removed from the data,
     the advanced calculator and all texts. Areas in m² (167, 334 …) are only a familiar way to describe a share of the
     original parcel; every calculation and consideration follows the updated tables (lots 149/150/153).
+
+## Iteration 4 — evidence first (review of de1e4d7)
+
+42. **Unknown prices are never invented.** Routes that depend on an unverified price or term (developer purchase,
+    post-approval sale, sale today, revenue share, cash buy-back, complementary purchase) are excluded from the ranking
+    and reported with the price they would need. If nothing evidence-based fits, the verdict says so and shows the
+    closest routes with the extra capital they need, the decision under each tax arrangement, and the price thresholds.
+43. **Apartment types are priced from the appraisal's comparables by room count**, relative to the 4-room ₪2.5M
+    scenario (3-room 87.39%, 5-room 111.23%); the linear area tiers (80/90/110 m²) were removed.
+44. **Primary comparison in today's prices** (0% appreciation, 0% return); the 10-year view is optional and itemised.
+45. **Rent is cash only when rented**; owner-occupation is a non-cash benefit.
+46. **Betterment levy is a headline figure** with payer split, timing and formula; unknown lot → range.
+47. **Developer P&L includes the lot's public-building obligation** (appraisal ₪8,000/m² × 325 m² × lot share).
+48. The appraisal PDF was not available in the session; its figures come from the review's transcription and are
+    flagged for verification.

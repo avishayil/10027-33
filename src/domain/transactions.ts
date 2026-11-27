@@ -73,7 +73,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   let retainedLandRights = 0;
   let settleFraction: 'cash' | 'pool' | null = null;
   let fractionSettled: TransactionPlan['fractionSettled'] = null;
-  let tierSize: number | null = null;
+  let tierRooms: number | null = null;
   let heldLandValueAtHorizon = 0;
   let deferredLiabilities = 0;
 
@@ -260,7 +260,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         settleFraction = 'pool';
         break;
       case 'tier_apartment':
-        tierSize = leg.sizeSqm;
+        tierRooms = leg.rooms;
         break;
       case 'rent_for_repayment':
         rentCountsForRepayment = true;
@@ -296,11 +296,16 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   if (fractionalShare < 1e-6) fractionalShare = 0;
   const standardSize = config.construction.apartmentSizeSqm;
   const apartmentSizes: number[] = new Array(wholeApartmentsRetained).fill(standardSize);
+  const apartmentRooms: number[] = new Array(wholeApartmentsRetained).fill(4);
+  const values: number[] = new Array(wholeApartmentsRetained).fill(1);
+  const tier = tierRooms !== null ? config.market.apartmentTypes.find((t) => t.rooms === tierRooms) : undefined;
 
-  if (tierSize !== null && fractionalShare > 0) {
-    // Value-based allocation: the fraction becomes one whole apartment of `tierSize`. Value units: 1 = a standard
-    // apartment. Not a guarantee that such an apartment exists or can be legally assigned.
-    const tierEq = tierSize / standardSize;
+  if (tier && fractionalShare > 0) {
+    // Value-based allocation: the fraction becomes one whole apartment of this type. Its value relative to the
+    // 4-room standard comes from appraisal comparables (smaller units cost more per m²) — not a linear area ratio.
+    // Not a guarantee that such an apartment exists or can be legally assigned.
+    const tierSize = tier.sizeSqm;
+    const tierEq = tier.relativeValue;
     const gap = tierEq - fractionalShare;
     if (gap > 1e-9) {
       const price = gap * aptToday * config.commercial.completionPriceFactor;
@@ -322,6 +327,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     }
     retainedEq = wholeApartmentsRetained + tierEq;
     apartmentSizes.push(tierSize);
+    apartmentRooms.push(tier.rooms);
+    values.push(tierEq);
     wholeApartmentsRetained += 1;
     fractionalShare = 0;
   }
@@ -342,8 +349,14 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     fractionalShare = 0;
     wholeApartmentsRetained = Math.floor(retainedEq + 1e-6);
     apartmentSizes.length = wholeApartmentsRetained;
+    apartmentRooms.length = wholeApartmentsRetained;
+    values.length = wholeApartmentsRetained;
   }
-  const wholeApartmentValueEq = apartmentSizes.reduce((s, x) => s + x / standardSize, 0);
+  const wholeApartmentValueEq = values.reduce((s, x) => s + x, 0);
+  // Living in a kept apartment saves rent, but that is not cash: it never funds payments or accumulates.
+  const housingBenefitMonthly = rentCountsForRepayment
+    ? 0
+    : wholeApartmentValueEq * config.market.monthlyRentPerApartment * (1 - config.market.rentalExpenseReserve);
 
   const landPrice = info.sqmPerRight * config.market.developerRightsSaleScenario.pricePerOriginalSqm;
   const preCompletionLandCollateral = retainedLandRights * landPrice;
@@ -363,6 +376,8 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     fractionalShare,
     wholeApartmentValueEq,
     apartmentSizes,
+    apartmentRooms,
+    housingBenefitMonthly,
     retainedLandRights,
     apartmentsBuilt,
     apartmentsSoldByOwner: apartmentsSold,
@@ -379,14 +394,11 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
 }
 
 /**
- * Only whole apartments produce rent (or rent saved). If rented (S08) a rental-tax reserve applies; if the owner
- * lives in it, there is no rental tax on the housing benefit — only the maintenance reserve.
+ * Rental cash flow: only when the owner actually rents the apartments out (S08), after the rental-tax and
+ * maintenance reserves. An owner-occupied apartment produces no cash — its rent saving is a non-cash benefit
+ * (housingBenefitMonthly) shown only in the long-term projection.
  */
 export function monthlyNetRentFor(plan: TransactionPlan, config: ProjectConfig): number {
-  const gross = netMonthlyRentPerApartment(config) / (1 - config.market.rentalExpenseReserve - config.taxation.rentalTaxReserve);
-  const rate = plan.rentCountsForRepayment
-    ? 1 - config.market.rentalExpenseReserve - config.taxation.rentalTaxReserve
-    : 1 - config.market.rentalExpenseReserve;
-  // Rent scales with apartment value (size) — a compact apartment earns less than a standard one.
-  return plan.wholeApartmentValueEq * gross * rate;
+  if (!plan.rentCountsForRepayment) return 0;
+  return plan.wholeApartmentValueEq * netMonthlyRentPerApartment(config);
 }

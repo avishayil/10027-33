@@ -151,8 +151,11 @@ export interface ProjectConfig {
     targetMarginOnRevenue: number;
   };
   market: {
-    /** Illustrative apartment sizes for value-based allocation (not verified project inventory). */
-    apartmentTiersSqm: number[];
+    /**
+     * Apartment types for value-based allocation. Value relative to the 4-room standard comes from appraisal
+     * comparables (pp.69/73) — smaller units cost more per m². Not confirmed project inventory.
+     */
+    apartmentTypes: { rooms: number; sizeSqm: number; relativeValue: number }[];
     apartmentValuePerSqm: number;
     apartmentValueAnnualGrowth: number;
     monthlyRentPerApartment: number;
@@ -196,6 +199,10 @@ export interface ProjectConfig {
     horizonYears: number;
     liquidityDeadlineYears: number;
   };
+  /** Illustrative long-term projection only (never used for the primary verdict). */
+  projection: { apartmentValueAnnualGrowth: number; alternativeNetAnnualReturn: number };
+  /** Developer-side project obligations (appraisal evidence). */
+  publicConstruction: { sqmPerLot: number; costPerSqm: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +211,8 @@ export interface ProjectConfig {
 
 export interface RightsInfo {
   landAreaSqm: number;
+  /** True when no lot was given and the default lot was assumed. */
+  lotAssumed: boolean;
   /** Simulation apartment-equivalents: A / 167 × 2.25. */
   apartmentEquivalents: number;
   /** Original parcel m² that correspond to one apartment-equivalent. */
@@ -257,7 +266,7 @@ export type Leg =
    * Convert the fractional combination entitlement into one whole apartment of `sizeSqm` (value-based): pay the
    * value gap if the apartment is worth more, receive the excess (settlement factor) if it is worth less.
    */
-  | { kind: 'tier_apartment'; sizeSqm: number }
+  | { kind: 'tier_apartment'; rooms: number }
   | { kind: 'revenue_share'; rights: number }
   | { kind: 'sell_apartments'; apartments: number }
   | { kind: 'hold_land'; rights: number }
@@ -329,8 +338,12 @@ export interface TransactionPlan {
   fractionalShare: number;
   /** Value (in standard-apartment equivalents) of the whole apartments the owner keeps — sizes may differ. */
   wholeApartmentValueEq: number;
-  /** Sizes (m²) of the whole apartments the owner keeps. Illustrative tiers — not confirmed inventory. */
+  /** Sizes (m²) of the whole apartments the owner keeps. Illustrative types — not confirmed inventory. */
   apartmentSizes: number[];
+  /** Room counts of the whole apartments the owner keeps. */
+  apartmentRooms: number[];
+  /** Monthly benefit of living in a kept apartment (rent saved) — NOT cash; shown only in the projection. */
+  housingBenefitMonthly: number;
   /** Land rights the owner still holds before completion (built share, combination-retained share, purchased). */
   retainedLandRights: number;
   apartmentsBuilt: number;
@@ -365,6 +378,10 @@ export interface SimulationResult {
   personalPaymentsFV: number;
   cashAtLiquidityDeadline: number;
   cashAtCompletion: number;
+  /** Outstanding debt right after the completion month. */
+  debtAtCompletion: number;
+  /** Interest paid from income up to and including completion. */
+  interestPaidToCompletion: number;
   /** Starting capital grown at the alternative return, at completion. */
   referenceAtCompletion: number;
   /** Largest amount of the user's own starting capital that was consumed. */
@@ -499,13 +516,14 @@ export interface StrategyResult {
   estimatedNetMonthlyRentalCashflow: number;
   netPresentValue: number;
   futureNetWealth: number;
-  /**
-   * Incremental gain at the horizon relative to selling the land today on the open market at the reference price
-   * (S01M). Negative = worse than selling today under these assumptions.
-   */
-  gainVsSellingToday: number;
   /** Owner cash obligations at signing (excluding the contingency reserve). */
   cashAtSigning: number;
+  /** Primary, today's-price view at delivery (no appreciation, no investment return). */
+  delivery: DeliverySnapshot;
+  /** Betterment levy on the owner's original rights: total proxy and who pays it. */
+  levy: LevyBreakdown;
+  /** Non-null when the outcome depends on a price or term nobody has verified (excluded from the ranking). */
+  priceDependency: PriceKnob | null;
   /** Net cash in hand right after delivery, beyond the starting capital grown. */
   netCashAtDelivery: number;
 
@@ -587,8 +605,39 @@ export interface DecisionResult {
   arrangements: ArrangementOutcome[];
   /** What to do if the headline's unconfirmed conditions fail. */
   fallback: StrategyResult | null;
+  /** When the fallback depends on an unverified price: the price it would need. */
+  fallbackThreshold: PriceThreshold | null;
   /** Strategies outside the expected developer policy — negotiation-only, not recommended. */
   negotiationOnly: StrategyResult[];
+  /** Strategies whose outcome depends on an unverified price — with the price they would need. */
+  priceConditional: { result: StrategyResult; threshold: PriceThreshold }[];
+  /** Land value references for the owner's area: dated transactions, appraisal, and what is unknown. */
+  landReferences: LandReference[];
+  /** True when the lot was not given and lot 149 was assumed (levy shown as a range across lots). */
+  lotAssumed: boolean;
+  levyRangeAcrossLots: { min: number; max: number };
+  /** When no evidence-based route fits: the closest ones and the extra capital each would need. */
+  nearMiss: { result: StrategyResult; additionalCapital: number | null }[];
+  /** Optional illustrative long-term projection for the recommendation, itemised so every shekel is explained. */
+  projection: Projection | null;
+}
+
+export interface Projection {
+  years: number;
+  apartmentGrowth: number;
+  alternativeReturn: number;
+  /** Apartments (and any unresolved fraction / held land) at the horizon, at the assumed growth. */
+  assets: number;
+  cash: number;
+  debt: number;
+  mortgagePaymentsFV: number;
+  deferredLiabilities: number;
+  unfunded: number;
+  startingCapitalGrown: number;
+  /** assets + cash − debt − payments − deferred − unfunded − starting capital grown. */
+  total: number;
+  /** Non-cash: rent saved by living in the apartment(s) after delivery (not included in total). */
+  housingBenefit: number;
 }
 
 export interface ArrangementOutcome {
@@ -627,6 +676,54 @@ export interface DeveloperPnL {
   marginOnRevenue: number;
   marginOnCost: number;
   lines: { label: string; amount: number }[];
+}
+
+export type PriceKnob = 'developer_price' | 'post_approval_price' | 'immediate_price' | 'revenue_share' | 'buyback_factor';
+
+export interface DeliverySnapshot {
+  /** Value of the whole apartments kept, at today's comparable-based scenario price. */
+  apartmentsValue: number;
+  /** Unresolved fractional share at today's price less the illiquidity discount. */
+  fractionValue: number;
+  ownerCashIn: number;
+  ownerCashOut: number;
+  constructionAndCompletionPaid: number;
+  interestToDelivery: number;
+  debtAtDelivery: number;
+  /** apartments + fraction + cash in − cash out − interest to delivery (today's prices; debt is financing). */
+  netPosition: number;
+}
+
+export interface LevyBreakdown {
+  /** Allocation-table proxy for the owner's original rights (incoming vs outgoing value × 50%). */
+  total: number;
+  owner: number;
+  developer: number;
+  /** Transferred to a buyer (pre-approval sale) — future exposure, not zero liability. */
+  buyer: number;
+  /** Owner levy not yet paid within the horizon (held land). */
+  deferred: number;
+  /** Month the owner pays its share (null if none). */
+  ownerMonth: number | null;
+}
+
+export interface PriceThreshold {
+  strategyId: string;
+  knob: PriceKnob;
+  /** Required value (₪ per original m², or a fraction for share/factor). null = not reached in the searched range. */
+  required: number | null;
+  /** What it must beat: the evidence-based recommendation, or affordability only. */
+  against: string | null;
+  /** The unverified scenario value the engine would otherwise have used. */
+  scenarioValue: number;
+}
+
+export interface LandReference {
+  label: string;
+  amount: number | null;
+  date: string;
+  level: 'observedTransaction' | 'planningAppraisal' | 'confirmedOffer' | 'unknown';
+  note: string;
 }
 
 export interface DeveloperEconomics {

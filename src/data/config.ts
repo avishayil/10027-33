@@ -4,11 +4,12 @@
  */
 import type { DataPoint, ProjectConfig } from '../domain/types';
 import { COMBINATION_RANGE, COMMERCIAL, MARKUP_RANGE, PAYMENT_SCHEDULE, PERMIT_AT } from './commercial';
+import { APPRAISAL_FIGURES, relativeValueByRooms } from './evidence';
 import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-27.3';
+export const CONFIG_VERSION = '2026-11-27.4';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,
@@ -56,7 +57,11 @@ export const PROJECT_CONFIG: ProjectConfig = {
     targetMarginOnRevenue: COMMERCIAL.developerTargetMargin.value,
   },
   market: {
-    apartmentTiersSqm: [80, 90, 100, 110],
+    apartmentTypes: [
+      { rooms: 3, sizeSqm: 81, relativeValue: relativeValueByRooms(3)!.mean },
+      { rooms: 4, sizeSqm: 100, relativeValue: 1 },
+      { rooms: 5, sizeSqm: 122, relativeValue: relativeValueByRooms(5)!.mean },
+    ],
     apartmentValuePerSqm: MARKET.apartmentValuePerSqm.value,
     apartmentValueAnnualGrowth: MARKET.apartmentValueAnnualGrowth.value,
     monthlyRentPerApartment: MARKET.monthlyRentPerApartment.value,
@@ -94,6 +99,11 @@ export const PROJECT_CONFIG: ProjectConfig = {
   analysis: {
     horizonYears: PROJECT.horizonYears.value,
     liquidityDeadlineYears: 2,
+  },
+  projection: { apartmentValueAnnualGrowth: 0.02, alternativeNetAnnualReturn: 0.04 },
+  publicConstruction: {
+    sqmPerLot: APPRAISAL_FIGURES.publicBuildingPerLotSqm.value,
+    costPerSqm: APPRAISAL_FIGURES.publicShellConstructionPerSqm.value,
   },
 };
 

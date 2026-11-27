@@ -1,5 +1,5 @@
 import { SCENARIO_LABELS } from '../../data/scenarios';
-import type { DecisionResult, Goal, LedgerEntry, NegotiationTarget, StrategyResult } from '../../domain/types';
+import type { DecisionResult, Goal, LedgerEntry, NegotiationTarget, PriceKnob, StrategyResult } from '../../domain/types';
 import {
   CONDITION_TEXT,
   NEGOTIATION_LABELS,
@@ -8,7 +8,7 @@ import {
   formatRights,
   strategyTitle,
 } from '../../optimizer/explain';
-import { formatCurrency, formatNumber } from '../../utils/format';
+import { formatArea, formatCurrency, formatNumber } from '../../utils/format';
 import { AssessmentChips } from '../verdict/Verdict';
 
 function Section({ title, sub, children, open = false }: { title: string; sub?: string; children: React.ReactNode; open?: boolean }) {
@@ -94,8 +94,8 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
               <th>משכנתא</th>
               <th>החזר חודשי</th>
               <th>כסף נטו תוך שנתיים</th>
-              <th>שווי מימוש נטו (10 שנים)</th>
-              <th>מול מכירה היום</th>
+              <th>היטל — עליכם / היזם</th>
+              <th>מצב נטו במסירה (מחירי היום)</th>
             </tr>
           </thead>
           <tbody>
@@ -104,6 +104,7 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
                 <td className="cell-title">
                   {strategyTitle(r)}
                   {r.id === result.recommendation?.id && <span className="kind-tag">מומלץ</span>}
+                  {r.priceDependency && <span className="kind-tag kind-tag-warn">תלוי במחיר לא ידוע</span>}
                 </td>
                 <td data-label="יכולת · עמידות · יזם">
                   <AssessmentChips r={r} compact />
@@ -113,16 +114,19 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
                 <td data-label="משכנתא">{r.mortgageRequired > 1 ? formatCurrency(r.mortgageRequired) : '—'}</td>
                 <td data-label="החזר חודשי">{r.monthlyRepayment > 1 ? formatCurrency(r.monthlyRepayment) : '—'}</td>
                 <td data-label="כסף נטו תוך שנתיים">{formatCurrency(r.metrics.liquidity)}</td>
-                <td data-label="שווי מימוש נטו (10 שנים)">{formatCurrency(r.metrics.valueCreated)}</td>
-                <td data-label="מול מכירה היום">{formatCurrency(r.gainVsSellingToday)}</td>
+                <td data-label="היטל — עליכם / היזם">
+                  {formatCurrency(r.levy.owner)} / {formatCurrency(r.levy.developer)}
+                </td>
+                <td data-label="מצב נטו במסירה (מחירי היום)">{r.priceDependency ? 'תלוי במחיר' : formatCurrency(r.delivery.netPosition)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="field-hint">
-        ״שווי מימוש נטו״ = הון בעוד 10 שנים (דירות, כסף, קרקע) פחות חובות, החזרי משכנתא ומסים עתידיים — מעבר למה
-        שהכסף הפנוי שלכם היה צובר בלאו הכי. כולל שכר דירה (או חיסכון בשכר דירה) מהדירות שנשארות.
+        ״מצב נטו במסירה״ = שווי הדירות במחירי היום (תרחיש מבוסס עסקאות השוואה) + כסף שתקבלו − כל מה שתשלמו (מסים,
+        היטל, בנייה, השלמה) − ריבית עד המסירה. בלי עליית מחירים ובלי תשואה; לא כסף ביד. מסלולים שתלויים במחיר שעוד לא
+        ידוע (מכירה, תמורות, פיצוי כספי) לא מקבלים ציון — ראו ״מסלולים שתלויים במחיר״.
       </p>
     </Section>
   );
@@ -562,4 +566,129 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
 function titleFor(result: DecisionResult, id?: string): string {
   const r = id ? result.results.find((x) => x.id === id) : undefined;
   return r ? strategyTitle(r) : '';
+}
+
+const KNOB_LABELS: Record<PriceKnob, string> = {
+  developer_price: 'מחיר שהיזם ישלם על הזכויות',
+  post_approval_price: 'מחיר קרקע בשוק אחרי אישור התכנית',
+  immediate_price: 'מחיר מכירה בשוק היום',
+  revenue_share: 'אחוז התמורות מהכנסות המכירה',
+  buyback_factor: 'פיצוי על חלק הדירה (ביחס לשווי שוק)',
+};
+
+function formatKnob(knob: PriceKnob, x: number | null): string {
+  if (x === null) return 'לא נמצא בטווח סביר';
+  if (knob === 'revenue_share' || knob === 'buyback_factor') return `${formatNumber(x * 100, 0)}%`;
+  return `${formatCurrency(x)} למ״ר קרקע`;
+}
+
+/** Routes whose outcome depends on a price nobody has verified: the price they would need — not an assumed price. */
+export function PriceConditionalRoutes({ result }: { result: DecisionResult }) {
+  if (!result.priceConditional.length) return null;
+  const against = result.recommendation ? strategyTitle(result.recommendation) : null;
+  return (
+    <Section title="מסלולים שתלויים במחיר שעוד לא ידוע" sub="מכירה, תמורות ופיצוי כספי — כמה תצטרכו לקבל כדי שישתלמו" open>
+      <p className="field-hint">
+        אין מחיר שוק עדכני, הצעת יזם מאושרת או מחיר אחרי אישור התכנית. לכן לא מניחים מחיר — מחשבים את המחיר המינימלי
+        {against ? <> שבו המסלול מתאים ליכולת שלכם ושווה לפחות כמו <strong>{against}</strong>.</> : ' שבו המסלול מתאים ליכולת שלכם (אין מסלול מבוסס-ראיות להשוות אליו).'}
+      </p>
+      <div className="table-scroll">
+        <table className="kv-table">
+          <tbody>
+            {result.priceConditional.map(({ result: r, threshold: t }) => (
+              <tr key={r.id}>
+                <th>
+                  {strategyTitle(r)}
+                  <span className="summary-sub">{KNOB_LABELS[t.knob]}</span>
+                </th>
+                <td>
+                  <strong>
+                    {t.required !== null && t.required <= 0
+                      ? t.against
+                        ? 'משתלם בכל מחיר'
+                        : 'ישים בכל מחיר — אין מסלול להשוות אליו; השוו לעוגני השווי'
+                      : formatKnob(t.knob, t.required)}
+                  </strong>
+                  <span className="summary-sub">תרחיש היפותטי לשם השוואה בלבד: {formatKnob(t.knob, t.scenarioValue)}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="field-hint">כשתגיע הצעה אמיתית — השוו אותה לסף. הצעה מתחת לסף לא משתלמת לכם בהנחות האלה.</p>
+    </Section>
+  );
+}
+
+const LEVEL_LABELS = { observedTransaction: 'עסקה מדווחת', planningAppraisal: 'שמאות תכנונית', confirmedOffer: 'הצעה מאושרת', unknown: 'לא ידוע' } as const;
+
+/** Land value references for the owner's area — dated and typed; never presented as today's market price. */
+export function LandReferences({ result }: { result: DecisionResult }) {
+  return (
+    <Section title="השוואת שווי הקרקע" sub={`${formatArea(result.rights.landAreaSqm)} מ״ר בחלקה 33 — מה ידוע ומה לא`}>
+      <div className="table-scroll">
+        <table className="kv-table">
+          <tbody>
+            {result.landReferences.map((l) => (
+              <tr key={l.label}>
+                <th>
+                  {l.label}
+                  <span className="summary-sub">
+                    {LEVEL_LABELS[l.level]} · {l.date} · {l.note}
+                  </span>
+                </th>
+                <td>{l.amount === null ? <strong>טרם ידוע</strong> : formatCurrency(l.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="field-hint">
+        עסקאות עבר, שווי שמאי לאיזון והצעות עתידיות מודדים דברים שונים — אין להתייחס אליהם כמחיר השוק היום. במקום להניח
+        מחיר, ״מסלולים שתלויים במחיר״ מחשב את המחיר שתצטרכו.
+      </p>
+    </Section>
+  );
+}
+
+/** Optional long-term projection — illustrative, itemised. Never part of the primary verdict. */
+export function ProjectionSection({ result }: { result: DecisionResult }) {
+  const p = result.projection;
+  if (!p) return null;
+  const rows: [string, number][] = [
+    ['דירות (ושאר נכסים) בסוף התקופה', p.assets],
+    ['מזומן בסוף התקופה (כולל תשואה)', p.cash],
+    ['פחות: יתרת משכנתא', -p.debt],
+    ['פחות: החזרי משכנתא ששולמו (בערך עתידי)', -p.mortgagePaymentsFV],
+    ['פחות: התחייבויות נדחות', -p.deferredLiabilities],
+    ['פחות: תשלומים שאין להם מימון', -p.unfunded],
+    ['פחות: הכסף הפנוי שהיה צובר ממילא', -p.startingCapitalGrown],
+  ];
+  return (
+    <Section title="תחזית כלכלית ארוכת טווח" sub={`המחשה בלבד — ${p.years} שנים, ${formatNumber(p.apartmentGrowth * 100, 0)}% עליית ערך, ${formatNumber(p.alternativeReturn * 100, 0)}% תשואה`}>
+      <p className="field-hint">
+        זו לא תחזית ולא סכום שתקבלו. ההנחות (עליית ערך דירות, תשואה על כסף) הן תרחיש. הדירות מוערכות לפי שווי שוק
+        ולא לפי מכירה בפועל (בלי מס ועלויות מכירה).
+      </p>
+      <table className="kv-table">
+        <tbody>
+          {rows.map(([label, v]) => (
+            <tr key={label}>
+              <th>{label}</th>
+              <td>{formatCurrency(v)}</td>
+            </tr>
+          ))}
+          <tr className="row-total">
+            <th>תוצאה משוערת</th>
+            <td>{formatCurrency(p.total)}</td>
+          </tr>
+          <tr>
+            <th>לא כלול (לא כסף): חיסכון בשכר דירה אם תגורו בדירה</th>
+            <td>{formatCurrency(p.housingBenefit)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </Section>
+  );
 }

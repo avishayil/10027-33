@@ -52,6 +52,8 @@ export function isEligible(r: StrategyResult, goal: Goal): boolean {
   if (r.feasibility === 'infeasible' || r.feasibility === 'unknown') return false;
   // The developer is not expected to offer it (lot policy for construction services).
   if (r.assessment.commercial === 'negotiable') return false;
+  // Its outcome depends on a price nobody has verified — reported as a required price, never as the verdict.
+  if (r.priceDependency !== null) return false;
   if (goal === 'minimize_risk' && r.feasibility === 'fragile') return false;
   return true;
 }

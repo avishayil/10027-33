@@ -1,5 +1,10 @@
 # Financial model
 
+> **Iteration 4:** evidence-first. Price-dependent routes are not ranked (see DECISIONS #42); apartment types are priced
+> from comparables; the primary comparison uses today's prices (0% growth/return); rent is cash only when rented; the
+> 10-year projection is optional and itemised; the developer P&L includes public-building obligations. Sections below
+> describe the mechanics; where they mention 2%/4% growth/return, that now applies only to the projection.
+
 All values nominal ₪; rates as fractions; time in months from signing. Everything is an **estimate**.
 
 ## Rights

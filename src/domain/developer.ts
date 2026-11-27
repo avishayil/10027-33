@@ -42,9 +42,11 @@ export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: 
   const buyBack = plan.fractionSettled?.mode === 'cash' ? sum((e) => e.category === 'fraction_settlement') : 0;
   // (S13 value-based allocation: the developer pays the excess value in cash or receives the gap as completion.)
   const devTaxes = sum((e) => e.payer === 'developer');
+  // The lot's public-building obligation (appraisal: 325 m² × ₪8,000/m² shell incl. VAT), at the owner's lot share.
+  const publicConstruction = info.table.lotShare * config.publicConstruction.sqmPerLot * config.publicConstruction.costPerSqm;
 
   const revenue = apartmentSales + completionRevenue + servicesRevenue;
-  const costs = constructionCost + barterVat + landPaid + revenueSharePaid + buyBack + devTaxes;
+  const costs = constructionCost + barterVat + landPaid + revenueSharePaid + buyBack + devTaxes + publicConstruction;
   const profit = revenue - costs;
   return {
     revenue,
@@ -62,6 +64,7 @@ export function candidatePnL(candidate: Candidate, plan: TransactionPlan, info: 
       { label: 'תמורות ששולמו לבעלים', amount: -revenueSharePaid },
       { label: 'פיצוי על חלק דירה', amount: -buyBack },
       { label: 'מסים שהיזם נושא בהם', amount: -devTaxes },
+      { label: 'חלקכם במבני הציבור במגרש (שמאות עמ׳ 97)', amount: -publicConstruction },
     ].filter((l) => Math.abs(l.amount) > 0.5),
   };
 }

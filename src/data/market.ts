@@ -5,7 +5,7 @@ import { RETRIEVED_AT } from './project';
 export const MARKET = {
   apartmentValuePerSqm: {
     value: 25000,
-    label: 'שווי דירה חדשה למ״ר',
+    label: 'שווי דירת 4 חד׳ (100 מ״ר) למ״ר — תרחיש בסיס',
     sourceType: 'secondary_market',
     sourceName: 'Zips — עסקאות דירות חדשות בחדרה',
     sourceUrl: 'https://zips.co.il',
@@ -14,15 +14,15 @@ export const MARKET = {
     range: { low: 21000, high: 28000 },
     verification: 'reported',
     notes:
-      'כ-₪24,300 למ״ר לדירות חדשות בחדרה (213 עסקאות בשנה); חציון דירת 4 חדרים חדשה כ-₪2.346 מיליון. אומדן השוואתי — לא שומה לדירות שטרם נבנו.',
+      'תרחיש לדירה סטנדרטית (₪2.5 מיליון ל-100 מ״ר), לא מחיר מוכח. בשמאות הפרויקט (עמ׳ 69, 73) ממוצע דירות 4 חד׳ בפרויקטי השוואה: ₪2,331,841 (100 מ״ר, 7 עסקאות) ו-₪2,683,259 (103 מ״ר, 23). Zips: כ-₪24,300 למ״ר בחדרה, כ-₪25,300 בשכונת הפארק (5 עסקאות). דירות קטנות יקרות יותר למ״ר — ראו סוגי דירות.',
   },
   apartmentValueAnnualGrowth: {
-    value: 0.02,
-    label: 'עליית ערך דירה בשנה (נומינלי)',
+    value: 0,
+    label: 'עליית ערך דירה בשנה — בהשוואה הראשית',
     sourceType: 'planning_assumption',
     retrievedAt: RETRIEVED_AT,
     verification: 'assumed',
-    notes: 'אמצע טווח יעד האינפלציה של בנק ישראל (1%–3%), ללא עליית מחירים ריאלית.',
+    notes: 'ההשוואה הראשית במחירי היום, בלי להניח עליית מחירים. 2% מופיע רק בתחזית ארוכת הטווח האופציונלית — תרחיש, לא תחזית.',
   },
   monthlyRentPerApartment: {
     value: 5500,
@@ -45,7 +45,7 @@ export const MARKET = {
   },
   developerRightsPricePerOriginalSqm: {
     value: 6900,
-    label: 'מחיר שיזם ישלם על זכויות עודפות (למ״ר קרקע)',
+    label: 'מחיר שיזם ישלם על זכויות — תרחיש היפותטי בלבד (למ״ר קרקע)',
     sourceType: 'planning_assumption',
     retrievedAt: RETRIEVED_AT,
     verification: 'assumed',
@@ -67,7 +67,7 @@ export const MARKET = {
   },
   postApprovalLandValuePerSqm: {
     value: 7100,
-    label: 'שווי קרקע למ״ר אחרי אישור התכנית (שוק פתוח)',
+    label: 'שווי קרקע אחרי אישור — תרחיש היפותטי בלבד (סטטיסטיקה של כל הגוש)',
     sourceType: 'secondary_market',
     sourceName: 'Zips — גוש 10027, 71 עסקאות',
     sourceUrl: 'https://zips.co.il',
@@ -97,15 +97,6 @@ export const MARKET = {
     notes: '71 עסקאות בחלקות שונות, עם זכויות ותכנון שונים. לא ישים ישירות לחלקה 33.',
   },
 } satisfies Record<string, DataPoint<number>>;
-
-/** Reported transactions in the exact parcel (167 m² each). Not reconciled to deeds. */
-export const PARCEL33_TRANSACTIONS = [
-  { date: '2026-04', areaSqm: 167, price: 300000 },
-  { date: '2025-11', areaSqm: 167, price: 400000 },
-  { date: '2025-06', areaSqm: 167, price: 320000 },
-  { date: '2025-04', areaSqm: 167, price: 340000 },
-  { date: '2024-10', areaSqm: 167, price: 275000 },
-] as const;
 
 export const FINANCING = {
   nominalAnnualInterest: {
@@ -144,11 +135,12 @@ export const FINANCING = {
     verification: 'assumed',
   },
   alternativeNetAnnualReturn: {
-    value: 0.04,
-    label: 'תשואה נטו על כסף פנוי',
+    value: 0,
+    label: 'תשואה על כסף פנוי — בהשוואה הראשית',
     sourceType: 'planning_assumption',
     retrievedAt: RETRIEVED_AT,
     verification: 'assumed',
+    notes: 'נייטרלי (0%) בהשוואה הראשית. 4% מופיע רק בתחזית ארוכת הטווח — תרחיש, לא הבטחת תשואה.',
   },
   maxLtv: {
     value: 0.75,

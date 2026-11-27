@@ -14,6 +14,9 @@ export const withArrangement = (cfg: ProjectConfig, taxArrangement: TaxArrangeme
 
 export const LEGACY_BASE: ProjectConfig = {
   ...C,
+  // Iteration-2 economics: 2% apartment growth, 4% return on cash.
+  market: { ...C.market, apartmentValueAnnualGrowth: 0.02 },
+  financing: { ...C.financing, alternativeNetAnnualReturn: 0.04 },
   commercial: { ...C.commercial, contractorProfitRate: 0, combinationSaleDate: 'signing' },
   taxation: { ...C.taxation, bettermentLevyFactor: 0, completionPurchaseTax: { soleHome: 0.06, additionalHome: 0.06 } },
 };

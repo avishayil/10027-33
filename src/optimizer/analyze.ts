@@ -8,7 +8,7 @@ import { candidatePnL, developerEconomics } from '../domain/developer';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
-import { netMonthlyRentPerApartment } from '../domain/taxation';
+import { levyPerRight, netMonthlyRentPerApartment } from '../domain/taxation';
 import type {
   Candidate,
   ArrangementOutcome,
@@ -17,6 +17,7 @@ import type {
   DecisionResult,
   DeveloperEconomics,
   LedgerEntry,
+  PriceKnob,
   TaxArrangement,
   NegotiationTarget,
   ProjectConfig,
@@ -26,6 +27,7 @@ import type {
   UserProfile,
 } from '../domain/types';
 import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
+import { LAND_TRANSACTIONS } from '../data/evidence';
 import { evaluateCandidate, type EngineContext, type Evaluation } from './evaluate';
 import { assess, assessEvaluation, classify, informationalReasons, isFeasible } from './feasibility';
 import { generateStrategies } from './generate';
@@ -36,7 +38,8 @@ import {
   conservativeSurplusPrice,
   developerTargets,
   globalTargets,
-  immediateSaleMinPrice,
+  requiredAdditionalCapital,
+  requiredPrice,
   strategyTargets,
 } from './reverse';
 import { evaluateScenarios, type ScenarioEvaluations } from './scenarios';
@@ -57,6 +60,23 @@ export const COMMERCIAL_SCORE: Record<CommercialCertainty, number> = {
 function resilienceOf(base: Evaluation, adverseFeasible: boolean, adverse: Evaluation): number {
   if (!adverseFeasible || base.valueCreated <= 0) return 0;
   return Math.max(0, Math.min(1, adverse.valueCreated / base.valueCreated));
+}
+
+/**
+ * Which unverified price or term a candidate's outcome hinges on. Such candidates never decide the main verdict
+ * (no current market valuation, developer offer, post-approval price, revenue-share % or buy-back price is known);
+ * instead the engine reports the price they would need.
+ */
+export function priceDependencyOf(candidate: Candidate, plan: { fractionSettled: { mode: string } | null }): PriceKnob | null {
+  for (const leg of candidate.legs) {
+    if (leg.kind === 'sell_rights' && leg.market === 'developer') return 'developer_price';
+    if (leg.kind === 'sell_rights' && leg.market === 'post_approval') return 'post_approval_price';
+    if (leg.kind === 'sell_rights' && leg.market === 'open_market') return 'immediate_price';
+    if (leg.kind === 'buy_rights') return 'post_approval_price';
+    if (leg.kind === 'revenue_share') return 'revenue_share';
+  }
+  if (plan.fractionSettled?.mode === 'cash') return 'buyback_factor';
+  return null;
 }
 
 export function buildScales(ctx: EngineContext, config: ProjectConfig): Scales {
@@ -98,12 +118,40 @@ export function buildResult(
 
   const ledger = plan.ledger;
   const owner = (e: LedgerEntry) => e.payer === 'owner' && e.direction === 'out';
-  const grossSaleProceeds = sum(ledger, (e) => e.direction === 'in');
+  // Proceeds from disposing of rights or apartments only — not released contingency reserves.
+  const PROCEEDS = ['sale_proceeds', 'revenue_share', 'apartment_sale', 'fraction_settlement'];
+  const grossSaleProceeds = sum(ledger, (e) => e.direction === 'in' && PROCEEDS.includes(e.category));
   const saleDeductions = sum(ledger, (e) => owner(e) && !!e.saleRelated);
   const P = ctx.profile.maxMonthlyRepayment;
   const capacity = P === null ? null : mortgageCapacity(P, config.financing.nominalAnnualInterest, config.financing.durationYears);
   const alt = config.financing.alternativeNetAnnualReturn;
-  const financed = sim.drawsByStage.bridge + sim.drawsByStage.construction + sim.drawsByStage.mortgage;
+  const aptToday = apartmentValueToday(config);
+  const ownerOut = (e: LedgerEntry) => owner(e) && !e.deferred && e.category !== 'contingency_reserve';
+  const ownerCashOut = sum(ledger, ownerOut);
+  const ownerCashIn = sum(ledger, (e) => e.direction === 'in' && e.category !== 'contingency_release') ;
+  const reserveNet = sum(ledger, (e) => e.category === 'contingency_reserve') - sum(ledger, (e) => e.category === 'contingency_release');
+  const apartmentsValue = plan.wholeApartmentValueEq * aptToday;
+  const fractionValue = plan.fractionalShare * aptToday * (1 - config.market.fractionIlliquidityDiscount);
+  const delivery = {
+    apartmentsValue,
+    fractionValue,
+    ownerCashIn,
+    ownerCashOut: ownerCashOut + reserveNet,
+    constructionAndCompletionPaid: sum(ledger, (e) => owner(e) && (e.category === 'construction' || e.category === 'completion_payment')),
+    interestToDelivery: sim.interestPaidToCompletion,
+    debtAtDelivery: sim.debtAtCompletion,
+    netPosition: apartmentsValue + fractionValue + ownerCashIn - (ownerCashOut + reserveNet) - sim.interestPaidToCompletion,
+  };
+  const levyEntries = ledger.filter((e) => e.category === 'betterment_levy' && e.payer !== 'seller');
+  const ownerLevyPaid = levyEntries.filter((e) => e.payer === 'owner' && !e.deferred);
+  const levy = {
+    total: R * levyPerRight(ctx.info, config),
+    owner: ownerLevyPaid.reduce((s, e) => s + e.amount, 0),
+    developer: levyEntries.filter((e) => e.payer === 'developer').reduce((s, e) => s + e.amount, 0),
+    buyer: levyEntries.filter((e) => e.payer === 'buyer').reduce((s, e) => s + (e.rightsPortion ?? 0), 0) * levyPerRight(ctx.info, config),
+    deferred: levyEntries.filter((e) => e.payer === 'owner' && e.deferred).reduce((s, e) => s + e.amount, 0),
+    ownerMonth: ownerLevyPaid.length ? Math.min(...ownerLevyPaid.map((e) => e.month)) : null,
+  };
 
   const metrics = {
     valueCreated: base.valueCreated,
@@ -138,13 +186,17 @@ export function buildResult(
     personalCapitalRequired: sim.personalCapitalUsed,
     mortgageRequired: sim.peakDebt,
     monthlyRepayment: sim.peakPersonalMonthly,
-    peakFundingGap: sim.unfunded + (capacity === null ? financed : Math.max(0, financed - capacity)),
-    completedPropertyValue: plan.retainedApartmentEquivalents * apartmentValueAt(config, plan.completionMonth),
+    // Stage-by-stage: what is not covered at the peak — unfunded obligations plus debt beyond repayment capacity.
+    peakFundingGap: sim.unfunded + (capacity === null ? sim.peakDebt : Math.max(0, sim.peakDebt - capacity)),
+    completedPropertyValue:
+      (plan.wholeApartmentValueEq + plan.fractionalShare * (1 - config.market.fractionIlliquidityDiscount)) * apartmentValueAt(config, plan.completionMonth),
     estimatedNetMonthlyRentalCashflow: sim.monthlyNetRent - sim.postCompletionMonthly,
-    netPresentValue: base.valueCreated / Math.pow(1 + alt, config.analysis.horizonYears),
+    netPresentValue: base.valueCreated / Math.pow(1 + alt, base.horizonMonth / 12),
     futureNetWealth: base.futureNetWealth,
-    gainVsSellingToday: 0,
     cashAtSigning: 0,
+    delivery,
+    levy,
+    priceDependency: priceDependencyOf(candidate, plan),
     netCashAtDelivery: sim.cashAtCompletion - sim.referenceAtCompletion,
     feasibility,
     assessment,
@@ -184,11 +236,7 @@ export function coreAnalysis(profile: UserProfile, terms: CommercialTerms, confi
   const dev = developerEconomics(info, config, terms.combinationPct, profile);
   const scales = buildScales(ctx, config);
   const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
-  const sellToday = results.find((r) => r.strategyType === 'S01M');
-  for (const r of results) {
-    r.gainVsSellingToday = r.metrics.valueCreated - (sellToday?.metrics.valueCreated ?? 0);
-    r.cashAtSigning = cashAtSigning(r);
-  }
+  for (const r of results) r.cashAtSigning = cashAtSigning(r);
   const { ranked, frontierIds } = rankStrategies(results, profile.goal, scales);
   return { ctx, scales, dev, results, ranked, frontierIds };
 }
@@ -274,9 +322,73 @@ export function analyzeProfile(
       negotiationTargets.push(conservativeSurplusPrice(r.candidate, benchmark.candidate, ctx, config));
     }
   }
-  const sale = results.find((r) => r.strategyType === 'S01M');
-  const bestOther = bestBy(results, (r) => r.strategyType !== 'S01M' && eligibleForBenchmark(r));
-  if (sale && bestOther) negotiationTargets.push(immediateSaleMinPrice(sale.candidate, bestOther.candidate, ctx, config));
+  // Routes that depend on an unverified price: the price they would need — never an assumed price.
+  const priceConditional: DecisionResult['priceConditional'] = [];
+  const seenKnobTargets = new Set<string>();
+  for (const r of results) {
+    if (!r.priceDependency || r.assessment.commercial === 'negotiable') continue;
+    const key = `${r.priceDependency}|${r.plan.wholeApartmentsRetained}|${r.strategyType === 'S01M' || r.strategyType === 'S09' || r.strategyType === 'S01' ? r.strategyType : ''}`;
+    if (seenKnobTargets.has(key)) continue;
+    seenKnobTargets.add(key);
+    priceConditional.push({ result: r, threshold: requiredPrice(r.candidate, r.priceDependency, ctx, config, recommendation?.candidate ?? null) });
+  }
+
+  // Land value references for this owner's area: dated, typed — and the current market price stays unknown.
+  const A = ctx.info.landAreaSqm;
+  const parcel33 = LAND_TRANSACTIONS.filter((t) => t.parcel === 33);
+  const perSqm = parcel33.map((t) => t.price / t.areaSqm).sort((x, y) => x - y);
+  const median = perSqm.length % 2 ? perSqm[(perSqm.length - 1) / 2] : (perSqm[perSqm.length / 2 - 1] + perSqm[perSqm.length / 2]) / 2;
+  const latest = [...parcel33].sort((x, y) => y.date.localeCompare(x.date))[0];
+  const levyProxy = R_total(ctx, config);
+  const landReferences: DecisionResult['landReferences'] = [
+    { label: 'העסקה האחרונה שאותרה בחלקה 33', amount: (latest.price / latest.areaSqm) * A, date: latest.date, level: 'observedTransaction', note: 'לפני עדכון הטבלאות; מדווחת, לא אומתה מול רשות המסים' },
+    { label: `חציון ${parcel33.length} עסקאות מדווחות בחלקה`, amount: median * A, date: '2024–2026', level: 'observedTransaction', note: 'היסטורי בלבד — לא מחיר היום' },
+    { label: 'שווי הזכויות בטבלת ההקצאה', amount: ctx.info.table.allocationValue, date: '2026-11-23', level: 'planningAppraisal', note: `מגרש ${ctx.info.lotId}; שמאות איזון — לא מחיר מכירה` },
+    { label: 'שווי בטבלה פחות אומדן היטל השבחה', amount: ctx.info.table.allocationValue - levyProxy, date: '2026-11-23', level: 'planningAppraisal', note: 'עוגן שמאי בלבד — לא תמורה נטו אחרי מסים' },
+    { label: 'מחיר מכירה בשוק החופשי היום', amount: null, date: '—', level: 'unknown', note: 'לא נמצאה עסקה מאומתת אחרי עדכון הטבלאות' },
+    { label: 'מחיר שיזם מציע עבור הזכויות', amount: null, date: '—', level: 'unknown', note: 'אין הצעה מאושרת' },
+  ];
+  // How close is the household to an evidence-based route? Extra capital for the most attractive ones.
+  const nearMiss: DecisionResult['nearMiss'] = [];
+  if (!recommendation && profile.availableCapital !== null) {
+    const evidenceBased = results
+      .filter((r) => r.priceDependency === null && r.assessment.commercial !== 'negotiable' && r.feasibility === 'infeasible')
+      .sort((a, b) => b.metrics.wholeApartments - a.metrics.wholeApartments || b.metrics.valueCreated - a.metrics.valueCreated);
+    const seen = new Set<StrategyType>();
+    for (const r of evidenceBased) {
+      if (seen.has(r.strategyType) || nearMiss.length >= 3) continue;
+      seen.add(r.strategyType);
+      const t = requiredAdditionalCapital(r.candidate, ctx, config);
+      nearMiss.push({ result: r, additionalCapital: t.value });
+    }
+    nearMiss.sort((a, b) => (a.additionalCapital ?? Infinity) - (b.additionalCapital ?? Infinity));
+  }
+
+  let projection: DecisionResult['projection'] = null;
+  if (recommendation) {
+    const pcfg: ProjectConfig = {
+      ...config,
+      market: { ...config.market, apartmentValueAnnualGrowth: config.projection.apartmentValueAnnualGrowth },
+      financing: { ...config.financing, alternativeNetAnnualReturn: config.projection.alternativeNetAnnualReturn },
+    };
+    const ev = evaluateCandidate(recommendation.candidate, ctx, pcfg);
+    const monthsLiving = Math.max(0, ev.horizonMonth - ev.plan.completionMonth);
+    projection = {
+      years: ev.horizonMonth / 12,
+      apartmentGrowth: config.projection.apartmentValueAnnualGrowth,
+      alternativeReturn: config.projection.alternativeNetAnnualReturn,
+      assets: ev.assetsAtHorizon,
+      cash: ev.sim.cashAtHorizon,
+      debt: ev.sim.debtAtHorizon,
+      mortgagePaymentsFV: ev.sim.personalPaymentsFV,
+      deferredLiabilities: ev.plan.deferredLiabilities,
+      unfunded: ev.sim.unfunded,
+      startingCapitalGrown: ev.referenceWealth,
+      total: ev.valueCreated,
+      housingBenefit: ev.plan.housingBenefitMonthly * monthsLiving,
+    };
+  }
+  const levies = config.rights.lotIds.map((lot) => calculateRights(A, config, lot).bettermentLevy * config.taxation.bettermentLevyFactor);
 
   // Owner's acceptable price vs the developer's plausible price for surplus rights: overlap or not.
   for (const t of [...negotiationTargets]) {
@@ -316,6 +428,17 @@ export function analyzeProfile(
     ranked.find((r) => r !== recommendation && r.strategyType !== recommendation?.strategyType && r.assessment.commercial !== 'questionable') ??
     null;
   const negotiationOnly = results.filter((r) => r.assessment.commercial === 'negotiable');
+  // A questionable or unconfirmed winner is never the only answer: if no evidence-based alternative exists, the
+  // fallback is a price-dependent route (sale first), shown with the price it would need.
+  let finalFallback = fallback;
+  let fallbackThreshold: DecisionResult['fallbackThreshold'] = null;
+  if (recommendation && !finalFallback && priceConditional.length) {
+    const order = ['S01M', 'S01', 'S09', 'S04'];
+    const pick = [...priceConditional].sort((x, y) => (order.indexOf(x.result.strategyType) + 99) % 99 - (order.indexOf(y.result.strategyType) + 99) % 99)[0];
+    finalFallback = pick.result;
+    fallbackThreshold = pick.threshold;
+  }
+
 
   // --- Sensitivity -------------------------------------------------------------
   const mainTop = recommendation?.id ?? null;
@@ -359,9 +482,20 @@ export function analyzeProfile(
     developer: dev,
     lotPolicy: lotPolicy(ctx.info, config),
     arrangements,
-    fallback,
+    fallback: finalFallback,
+    fallbackThreshold,
     negotiationOnly,
+    priceConditional,
+    landReferences,
+    lotAssumed: ctx.info.lotAssumed,
+    levyRangeAcrossLots: { min: Math.min(...levies), max: Math.max(...levies) },
+    projection,
+    nearMiss,
   };
+}
+
+function R_total(ctx: EngineContext, config: ProjectConfig): number {
+  return ctx.info.apartmentEquivalents * levyPerRight(ctx.info, config);
 }
 
 export function withArrangement(config: ProjectConfig, taxArrangement: TaxArrangement): ProjectConfig {

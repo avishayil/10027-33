@@ -1932,3 +1932,45 @@ button {
 .arrangements li {
   margin-bottom: 4px;
 }
+
+.levy-card {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #c7d2fe;
+  background: #f5f7ff;
+  border-radius: 10px;
+}
+
+.levy-card h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: var(--primary-dark);
+}
+
+.levy-total {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.levy-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 4px 16px;
+  margin: 0 0 6px;
+}
+
+.levy-split dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.levy-split dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.kind-tag-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
