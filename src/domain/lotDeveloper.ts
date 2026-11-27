@@ -23,7 +23,16 @@ import { completionMonth, constructionQuotePerApartment, milestoneMonth, permitM
 import { lotPolicy } from './policy';
 import { calculateRights } from './rights';
 import { buildTransactionPlan } from './transactions';
-import type { Candidate, CommercialTerms, ProjectConfig, RightsInfo, TaxArrangement, TransactionPlan, UserProfile } from './types';
+import type {
+  Candidate,
+  CommercialTerms,
+  ConsiderationReconciliation,
+  ProjectConfig,
+  RightsInfo,
+  TaxArrangement,
+  TransactionPlan,
+  UserProfile,
+} from './types';
 
 export interface LotContext {
   info: RightsInfo;
@@ -70,6 +79,7 @@ export interface LotOptions {
 }
 
 export interface RouteDelta {
+  consideration: ConsiderationReconciliation;
   flows: number[];
   revenue: number;
   costs: number;
@@ -309,9 +319,10 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
   const vat = config.taxation.vatRate;
   const lot = getLot(config.rights.tableVersion, ctx.info.lotId);
   const R = ctx.info.apartmentEquivalents;
-  if (R <= 0) return { flows: [], revenue: 0, costs: 0, userPhysicalUnits: 0 };
+  const consideration = considerationReconciliation(ctx, plan);
+  if (R <= 0) return { consideration, flows: [], revenue: 0, costs: 0, userPhysicalUnits: 0 };
   // Saleable area per simulation right of this owner (ownership share × the lot's saleable area).
-  const areaPerRight = (ctx.info.table.lotShare * lot.residentialArea) / R;
+  const areaPerRight = officialAreaPerRight(ctx);
   const rights = R + plan.rightsPurchased;
   const H = horizonOf(config, plan);
   const f = new Flows(H);
@@ -340,8 +351,7 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
 
   // + the user's route. The lot's unit mix is fixed, so the developer gives up the market value of what it delivers
   // (in area-equivalents of value); the physical count is tracked separately.
-  const pooled = plan.fractionSettled?.mode === 'pool' ? plan.fractionSettled.share : 0;
-  const deliveredArea = (plan.retainedApartmentEquivalents + plan.apartmentsSoldByOwner + pooled) * areaPerRight;
+  const deliveredArea = consideration.officialAreaSqm;
   const rightsArea = rights * areaPerRight;
   revenue += addAreaSales(f, config, Math.max(0, rightsArea - deliveredArea));
   const build = addConstruction(f, config, ctx.info.lotId, rightsArea);
@@ -367,7 +377,36 @@ export function routeDelta(ctx: LotContext, plan: TransactionPlan, terms: Commer
     costs += subsidy;
   }
   const userPhysicalUnits = plan.wholeApartmentsRetained + plan.apartmentsSoldByOwner + plan.fractionalShare;
-  return { flows: f.values, revenue, costs, userPhysicalUnits };
+  return { consideration, flows: f.values, revenue, costs, userPhysicalUnits };
+}
+
+/** Official saleable area per simulation right: the holding's ownership share of the lot's saleable area ÷ its rights. */
+export function officialAreaPerRight(ctx: LotContext): number {
+  const lot = getLot(ctx.config.rights.tableVersion, ctx.info.lotId);
+  const R = ctx.info.apartmentEquivalents;
+  return R > 0 ? (ctx.info.table.lotShare * lot.residentialArea) / R : 0;
+}
+
+/**
+ * What the owner receives and what the developer gives up for it, on one basis (gross, today's prices). The developer
+ * gives up the official area; the owner model credits the standard area; the difference is shown, never dropped.
+ */
+export function considerationReconciliation(ctx: LotContext, plan: TransactionPlan): ConsiderationReconciliation {
+  const config = ctx.config;
+  const pooled = plan.fractionSettled?.mode === 'pool' ? plan.fractionSettled.share : 0;
+  const eq = plan.retainedApartmentEquivalents + plan.apartmentsSoldByOwner + pooled;
+  const perSqm = config.market.apartmentValuePerSqm;
+  const standardAreaSqm = eq * config.construction.apartmentSizeSqm;
+  const officialAreaSqm = eq * officialAreaPerRight(ctx);
+  return {
+    apartmentEquivalents: eq,
+    standardAreaSqm,
+    officialAreaSqm,
+    unallocatedAreaSqm: officialAreaSqm - standardAreaSqm,
+    ownerValue: standardAreaSqm * perSqm,
+    developerForgoneValue: officialAreaSqm * perSqm,
+    unallocatedValue: (officialAreaSqm - standardAreaSqm) * perSqm,
+  };
 }
 
 // ---------------------------------------------------------------------------

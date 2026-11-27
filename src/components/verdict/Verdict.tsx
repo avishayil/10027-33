@@ -284,6 +284,19 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
           </dt>
           <dd>{formatCurrency(d.netPosition)}</dd>
         </div>
+        {rec.developerLot && rec.developerLot.consideration.unallocatedValue > 1000 && (
+          <div>
+            <dt>
+              לפי הטבלה הרשמית — לא נספר לטובתכם{' '}
+              <Tooltip
+                content={`היזם מוותר על ${formatRights(rec.developerLot.consideration.officialAreaSqm)} מ״ר לפי חלקכם בטבלת ההקצאה; הסימולציה מחשבת לכם ${formatRights(rec.developerLot.consideration.standardAreaSqm)} מ״ר (2.25 זכויות ל-167 מ״ר, דירה של 100 מ״ר). ההפרש מוצג כאן ולא נכלל במספרים שלכם — אם החוזה יחושב לפי הטבלה, ייתכן שתקבלו יותר.`}
+              />
+            </dt>
+            <dd>
+              כ-{formatRights(rec.developerLot.consideration.unallocatedAreaSqm)} מ״ר · {formatCompactCurrency(rec.developerLot.consideration.unallocatedValue)}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <div className="verdict-cols">

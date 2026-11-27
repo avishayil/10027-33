@@ -815,6 +815,27 @@ export interface Projection {
   housingBenefit: number;
 }
 
+/**
+ * One consideration, two views (iteration 9, owner decision (a)). The owner model counts what it receives in standard
+ * apartments (2.25 rights per 167 m², 100 m² each); the lot model gives up the official share of the lot's saleable
+ * area (≈ 117 m² per simulation right on lot 149). Both are kept; the difference — area the official table attributes
+ * to the holding but the simulation does not credit to the owner — is an explicit line, so
+ * ownerValue + unallocatedValue = developerForgoneValue (gross, today's prices).
+ */
+export interface ConsiderationReconciliation {
+  /** Apartment-equivalents the owner ends with from the developer's inventory (retained, sold by the owner, pooled). */
+  apartmentEquivalents: number;
+  /** The same in the owner model's standard area (equivalents × 100 m²). */
+  standardAreaSqm: number;
+  /** The lot area the developer gives up for them (equivalents × official saleable area per simulation right). */
+  officialAreaSqm: number;
+  /** officialAreaSqm − standardAreaSqm: in the official table, not credited to the owner by the simulation. */
+  unallocatedAreaSqm: number;
+  ownerValue: number;
+  developerForgoneValue: number;
+  unallocatedValue: number;
+}
+
 export interface LotPnLSummary {
   units: number;
   servicesUnits: number;
@@ -826,6 +847,7 @@ export interface LotPnLSummary {
   profitOnCost: number;
   /** Physical apartments this owner receives on the route. */
   userPhysicalUnits: number;
+  consideration: ConsiderationReconciliation;
 }
 
 export interface DeveloperThresholds {

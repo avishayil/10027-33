@@ -147,6 +147,7 @@ export function buildResult(
       margin: lot.margin,
       profitOnCost: lot.profitOnCost,
       userPhysicalUnits: lot.userPhysicalUnits,
+      consideration: delta.consideration,
     };
   }
   const blocked = policyBlock(candidate, R, config);
