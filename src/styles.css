@@ -2162,3 +2162,11 @@ button {
   color: #92400e;
   font-size: 0.85rem;
 }
+
+/* Iteration 9 / D5: the previous result stays visible, dimmed, while a new analysis runs on a deferred render. */
+.results-updating .priorities,
+.results-updating .verdict,
+.results-updating .detail-section {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}

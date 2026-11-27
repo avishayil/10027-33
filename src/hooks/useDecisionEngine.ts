@@ -2,7 +2,7 @@
  * UI state for the deal simulation. Personal inputs live only in memory — nothing is persisted,
  * nothing is put in the URL and nothing is sent over the network.
  */
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { withArrangement } from '../domain/arrangements';
 import { PROJECT_CONFIG } from '../data/config';
 import type { CommercialTerms, DecisionResult, Goal, TaxArrangement, UserProfile } from '../domain/types';
@@ -25,6 +25,17 @@ export function parseAmount(text: string): number | null {
 
 const clampTo = (x: number, r: { min: number; max: number; default: number }) =>
   Number.isFinite(x) ? Math.min(r.max, Math.max(r.min, x)) : r.default;
+
+/** The value, once it has not changed for `ms` (the first value is used at once). */
+function useDebounced<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    if (Object.is(value, settled)) return;
+    const t = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(t);
+  }, [value, settled, ms]);
+  return settled;
+}
 
 export function useDecisionEngine(saved: SavedInputs | null = null) {
   const c = PROJECT_CONFIG.commercial;
@@ -120,21 +131,32 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
 
   const terms: CommercialTerms = { combinationPct, developerMarkup };
 
-  const profileKey = JSON.stringify(profile);
-  const result: DecisionResult | null = useMemo(
-    () => {
-      if (!profile) return null;
-      const base = withArrangement(PROJECT_CONFIG, taxArrangement);
-      const offer = {
-        levyCap: levyCap === null || Number.isNaN(levyCap) ? null : levyCap,
-        developerPaysTaxLoanInterest: developerPaysInterest,
-      };
-      return analyzeProfile(profile, terms, { ...base, commercial: { ...base.commercial, offer } });
-    },
-    // profileKey captures every profile field; terms, the arrangement and the offer are primitives.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profileKey, combinationPct, developerMarkup, taxArrangement, levyCap, developerPaysInterest],
-  );
+  // Iteration 9 / D5: the analysis runs on a deferred render, so typing and dragging stay responsive on slower phones
+  // (measured ≈ 300 ms per update at a 4× CPU slowdown); the previous result stays on screen until the new one is ready.
+  const analysisKey = JSON.stringify({
+    profile,
+    terms,
+    taxArrangement,
+    levyCap: levyCap === null || Number.isNaN(levyCap) ? null : levyCap,
+    developerPaysInterest,
+  });
+  // A burst of changes (dragging a slider, typing digits) runs one analysis 250 ms after it settles, on a deferred render.
+  const settledKey = useDebounced(analysisKey, 250);
+  const deferredKey = useDeferredValue(settledKey);
+  const result: DecisionResult | null = useMemo(() => {
+    const a = JSON.parse(deferredKey) as {
+      profile: UserProfile | null;
+      terms: CommercialTerms;
+      taxArrangement: TaxArrangement;
+      levyCap: number | null;
+      developerPaysInterest: boolean;
+    };
+    if (!a.profile) return null;
+    const base = withArrangement(PROJECT_CONFIG, a.taxArrangement);
+    const offer = { levyCap: a.levyCap, developerPaysTaxLoanInterest: a.developerPaysInterest };
+    return analyzeProfile(a.profile, a.terms, { ...base, commercial: { ...base.commercial, offer } });
+  }, [deferredKey]);
+  const updating = deferredKey !== analysisKey;
 
   const values: SavedInputs = {
     version: 1,
@@ -159,6 +181,8 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
     profile,
     terms,
     result,
+    /** True while a newer analysis is being computed (the shown result is the previous one). */
+    updating,
   };
 }
 
