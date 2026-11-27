@@ -71,6 +71,8 @@ export interface SimulationInput {
   };
   /** Most that can be borrowed against the other property (default: no limit). */
   securedLoanLimit?: number;
+  /** Real annual discount rate for pvInterest (default 0). */
+  discountRate?: number;
 }
 
 const EPS = 0.5;
@@ -125,6 +127,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let taxLoanInterest = 0;
   let taxLoanAtMaturity = 0;
   let taxLoanSubsidy = 0;
+  let pvInterest = 0;
+  const dfMonth = (m: number) => Math.pow(1 + (input.discountRate ?? 0), -m / 12);
   const subsidyMonthly = input.taxLoan?.subsidyRate ? input.taxLoan.subsidyRate / 12 : 0;
   let taxLoanRefinanced = 0;
   const taxLoanLimit = input.taxLoan?.limit ?? Infinity;
@@ -226,6 +230,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     peakDebt = Math.max(peakDebt, debt + taxLoanBalance);
     if (taxLoanBalance > 0 && m >= input.completionMonth) {
       taxLoanAtMaturity = taxLoanBalance;
+      // The capitalised tax-loan interest falls due at maturity.
+      pvInterest += taxLoanInterest * dfMonth(m);
       debt += taxLoanBalance;
       drawsByStage.mortgage += taxLoanBalance;
       taxLoanBalance = 0;
@@ -267,6 +273,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const interest = debt * r;
       if (m <= input.completionMonth) interestToCompletion += interest;
       else interestAfterCompletion += interest;
+      pvInterest += interest * dfMonth(m);
       if (!afterCompletion) {
         payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
@@ -328,6 +335,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     interestAfterCompletion,
     taxLoanRefinanced,
     taxLoanSubsidy,
+    pvInterest,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

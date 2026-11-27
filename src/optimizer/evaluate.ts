@@ -37,10 +37,10 @@ export interface Evaluation {
   /** Position at delivery (today's prices) — what the owner holds and paid, after financing to delivery. */
   delivery: Delivery;
   /**
-   * The value the ranking uses (iteration 6): the position at delivery minus interest paid after delivery within the
-   * horizon. Today's prices, no appreciation or return assumed.
+   * The value the ranking compares (iteration 7): present value at signing at a real discount rate, today's prices —
+   * timing and the cost of committed capital count, appreciation is not assumed.
    */
-  deliveryValue: number;
+  comparisonValue: number;
   horizonMonth: number;
   referenceWealth: number;
   assetsAtHorizon: number;
@@ -57,16 +57,27 @@ export interface Delivery {
   /** Interest paid during construction plus the tax-loan interest capitalised to delivery. */
   interestToDelivery: number;
   debtAtDelivery: number;
+  /** Receipts due after delivery (e.g. a delayed pool sale) — receivables at delivery, not cash. */
+  receivablesAfterDelivery: number;
+  /** Payments due after delivery (e.g. the tax on a delayed pool sale). */
+  payablesAfterDelivery: number;
+  /** Assets + cash in − cash out by delivery + receivables − payables − interest to delivery. */
   netPosition: number;
 }
 
-/** What the owner holds at delivery (today's prices) and what it paid in and out, after financing to delivery. */
+/**
+ * The owner's position on the delivery date (today's prices): apartments, what was paid in and out by then, what is
+ * still due to or from the owner after it, and the interest to delivery.
+ */
 export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config: ProjectConfig): Delivery {
   const sum = (pred: (e: LedgerEntry) => boolean) => plan.ledger.filter(pred).reduce((s, e) => s + e.amount, 0);
   const owner = (e: LedgerEntry) => e.payer === 'owner' && e.direction === 'out';
+  const byDelivery = (e: LedgerEntry) => e.month <= plan.completionMonth;
   const aptToday = apartmentValueToday(config);
-  const ownerCashOut = sum((e) => owner(e) && !e.deferred && e.category !== 'contingency_reserve');
-  const ownerCashIn = sum((e) => e.direction === 'in' && e.category !== 'contingency_release');
+  const ownerCashOut = sum((e) => owner(e) && !e.deferred && e.category !== 'contingency_reserve' && byDelivery(e));
+  const ownerCashIn = sum((e) => e.direction === 'in' && e.category !== 'contingency_release' && byDelivery(e));
+  const receivablesAfterDelivery = sum((e) => e.direction === 'in' && e.category !== 'contingency_release' && !byDelivery(e));
+  const payablesAfterDelivery = sum((e) => owner(e) && !e.deferred && e.category !== 'contingency_reserve' && !byDelivery(e));
   const reserveNet = sum((e) => e.category === 'contingency_reserve') - sum((e) => e.category === 'contingency_release');
   const apartmentsValue = plan.wholeApartmentValueEq * aptToday;
   const fractionValue = plan.fractionalShare * aptToday * (1 - config.market.fractionIlliquidityDiscount);
@@ -79,8 +90,32 @@ export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config:
     constructionAndCompletionPaid: sum((e) => owner(e) && (e.category === 'construction' || e.category === 'completion_payment')),
     interestToDelivery,
     debtAtDelivery: sim.debtAtCompletion,
-    netPosition: apartmentsValue + fractionValue + ownerCashIn - (ownerCashOut + reserveNet) - interestToDelivery,
+    receivablesAfterDelivery,
+    payablesAfterDelivery,
+    netPosition:
+      apartmentsValue + fractionValue + ownerCashIn - (ownerCashOut + reserveNet) + receivablesAfterDelivery - payablesAfterDelivery - interestToDelivery,
   };
+}
+
+/**
+ * Present value at signing (real, today's prices) — the value the ranking compares: every owner ledger flow at its
+ * own month, the apartments (and any held land) at delivery, less the present value of all interest paid. Principal
+ * is counted when the payment it funds is made.
+ */
+export function presentValueOf(plan: TransactionPlan, sim: SimulationResult, config: ProjectConfig): number {
+  const d = config.analysis.discountRate;
+  const df = (m: number) => Math.pow(1 + d, -m / 12);
+  let pv = 0;
+  for (const e of plan.ledger) {
+    if (e.deferred) continue;
+    if (e.direction === 'in') pv += e.amount * df(e.month);
+    else if (e.payer === 'owner') pv -= e.amount * df(e.month);
+  }
+  const aptToday = apartmentValueToday(config);
+  const assets = plan.wholeApartmentValueEq * aptToday + plan.fractionalShare * aptToday * (1 - config.market.fractionIlliquidityDiscount);
+  pv += assets * df(plan.completionMonth);
+  pv += (plan.heldLandValueAtHorizon - plan.deferredLiabilities) * df(config.analysis.horizonYears * 12);
+  return pv - sim.pvInterest;
 }
 
 export function liquidityYears(profile: UserProfile, config: ProjectConfig): number {
@@ -112,6 +147,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     preCompletionLandCollateral: plan.preCompletionLandCollateral,
     postCompletionCollateral: plan.postCompletionCollateral,
     workInProgressRecognition: config.financing.workInProgressRecognition,
+    discountRate: config.analysis.discountRate,
     // Only when the household said it owns another property and has not ruled out borrowing.
     // A loan on another property only up to the limit the household stated (or in the conditional funding run);
     // never when the household ruled out borrowing.
@@ -161,7 +197,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     futureNetWealth,
     valueCreated: futureNetWealth - referenceWealth,
     delivery,
-    deliveryValue: delivery.netPosition - sim.interestAfterCompletion,
+    comparisonValue: presentValueOf(plan, sim, config),
     horizonMonth,
     referenceWealth,
     assetsAtHorizon,

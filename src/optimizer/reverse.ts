@@ -178,7 +178,7 @@ export function strategyTargets(r: StrategyResult, ctx: EngineContext, config: P
 // ---------------------------------------------------------------------------
 
 /** The ranking value (delivery economics) — benchmarks compare on the same basis as the ranking. */
-const valueCreated = (c: Candidate, ctx: EngineContext, config: ProjectConfig) => evaluateCandidate(c, ctx, config).deliveryValue;
+const valueCreated = (c: Candidate, ctx: EngineContext, config: ProjectConfig) => evaluateCandidate(c, ctx, config).comparisonValue;
 
 /**
  * מחיר איזון כלכלי: the surplus-rights price at which the hybrid creates as much value as the benchmark
@@ -293,13 +293,13 @@ export function requiredPrice(
   benchmark: Candidate | null,
 ): PriceThreshold {
   const R = ctx.info.apartmentEquivalents;
-  const target = benchmark ? evaluateCandidate(benchmark, ctx, config).deliveryValue : null;
+  const target = benchmark ? evaluateCandidate(benchmark, ctx, config).comparisonValue : null;
   const [lo, hi] = KNOB_RANGE[knob];
   const pred = (x: number) => {
     const cfg = withKnob(config, knob, x);
     const ev = evaluateCandidate(c, ctx, cfg);
     if (assessEvaluation(c, ev, ctx.profile, cfg, R).fails.length > 0) return false;
-    return target === null || ev.deliveryValue >= target;
+    return target === null || ev.comparisonValue >= target;
   };
   const direction = KNOB_DIRECTION[knob];
   const required = direction === 'min' ? solveMin(lo, hi, pred) : solveMax(lo, hi, pred);

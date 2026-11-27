@@ -329,7 +329,7 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
                 <td>{strategyTitle(r)}</td>
                 {r.scenarioResults.map((s) => (
                   <td key={s.scenarioId} className={s.feasible ? '' : 'cell-fail'}>
-                    {formatCurrency(s.deliveryValue)}
+                    {formatCurrency(s.comparisonValue)}
                     {!s.feasible && <span className="muted"> · לא עומד</span>}
                   </td>
                 ))}
@@ -342,7 +342,8 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
         </table>
       </div>
       <p className="field-hint">
-        הערך: מה שיש לכם במסירה במחירי היום, אחרי כל התשלומים והריבית עד המסירה, פחות ריבית אחרי המסירה. אופטימי: דירה
+        הערך: ערך נוכחי ביום החתימה, במחירי היום, בהיוון ריאלי של 3% — כל תשלום ותקבול במועדו והדירה במועד המסירה, פחות
+        הריבית. כך דירה שמתקבלת מאוחר יותר שווה פחות גם בלי עליית מחירים. אופטימי: דירה
         ₪28,000 למ״ר, ריבית 4%, אישור בעוד 18 חודשים ומסירה בעוד 4 שנים. שמרני: דירה ₪21,000 למ״ר, חריגה של 15% בבנייה,
         ריבית 7% (וגם הלוואת המסים יקרה ב-2%), אישור בעוד 3 שנים, היתר שנה אחריו, מסירה בעוד 8 שנים, מכירת יחידת הסל שנה
         אחרי המסירה, מחיר זכויות −25%, היטל +25%. ״אם התכנית לא תאושר״: כסף שמשולם לפני האישור (למשל מקדמה לבנייה). אחוז

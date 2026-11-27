@@ -247,6 +247,8 @@ export interface ProjectConfig {
   analysis: {
     horizonYears: number;
     liquidityDeadlineYears: number;
+    /** Real annual rate for the present value the ranking compares (today's prices; iteration 7). */
+    discountRate: number;
   };
   /** Illustrative long-term projection only (never used for the primary verdict). */
   projection: { apartmentValueAnnualGrowth: number; alternativeNetAnnualReturn: number };
@@ -458,6 +460,8 @@ export interface SimulationResult {
   taxLoanRefinanced: number;
   /** Tax-loan interest the developer bears on the owner's behalf (a developer cost, not the owner's). */
   taxLoanSubsidy: number;
+  /** Present value at signing of all interest the owner pays (monthly interest, and capitalised interest at maturity). */
+  pvInterest: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -540,7 +544,7 @@ export interface ScenarioResult {
   futureNetWealth: number;
   valueCreated: number;
   /** Position at delivery minus interest after delivery, in this scenario (the ranking value). */
-  deliveryValue: number;
+  comparisonValue: number;
   mortgageRequired: number;
   monthlyRepayment: number;
   feasible: boolean;
@@ -605,7 +609,7 @@ export interface StrategyResult {
   /** Primary, today's-price view at delivery (no appreciation, no investment return). */
   delivery: DeliverySnapshot;
   /** The ranking value: delivery position minus interest after delivery (= metrics.valueCreated). */
-  deliveryValue: number;
+  comparisonValue: number;
   /** The lot-level developer P&L with this owner on this route (null when the route involves no developer). */
   developerLot: LotPnLSummary | null;
   /** Betterment levy on the owner's original rights: total proxy and who pays it. */
@@ -845,7 +849,14 @@ export interface DeliverySnapshot {
   constructionAndCompletionPaid: number;
   interestToDelivery: number;
   debtAtDelivery: number;
-  /** apartments + fraction + cash in − cash out − interest to delivery (today's prices; debt is financing). */
+  /** Receipts due after delivery (e.g. a delayed pool sale): receivables at delivery, not cash. */
+  receivablesAfterDelivery: number;
+  /** Owner payments due after delivery. */
+  payablesAfterDelivery: number;
+  /**
+   * Position at delivery (display): apartments + fraction + cash in − cash out by delivery + receivables − payables
+   * − interest to delivery (today's prices; debt is financing). The ranking uses the present value instead.
+   */
   netPosition: number;
 }
 

@@ -6,7 +6,8 @@
  *   `fromArr` — what to expect a developer to offer. The model's absolute developer margin is uncertain (#18), but
  *   the difference between arrangements is only taxes, gross-up and purchase tax, so the equivalence is robust.
  * - owner break-even %: the % under `toArr` at which the owner ends up as well off — apartments received (today's
- *   value) minus the taxes the owner pays, each carried to delivery at the tax-loan rate. What is still worth accepting.
+ *   value) minus the taxes the owner pays, carried to delivery at the household's own cost (cash at the discount rate,
+ *   the rest at the tax-loan rate). What is still worth accepting.
  *
  * Both use the household's full combination (S02) at its own rights, lot and tax basis.
  */
@@ -14,6 +15,7 @@ import { withArrangement } from '../domain/arrangements';
 import { completionMonth } from '../domain/construction';
 import { candidatePnL } from '../domain/developer';
 import { lotDeveloperPnL } from '../domain/lotDeveloper';
+import { taxLoanCostRate } from '../domain/taxation';
 import { buildTransactionPlan } from '../domain/transactions';
 import type { Candidate, CommercialTerms, ProjectConfig, RightsInfo, TaxArrangement, UserProfile } from '../domain/types';
 import { apartmentValueToday } from '../domain/valuation';
@@ -45,14 +47,26 @@ export function developerCombinationProfit(ctx: EquivalenceContext, arr: TaxArra
   return candidatePnL(candidate, plan, ctx.info, config, terms)?.profit ?? 0;
 }
 
-/** Owner value of the full combination: apartments received minus owner-paid taxes carried to delivery. */
+/**
+ * Owner value of the full combination: apartments received minus owner-paid taxes carried to delivery — the part the
+ * household can pay from its own cash at the discount rate (the cost of committed capital), the rest at the tax-loan
+ * rate (it would have to borrow it).
+ */
 export function ownerCombinationValue(ctx: EquivalenceContext, arr: TaxArrangement, c: number): number {
   const { config, plan } = planFor(ctx, arr, c);
   const delivery = completionMonth(config);
-  const monthly = config.financing.taxLoan.annualRate / 12;
+  const cashRate = config.analysis.discountRate;
+  const loanRate = taxLoanCostRate(config);
+  let cash = Math.max(0, ctx.profile.availableCapital ?? 0);
   const taxes = plan.ledger
     .filter((e) => e.payer === 'owner' && e.direction === 'out' && OWNER_TAXES.has(e.category))
-    .reduce((s, e) => s + e.amount * Math.pow(1 + monthly, Math.max(0, delivery - e.month)), 0);
+    .sort((a, b) => a.month - b.month)
+    .reduce((s, e) => {
+      const years = Math.max(0, delivery - e.month) / 12;
+      const fromCash = Math.min(cash, e.amount);
+      cash -= fromCash;
+      return s + fromCash * Math.pow(1 + cashRate, years) + (e.amount - fromCash) * Math.pow(1 + loanRate / 12, years * 12);
+    }, 0);
   return c * ctx.info.apartmentEquivalents * apartmentValueToday(config) - taxes;
 }
 

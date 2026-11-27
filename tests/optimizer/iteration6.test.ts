@@ -217,15 +217,19 @@ describe('borrowing against another property needs a stated limit (review §12)'
 });
 
 describe('ranking on delivery economics (review §12)', () => {
-  it('the ranking value is the position at delivery minus interest paid after delivery', () => {
+  it('the ranking value is the comparison value (iteration 7: present value); the delivery position adds up', () => {
     const d = analyzeProfile(profile({ availableCapital: 800_000, maxMonthlyRepayment: 8000 }), TERMS, C);
     for (const r of d.results) {
-      expect(r.metrics.valueCreated).toBeCloseTo(r.delivery.netPosition - r.simulation.interestAfterCompletion, 4);
-      expect(r.deliveryValue).toBe(r.metrics.valueCreated);
+      expect(r.comparisonValue).toBe(r.metrics.valueCreated);
+      const x = r.delivery;
+      expect(x.netPosition).toBeCloseTo(
+        x.apartmentsValue + x.fractionValue + x.ownerCashIn - x.ownerCashOut + x.receivablesAfterDelivery - x.payablesAfterDelivery - x.interestToDelivery,
+        4,
+      );
     }
   });
   it('the scenario table reports the delivery value per scenario', () => {
     const r = analyzeProfile(MODERATE, TERMS, C).results[0];
-    for (const s of r.scenarioResults) expect(typeof s.deliveryValue).toBe('number');
+    for (const s of r.scenarioResults) expect(typeof s.comparisonValue).toBe('number');
   });
 });

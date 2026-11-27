@@ -116,6 +116,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
   analysis: {
     horizonYears: PROJECT.horizonYears.value,
     liquidityDeadlineYears: 2,
+    discountRate: FINANCING.realDiscountRate.value,
   },
   projection: { apartmentValueAnnualGrowth: 0.02, alternativeNetAnnualReturn: 0.04 },
   publicConstruction: {

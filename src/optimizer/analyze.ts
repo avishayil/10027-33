@@ -64,8 +64,8 @@ export const COMMERCIAL_SCORE: Record<CommercialCertainty, number> = {
 };
 
 function resilienceOf(base: Evaluation, adverseFeasible: boolean, adverse: Evaluation): number {
-  if (!adverseFeasible || base.deliveryValue <= 0) return 0;
-  return Math.max(0, Math.min(1, adverse.deliveryValue / base.deliveryValue));
+  if (!adverseFeasible || base.comparisonValue <= 0) return 0;
+  return Math.max(0, Math.min(1, adverse.comparisonValue / base.comparisonValue));
 }
 
 /**
@@ -169,7 +169,7 @@ export function buildResult(
 
   const metrics = {
     // Ranking value: position at delivery minus interest after delivery (iteration 6), not the 10-year wealth.
-    valueCreated: base.deliveryValue,
+    valueCreated: base.comparisonValue,
     resilience: resilienceOf(base, isFeasible(assessments.adverse), evals.adverse),
     wholeApartments: plan.wholeApartmentsRetained,
     liquidity: base.liquidity,
@@ -212,7 +212,7 @@ export function buildResult(
     futureNetWealth: base.futureNetWealth,
     cashAtSigning: 0,
     delivery,
-    deliveryValue: base.deliveryValue,
+    comparisonValue: base.comparisonValue,
     developerLot,
     levy,
     priceDependency: priceDependencyOf(candidate, plan),
@@ -227,7 +227,7 @@ export function buildResult(
       scenarioId: id,
       futureNetWealth: evals[id].futureNetWealth,
       valueCreated: evals[id].valueCreated,
-      deliveryValue: evals[id].deliveryValue,
+      comparisonValue: evals[id].comparisonValue,
       mortgageRequired: evals[id].sim.peakDebt,
       monthlyRepayment: evals[id].sim.peakPersonalMonthly,
       feasible: isFeasible(assessments[id]),
@@ -284,7 +284,7 @@ function topUnder(core: CoreAnalysis, config: ProjectConfig): string | null {
       metrics: {
         ...r.metrics,
         commercialScore: COMMERCIAL_SCORE[commercial],
-        valueCreated: ev.deliveryValue,
+        valueCreated: ev.comparisonValue,
         liquidity: ev.liquidity,
         sustainableMonthlyIncome: ev.sustainableMonthlyIncome,
         peakDebt: ev.sim.peakDebt,
