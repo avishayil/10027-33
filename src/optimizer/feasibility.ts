@@ -60,8 +60,11 @@ export function assessEvaluation(
     if (sim.drawsByStage.construction > EPS) conditions.add('CONSTRUCTION_FINANCING');
     conditions.add('LENDER_CONFIRMATION');
     // Without the user's capital the borrowing need itself is unknown, so collateral cannot be judged either.
+    // Construction-stage limit before delivery; the Bank of Israel limit by property status on the delivered homes.
+    const postLimit = mortgageLtvLimit(ev.plan.apartmentValues, profile.soleHome ?? null, config);
+    const exceeds = sim.peakPreCompletionLtv > config.financing.maxLtv || sim.peakPostCompletionLtv > postLimit + 1e-9;
     const ltv = Math.max(sim.peakPreCompletionLtv, sim.peakPostCompletionLtv);
-    if (capitalKnown && ltv > config.financing.maxLtv) fails.push('LTV_EXCEEDED');
+    if (capitalKnown && exceeds) fails.push('LTV_EXCEEDED');
     else if (capitalKnown && ltv > config.financing.comfortableLtv) conditions.add('LTV_ABOVE_COMFORT');
   }
 
@@ -90,6 +93,20 @@ export function assessEvaluation(
   }
 
   return { fails, conditions: [...conditions], commercial: [...commercial], missing };
+}
+
+/**
+ * Highest mortgage LTV on the delivered apartments (Bank of Israel directive 329): a sole home 75%, any further
+ * apartment 50% (an additional / investment home); an unknown status counts as an additional home until answered.
+ * With several apartments the limit is value-weighted — the most valuable one is the sole home.
+ */
+export function mortgageLtvLimit(values: number[], soleHome: boolean | null, config: ProjectConfig): number {
+  const l = config.financing.ltvLimits;
+  const total = values.reduce((s, v) => s + v, 0);
+  if (total <= 0) return soleHome === true ? l.soleHome : l.additionalHome;
+  if (soleHome !== true) return l.additionalHome;
+  const first = Math.max(...values);
+  return (first * l.soleHome + (total - first) * l.additionalHome) / total;
 }
 
 export function isFeasible(a: ScenarioAssessment): boolean {

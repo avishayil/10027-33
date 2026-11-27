@@ -222,8 +222,14 @@ export interface ProjectConfig {
     durationYears: number;
     targetRepaymentRatio: number;
     alternativeNetAnnualReturn: number;
+    /** Pre-delivery (construction-stage) financing limit. */
     maxLtv: number;
     comfortableLtv: number;
+    /**
+     * Mortgage limits on a delivered apartment by the buyer's status (Bank of Israel directive 329): a sole home,
+     * a replacement home, an additional (investment) home. An unknown status is treated as an additional home.
+     */
+    ltvLimits: { soleHome: number; replacementHome: number; additionalHome: number };
     /** Share of amounts already paid into construction that a lender might recognise as security before completion. */
     workInProgressRecognition: number;
     /**
@@ -396,6 +402,8 @@ export interface TransactionPlan {
   wholeApartmentValueEq: number;
   /** Sizes (m²) of the whole apartments the owner keeps. Illustrative types — not confirmed inventory. */
   apartmentSizes: number[];
+  /** Value of each whole apartment kept, in standard-apartment equivalents. */
+  apartmentValues: number[];
   /** Room counts of the whole apartments the owner keeps. */
   apartmentRooms: number[];
   /** Monthly benefit of living in a kept apartment (rent saved) — NOT cash; shown only in the projection. */

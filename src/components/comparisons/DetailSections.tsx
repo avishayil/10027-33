@@ -225,6 +225,12 @@ export function Financing({ result, r }: { result: DecisionResult; r: StrategyRe
             <th>— מתוכה משכנתא על הדירה הגמורה</th>
             <td>{formatCurrency(s.drawsByStage.mortgage)}</td>
           </tr>
+          {s.taxesFinancedBySecuredLoan > 1 && (
+            <tr>
+              <th>הלוואה על הנכס האחר שלכם (״לכל מטרה״, עד הסכום שהזנתם)</th>
+              <td>{formatCurrency(s.taxesFinancedBySecuredLoan)}</td>
+            </tr>
+          )}
           {s.taxLoanDrawn > 1 && (
             <tr>
               <th>הלוואת מסים מהיזם / מהבנק המלווה (נפרעת במסירה) · ריבית מצטברת</th>

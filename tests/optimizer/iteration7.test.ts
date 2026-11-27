@@ -10,6 +10,7 @@ import { calculateRights } from '../../src/domain/rights';
 import type { ProjectConfig } from '../../src/domain/types';
 import { analyzeProfile } from '../../src/optimizer/analyze';
 import { ownerBreakEvenPct } from '../../src/optimizer/arrangementEquivalence';
+import { mortgageLtvLimit } from '../../src/optimizer/feasibility';
 import { profile, TERMS } from '../fixtures/profiles';
 
 const d = C.analysis.discountRate;
@@ -61,5 +62,25 @@ describe('owner break-even uses the household’s own funding (review §12)', ()
     const poor = ownerBreakEvenPct({ info, profile: profile({ availableCapital: 0 }), config: C }, 'mixed', 0.35, 'net')!;
     // Taxes are cheaper to carry for the household with cash, so a net deal must give it more to be worth it.
     expect(rich).toBeGreaterThan(poor);
+  });
+});
+
+describe('mortgage limits by property status (Bank of Israel directive 329; review §8)', () => {
+  it('sole home 75%; another home or unknown status 50%; a second delivered apartment is an additional home', () => {
+    expect(mortgageLtvLimit([1], true, C)).toBeCloseTo(0.75, 12);
+    expect(mortgageLtvLimit([1], false, C)).toBeCloseTo(0.5, 12);
+    expect(mortgageLtvLimit([1], null, C)).toBeCloseTo(0.5, 12);
+    // Two equal apartments, sole home: 75% on one, 50% on the other → 62.5% of the total.
+    expect(mortgageLtvLimit([1, 1], true, C)).toBeCloseTo(0.625, 12);
+  });
+  it('a route financed above 50% fits a sole home but not an unknown status', () => {
+    // 60 m², ₪600K: completion to a whole apartment with a mortgage of ≈ 54% of its value.
+    const base = { landAreaSqm: 60, availableCapital: 600_000, maxMonthlyRepayment: 20000, goal: 'maximize_apartments' as const };
+    const sole = analyzeProfile({ ...base, soleHome: true }, TERMS, C).results.find((x) => x.id === 'S06-1')!;
+    const unknown = analyzeProfile({ ...base, soleHome: null }, TERMS, C).results.find((x) => x.id === 'S06-1')!;
+    expect(sole.simulation.peakPostCompletionLtv).toBeGreaterThan(0.5);
+    expect(sole.simulation.peakPostCompletionLtv).toBeLessThan(0.75);
+    expect(sole.reasonCodes).not.toContain('LTV_EXCEEDED');
+    expect(unknown.reasonCodes).toContain('LTV_EXCEEDED');
   });
 });

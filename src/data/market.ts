@@ -180,7 +180,7 @@ export const FINANCING = {
     sourceUrl: 'https://boi.org.il/roles/supervisionregulation/nbt/nbt329/',
     retrievedAt: RETRIEVED_AT,
     verification: 'reported',
-    notes: '75% / 70% / 50% לפי סיווג. אינו מבטיח מימון לקרקע בבעלות משותפת — דורש אישור בנק.',
+    notes: '75% / 70% / 50% לפי סיווג. אינו מבטיח מימון לקרקע בבעלות משותפת — דורש אישור בנק. משכנתא על דירה שנמסרה: 75% לדירה יחידה, 50% לדירה נוספת ולהלוואה לכל מטרה; כשהסיווג לא ידוע — 50% (איטרציה 7).',
   },
   comfortableLtv: {
     value: 0.5,

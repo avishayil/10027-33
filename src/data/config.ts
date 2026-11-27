@@ -103,6 +103,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     alternativeNetAnnualReturn: FINANCING.alternativeNetAnnualReturn.value,
     maxLtv: FINANCING.maxLtv.value,
     comfortableLtv: FINANCING.comfortableLtv.value,
+    ltvLimits: { soleHome: 0.75, replacementHome: 0.7, additionalHome: 0.5 },
     workInProgressRecognition: COMMERCIAL.workInProgressRecognition.value,
     taxLoan: {
       available: false,

@@ -425,6 +425,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     fractionalShare,
     wholeApartmentValueEq,
     apartmentSizes,
+    apartmentValues: values,
     apartmentRooms,
     housingBenefitMonthly,
     retainedLandRights,
