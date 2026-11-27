@@ -337,3 +337,23 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
 98. **Sale target and negotiation range** worded as calculated targets, with what they are measured against.
 99. **Release validation matrix**: the review's twelve scenarios plus a property test across lots, households, goals,
     slider ranges and arrangements (`tests/validation/release.test.ts`).
+100. **Consideration reconciled, owner decision (a).** The owner keeps 2.25 rights per 167 m² and 100 m² apartments; the
+     developer gives up the official share (≈ 117.22 m² per simulation right on lot 149). The difference (₪339,043 at 35%
+     full combination) is an explicit line, never folded into either side; every route satisfies owner value + not
+     credited = developer forgone value.
+101. **Construction-services quota in whole slots on both sides** (⌊25% × 102⌋ = 25). A partial apartment takes a slot; a
+     full quota displaces one typical participant into combination. Developer margin at 35% mixed moves 4.2% → 4.1%.
+102. **Tax-loan maturity: cash, then a capped refinance facility, then a reported gap.** Replaces the automatic
+     conversion into a mortgage and the "extension needed whenever the pool sale is later" rule: a cash-covered maturity
+     passes; an uncovered remainder fails.
+103. **One money basis.** Today's-price amounts become nominal shekels on their date in the cash-flow simulation (2%
+     inflation); valuation deflates once. Completion mortgages are therefore shown in the shekels of delivery (e.g.
+     ₪531,250 today ≈ ₪569,628 then). No price growth is added in the base case.
+104. **Levy on rights bought before approval is the buyer's by default** (range down to zero if the contract puts it on
+     the seller); charged once per right held at approval.
+105. **No hypothetical price in the ranking scale**: the appraisal allocation value replaces the ₪6,900 scenario.
+106. **The old calculator is labelled outdated** (tab "מחשבון ישן (להשוואה)") instead of being an equal view.
+107. **CI** runs the browser privacy test on a production build and runs all checks on pull requests; deployment only on
+     `main`. Pinning actions to commit SHAs is left open (the SHAs could not be verified from this environment).
+     **Kept (owner)**: the any-purpose loan stays at the 50% base — the BOI "min(70%, 50% + ₪200K)" upper bound is not
+     modelled.

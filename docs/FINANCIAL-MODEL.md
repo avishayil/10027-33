@@ -257,3 +257,32 @@ m² for their apartment's area. A user's route: area per simulation right = owne
 ### Facilities (`domain/cashflow.ts`)
 Project loan: interest-only to delivery, then 25-year annuity. Loan on another property: annuity from the draw over
 20 years at its own rate. Tax loan: capitalised, bullet at delivery (repaid or refinanced within the any-purpose cap).
+
+## Iteration 9 changes (reviews of 0bf74d7)
+
+* **One consideration, two views** (`considerationReconciliation`, owner decision (a)). The owner model keeps 2.25 rights
+  per 167 m² and 100 m² standard apartments. The lot model gives up the holding's official share of the saleable area
+  (11,209 m² × 2.353% ÷ 2.25 ≈ 117.22 m² per simulation right on lot 149). For every route:
+  `ownerValue + unallocatedValue = developerForgoneValue`. At 35% full combination: ₪1,968,750 + ₪339,043 =
+  ₪2,307,793. The unallocated part is shown to the owner as "according to the official table — not credited to you";
+  it is never added to the owner's numbers and never dropped from the developer's.
+* **Quota in whole slots**: ⌊25% × 102⌋ = 25 on lot 149, the same number on both sides. A route takes
+  `serviceApartments()` slots (a partial S11 apartment takes one). With the quota full, the typical participant it
+  displaces moves into combination (their area and taxes go with them).
+* **Tax-loan maturity**: at delivery the balance is repaid from free cash first, then — only up to its limit — by the
+  conditional refinance facility on the delivered whole apartments (the "any purpose" 50% of their value, in the
+  shekels of that date). Whatever remains is `taxLoanMaturityGap`; any gap fails with `TAX_LOAN_EXTENSION_NEEDED`. A tax
+  drawn after delivery goes through the same steps. Nothing is silently turned into a mortgage.
+* **One money basis**: every ledger entry and cash event carries `priceBasis`. Indexed construction payments are
+  nominal; everything else (values, taxes on them, completion and sale prices) is in today's prices. The simulator
+  converts today's-price amounts, rent and collateral to nominal shekels on their date with the 2% inflation
+  assumption, so cash, loans and repayments share one basis. Valuation deflates once: the transaction value per entry
+  by its basis; horizon wealth (cash, debt, payments, unfunded items from their own dates) back to today's prices. The
+  optional long-term projection is stated in the shekels of its horizon year.
+* **Levy on bought rights**: complementary rights bought at signing are owned at approval, so the buyer bears their
+  betterment levy by default (range 0 – full, for a contract that puts it on the seller). The levy is charged once per
+  right held at approval.
+* **Ranking scale**: the land-value scale is the holding's allocation value in the planning appraisal, never the
+  unverified ₪6,900/m² offer scenario.
+* **Old calculator** relabelled "מחשבון ישן (להשוואה)" with a warning that its tax and financing calculations are
+  outdated.
