@@ -151,6 +151,8 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     liquidityMonth: Math.max(1, Math.round(liqYears * 12)),
     monthlyNetRent: monthlyNetRentFor(plan, config),
     rentCountsForRepayment: plan.rentCountsForRepayment,
+    rentStartMonth: plan.completionMonth + Math.max(0, Math.round(config.market.rentStartDelayMonths)),
+    rentRecognition: config.market.lenderRentRecognition,
     preCompletionLandCollateral: plan.preCompletionLandCollateral,
     postCompletionCollateral: plan.postCompletionCollateral,
     workInProgressRecognition: config.financing.workInProgressRecognition,

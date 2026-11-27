@@ -192,6 +192,10 @@ export interface ProjectConfig {
     apartmentValueAnnualGrowth: number;
     monthlyRentPerApartment: number;
     rentalExpenseReserve: number;
+    /** Months from delivery until rent starts (iteration 9 / D2). */
+    rentStartDelayMonths: number;
+    /** Share of net rent a lender counts toward repayment capacity (iteration 9 / D2). */
+    lenderRentRecognition: number;
     /** Intentionally null: no current parcel-specific valuation exists. */
     immediateLandSalePricePerSqm: number | null;
     /** Historical reported transactions in parcel 33 (pre-106(b)). Reference only. */

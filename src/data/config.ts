@@ -78,6 +78,8 @@ export const PROJECT_CONFIG: ProjectConfig = {
     apartmentValueAnnualGrowth: MARKET.apartmentValueAnnualGrowth.value,
     monthlyRentPerApartment: MARKET.monthlyRentPerApartment.value,
     rentalExpenseReserve: MARKET.rentalExpenseReserve.value,
+    rentStartDelayMonths: MARKET.rentStartDelayMonths.value,
+    lenderRentRecognition: MARKET.lenderRentRecognition.value,
     immediateLandSalePricePerSqm: null,
     immediateSaleReferencePerSqm: MARKET.immediateSaleReferencePerSqm.value,
     postApprovalLandValuePerSqm: MARKET.postApprovalLandValuePerSqm.value,

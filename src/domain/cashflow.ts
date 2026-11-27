@@ -49,6 +49,10 @@ export interface SimulationInput {
   liquidityMonth: number;
   monthlyNetRent: number;
   rentCountsForRepayment: boolean;
+  /** First month with rent (default: delivery). */
+  rentStartMonth?: number;
+  /** Share of rent counted against the repayment limit (default 1). Cash still receives all of it. */
+  rentRecognition?: number;
   preCompletionLandCollateral?: number;
   postCompletionCollateral?: number;
   /** Share of amounts paid into the asset recognised as security before completion (default 1). */
@@ -363,9 +367,9 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     paymentsFV += payment;
     service(m, payment);
 
-    const rent = afterCompletion ? rentAt(m) : 0;
+    const rent = afterCompletion && m >= (input.rentStartMonth ?? input.completionMonth) ? rentAt(m) : 0;
     cash += rent;
-    const personal = payment - (input.rentCountsForRepayment ? rent : 0);
+    const personal = payment - (input.rentCountsForRepayment ? rent * (input.rentRecognition ?? 1) : 0);
     peakPersonal = Math.max(peakPersonal, personal);
 
     if (m === input.liquidityMonth) cashAtLiquidity = cash;
