@@ -74,7 +74,7 @@ export interface LotOptions {
   participation?: number;
   /** A user's route as a change to the lot: monthly flows and its revenue / cost split. */
   delta?: RouteDelta | null;
-  /** Apartments the user builds through construction services: they take quota slots from typical participants. */
+  /** Quota slots the user's route takes (whole slots — `serviceApartments(candidate)`), never a fraction. */
   userServicesUnits?: number;
 }
 
@@ -94,6 +94,8 @@ export interface LotPnL {
   /** Physical apartments the user receives on the route (0 without a route). */
   userPhysicalUnits: number;
   servicesUnits: number;
+  /** Typical services participants the user's slots displace into combination. */
+  displacedParticipants: number;
   ownerCombinationUnits: number;
   developerUnits: number;
   revenue: number;
@@ -222,9 +224,22 @@ function addConstruction(f: Flows, config: ProjectConfig, lotId: string, area: n
   return { direct, soft };
 }
 
+/** The construction-services quota in whole apartment slots. */
+export function quotaSlots(config: ProjectConfig, units: number): number {
+  return Math.floor(config.developerPolicy.servicesCapShareOfLot * units + 1e-9);
+}
+
+/** Slots taken by typical participants and by the user, and the participants the user displaces into combination. */
+export function quotaUse(config: ProjectConfig, units: number, participation: number, userSlots: number) {
+  const quota = quotaSlots(config, units);
+  const typicalWanted = Math.floor(quota * participation + 1e-9);
+  const typical = Math.max(0, Math.min(typicalWanted, quota - userSlots));
+  return { quota, typical, user: Math.min(userSlots, quota), displaced: typicalWanted - typical, free: quota - typical - Math.min(userSlots, quota) };
+}
+
 function expectedParticipation(ctx: LotContext): number {
   const policy = lotPolicy(ctx.info, ctx.config);
-  const quota = ctx.config.developerPolicy.servicesCapShareOfLot * policy.lotUnits;
+  const quota = quotaSlots(ctx.config, policy.lotUnits);
   if (quota <= 0) return 0;
   return Math.max(0, Math.min(1, policy.estimatedDemand / quota));
 }
@@ -240,8 +255,11 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
   const area = lot.residentialArea;
   const areaPerUnit = area / units;
   // Typical services participants, less the slots a user on construction services takes (never beyond the quota).
-  const quota = config.developerPolicy.servicesCapShareOfLot * units;
-  const servicesUnits = Math.max(0, Math.min(quota * participation, quota - (opts.userServicesUnits ?? 0)));
+  // Whole slots (iteration 9 / F02): ⌊25% × 102⌋ = 25. Typical participants each take one slot; a user on construction
+  // services takes whole slots too (a partial S11 apartment still takes one). When the quota is full, the participant the
+  // user displaces moves into combination — the combination area (and its taxes) below grows by exactly that slot.
+  const use = quotaUse(config, units, participation, opts.userServicesUnits ?? 0);
+  const servicesUnits = use.typical;
   const combinationArea = area - servicesUnits * areaPerUnit;
   const ownerCombinationUnits = (c * combinationArea) / areaPerUnit;
   const developerUnits = ((1 - c) * combinationArea) / areaPerUnit;
@@ -281,6 +299,7 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
     saleableArea: area,
     userPhysicalUnits: opts.delta?.userPhysicalUnits ?? 0,
     servicesUnits,
+    displacedParticipants: use.displaced,
     ownerCombinationUnits,
     developerUnits,
     revenue,

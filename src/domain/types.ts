@@ -839,6 +839,8 @@ export interface ConsiderationReconciliation {
 export interface LotPnLSummary {
   units: number;
   servicesUnits: number;
+  /** Typical services participants this route displaces into combination (whole slots). */
+  displacedParticipants: number;
   revenue: number;
   costs: number;
   financingCost: number;

@@ -15,7 +15,7 @@ import {
   projectDeveloperPnL,
   routeDelta,
 } from '../domain/lotDeveloper';
-import { lotPolicy, policyBlock } from '../domain/policy';
+import { lotPolicy, policyBlock, serviceApartments } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
 import { approvalMonthOf } from '../domain/transactions';
@@ -134,12 +134,13 @@ export function buildResult(
     const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, ctx.terms.combinationPct, {
       markup: ctx.terms.developerMarkup,
       delta,
-      userServicesUnits: plan.apartmentsBuilt,
+      userServicesUnits: serviceApartments(candidate),
     });
     developerMargin = lot.margin;
     developerLot = {
       units: lot.units,
       servicesUnits: lot.servicesUnits,
+      displacedParticipants: lot.displacedParticipants,
       revenue: lot.revenue,
       costs: lot.costs,
       financingCost: lot.financingCost,
