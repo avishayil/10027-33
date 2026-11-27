@@ -1,4 +1,4 @@
-# Architecture — מימוש חכם
+# Architecture — מתחם 13 – סימולציית עסקאות
 
 Static, local-first, deterministic decision engine. React 19 + Vite, TypeScript for the engine,
 Vitest + fast-check for tests, GitHub Pages for hosting. No backend, no runtime API calls, no analytics.

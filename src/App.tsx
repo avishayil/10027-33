@@ -100,16 +100,16 @@ export default function App() {
         דילוג לתוכן
       </a>
       <header className="app-header">
-        <h1>מימוש חכם</h1>
+        <h1>מתחם 13 – סימולציית עסקאות</h1>
         <p className="subtitle">גלו מהי הדרך הנכונה לממש את זכויות הקרקע שלכם</p>
-        <p className="subtitle subtitle-small">מתחם 13 · חדרה · גוש 10027 חלקה 33</p>
+        <p className="subtitle subtitle-small">חדרה · גוש 10027 חלקה 33</p>
       </header>
 
       {!inWizard && advanced && (
         <nav className="tabs no-print" aria-label="מצב תצוגה">
           <SegmentedToggle
             options={[
-              { value: 'smart', label: 'מימוש חכם' },
+              { value: 'smart', label: 'סימולציית עסקאות' },
               { value: 'advanced', label: 'מחשבון ידני' },
             ]}
             value={tab}

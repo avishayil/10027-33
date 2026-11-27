@@ -97,7 +97,7 @@ export function Wizard({ engine, startAt = 'welcome', editing, initialRemember, 
 
   const answers = describeAnswers(engine);
   const titles: Record<WizardStep, string> = {
-    welcome: 'ברוכים הבאים למימוש חכם',
+    welcome: 'ברוכים הבאים',
     land: 'כמה קרקע יש לכם?',
     capital: 'כמה כסף פנוי יש לכם?',
     repayment: 'כמה תוכלו להחזיר בחודש?',
