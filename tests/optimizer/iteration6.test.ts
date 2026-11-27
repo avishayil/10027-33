@@ -156,3 +156,62 @@ describe('evidence provenance (review §9)', () => {
     }
   });
 });
+
+describe('tax financing is conditional, not assumed (review §7)', () => {
+  it('by default no ranked route relies on a tax loan', () => {
+    for (const p of [MODERATE, profile({ availableCapital: 0, maxMonthlyRepayment: 5000 }), profile({ landAreaSqm: 222.67, availableCapital: 300_000 })]) {
+      const d = analyzeProfile(p, TERMS, C);
+      for (const r of d.ranked) expect(r.simulation.taxLoanDrawn).toBe(0);
+    }
+  });
+
+  it('the tax loan appears as a funding alternative: prime + 2% + VAT on interest, with its cost', () => {
+    const d = analyzeProfile(MODERATE, TERMS, C);
+    const loan = d.fundingAlternatives.find((f) => f.method === 'developer_loan')!;
+    expect(loan).toBeDefined();
+    expect(loan.annualRate).toBeCloseTo(0.0675 * 1.18, 9);
+    expect(loan.top).not.toBeNull();
+    expect(loan.loan).toBeGreaterThan(100_000);
+    expect(loan.interest).toBeGreaterThan(0);
+    expect(loan.atMaturity).toBeCloseTo(loan.loan + loan.interest, 0);
+    // If the developer also pays the interest, the owner saves exactly that interest.
+    expect(loan.savingIfDeveloperPaysInterest).toBeCloseTo(loan.interest, 0);
+    expect(loan.maxRate).not.toBeNull();
+  });
+
+  it('with nothing fitting, the direction is the tax loan under the offer’s own terms — before asking for net terms', () => {
+    const d = analyzeProfile(MODERATE, TERMS, C);
+    expect(d.recommendation).toBeNull();
+    expect(d.conditionalRecommendation!.kind).toBe('funding');
+    expect(d.conditionalRecommendation!.arrangement).toBe('mixed');
+    expect(d.conditionalRecommendation!.combinationPct).toBe(0.35);
+  });
+
+  it('the loan is capped at a share of the entitlement value', () => {
+    const tight: ProjectConfig = { ...WITH_TAX_LOAN, financing: { ...WITH_TAX_LOAN.financing, taxLoan: { ...WITH_TAX_LOAN.financing.taxLoan, maxShareOfEntitlement: 0.05 } } };
+    const r = analyzeProfile(MODERATE, TERMS, tight).results.find((x) => x.id === 'S02P')!;
+    const entitlement = 0.7875 * 2_500_000;
+    expect(r.simulation.taxLoanDrawn).toBeLessThanOrEqual(0.05 * entitlement + 1);
+    expect(r.simulation.unfunded).toBeGreaterThan(0);
+  });
+
+  it('refinancing at delivery and repayment from the pool sale are conditions', () => {
+    const pool = analyzeProfile(MODERATE, TERMS, WITH_TAX_LOAN).results.find((x) => x.id === 'S02P')!;
+    expect(pool.requiredConditions).toContain('REPAID_FROM_POOL_SALE');
+    const three = analyzeProfile(profile({ landAreaSqm: 222.67, availableCapital: 0, maxMonthlyRepayment: 7000, soleHome: true }), TERMS, WITH_TAX_LOAN).results.find((x) => x.id === 'S02')!;
+    expect(three.requiredConditions).toContain('TAX_LOAN_REFINANCE');
+  });
+});
+
+describe('borrowing against another property needs a stated limit (review §12)', () => {
+  const owns = { landAreaSqm: 167, availableCapital: 0, maxMonthlyRepayment: 5000, goal: 'balanced' as const, lotId: '150', soleHome: false };
+  it('without a limit it is a conditional funding route, not assumed in the ranking', () => {
+    const d = analyzeProfile(owns, { combinationPct: 0.325, developerMarkup: 0.175 }, C);
+    for (const r of d.ranked) expect(r.simulation.taxesFinancedBySecuredLoan).toBe(0);
+    expect(d.fundingAlternatives.some((f) => f.method === 'other_property' && f.top)).toBe(true);
+  });
+  it('with a limit it is available up to that limit', () => {
+    const d = analyzeProfile({ ...owns, otherPropertyBorrowingLimit: 100_000 }, { combinationPct: 0.325, developerMarkup: 0.175 }, C);
+    for (const r of d.results) expect(r.simulation.taxesFinancedBySecuredLoan).toBeLessThanOrEqual(100_000 + 1);
+  });
+});

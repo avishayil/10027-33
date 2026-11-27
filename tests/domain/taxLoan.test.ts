@@ -8,6 +8,7 @@ import { PROJECT_CONFIG as C } from '../../src/data/config';
 import { simulateCashflow, type SimulationInput } from '../../src/domain/cashflow';
 import type { CashEvent, ProjectConfig } from '../../src/domain/types';
 import { analyzeProfile } from '../../src/optimizer/analyze';
+import { WITH_TAX_LOAN } from '../fixtures/configs';
 import { profile, TERMS } from '../fixtures/profiles';
 
 const base = (events: CashEvent[], over: Partial<SimulationInput> = {}): SimulationInput => ({
@@ -85,7 +86,7 @@ describe('tax loan in the decision engine', () => {
   const s02 = (cfg: ProjectConfig) => analyzeProfile(household, TERMS, cfg).results.find((r) => r.id === 'S02')!;
 
   it('a household with no free cash can do a mixed combination with a tax loan — conditional, with its cost', () => {
-    const r = s02(C);
+    const r = s02(WITH_TAX_LOAN);
     expect(r.simulation.unfunded).toBe(0);
     expect(r.simulation.taxLoanDrawn).toBeGreaterThan(0);
     expect(r.simulation.taxLoanInterest).toBeGreaterThan(0);
@@ -101,7 +102,7 @@ describe('tax loan in the decision engine', () => {
   });
 
   it('a household that ruled out borrowing gets no tax loan', () => {
-    const r = analyzeProfile({ ...household, maxMonthlyRepayment: 0 }, TERMS, C).results.find((x) => x.id === 'S02')!;
+    const r = analyzeProfile({ ...household, maxMonthlyRepayment: 0 }, TERMS, WITH_TAX_LOAN).results.find((x) => x.id === 'S02')!;
     expect(r.simulation.taxLoanDrawn).toBe(0);
   });
 });

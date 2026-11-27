@@ -151,7 +151,8 @@ describe('regression: no cash, ₪5K/month, owns another property (reported scen
   const terms = { combinationPct: 0.325, developerMarkup: 0.175 };
 
   it('owning another property: the tax can be financed by a loan secured on it → a real (conditional) recommendation', () => {
-    const d = analyzeProfile({ ...base, soleHome: false }, terms, C);
+    // With a stated borrowing limit (iteration 6: without one the loan is a conditional funding route).
+    const d = analyzeProfile({ ...base, soleHome: false, otherPropertyBorrowingLimit: 1_000_000 }, terms, C);
     const r = d.recommendation!;
     expect(r).not.toBeNull();
     expect(r.simulation.unfunded).toBe(0);
@@ -170,19 +171,22 @@ describe('regression: no cash, ₪5K/month, owns another property (reported scen
     }
   });
 
-  it('no other property: a developer/bank tax loan gives a real (conditional) recommendation, repaid at delivery', () => {
+  it('no other property: a developer/bank tax loan is the direction — conditional, not assumed (iteration 6)', () => {
     for (const soleHome of [true, null]) {
-      const r = analyzeProfile({ ...base, soleHome }, terms, C).recommendation!;
-      expect(r).not.toBeNull();
-      expect(r.simulation.unfunded).toBe(0);
-      expect(r.simulation.taxLoanDrawn).toBeGreaterThan(200000);
-      expect(r.requiredConditions).toContain('TAX_LOAN');
-      expect(r.monthlyRepayment).toBeLessThanOrEqual(5000);
+      const d = analyzeProfile({ ...base, soleHome }, terms, C);
+      expect(d.recommendation).toBeNull();
+      const c = d.conditionalRecommendation!;
+      expect(c.kind).toBe('funding');
+      expect(c.method).toBe('developer_loan');
+      expect(c.result.simulation.unfunded).toBe(0);
+      expect(c.result.simulation.taxLoanDrawn).toBeGreaterThan(200000);
+      expect(c.result.requiredConditions).toContain('TAX_LOAN');
+      expect(c.result.monthlyRepayment).toBeLessThanOrEqual(5000);
     }
   });
 
   it('the tax loan is secured on the other property, so it does not count against the project’s LTV', () => {
-    const d = analyzeProfile({ ...base, soleHome: false }, terms, C);
+    const d = analyzeProfile({ ...base, soleHome: false, otherPropertyBorrowingLimit: 1_000_000 }, terms, C);
     const s13 = d.results.find((r) => r.id === 'S13-3r')!;
     expect(s13.reasonCodes).not.toContain('LTV_EXCEEDED');
     expect(s13.simulation.taxesFinancedBySecuredLoan).toBeGreaterThan(200000);
@@ -190,7 +194,7 @@ describe('regression: no cash, ₪5K/month, owns another property (reported scen
   });
 
   it('with the goal "as many apartments as possible" the household gets a whole apartment within its ₪5K/month', () => {
-    const d = analyzeProfile({ ...base, soleHome: false, goal: 'maximize_apartments' }, terms, C);
+    const d = analyzeProfile({ ...base, soleHome: false, otherPropertyBorrowingLimit: 1_000_000, goal: 'maximize_apartments' }, terms, C);
     const r = d.recommendation!;
     expect(r.metrics.wholeApartments).toBeGreaterThanOrEqual(1);
     expect(r.monthlyRepayment).toBeLessThanOrEqual(5000);

@@ -33,8 +33,11 @@ export const GOLDEN_TAX: ProjectConfig = {
 /** Iteration-4 tax terms: services VAT always absorbed by the developer (before the payer table). */
 export const VAT_ON_DEVELOPER: ProjectConfig = { ...C, taxation: { ...C.taxation, servicesVatOnOwner: false } };
 
-/** No developer/bank tax loan: combination taxes the cash cannot cover are unfunded (iteration-4 rule). */
-export const NO_TAX_LOAN: ProjectConfig = { ...C, financing: { ...C.financing, taxLoan: { ...C.financing.taxLoan, available: false } } };
+/** No developer/bank tax loan at all, not even as a conditional route (iteration-4 rule). */
+export const NO_TAX_LOAN: ProjectConfig = {
+  ...C,
+  financing: { ...C.financing, taxLoan: { ...C.financing.taxLoan, available: false, considerAsAlternative: false } },
+};
 
 /** Iteration-4 tax terms in full: services VAT on the developer and no tax loan. */
 export const ITERATION4_TAX_TERMS: ProjectConfig = { ...NO_TAX_LOAN, taxation: VAT_ON_DEVELOPER.taxation };
@@ -45,5 +48,5 @@ export const GROSS = withArrangement(C, 'gross');
 /** The tax loan switched on at the original iteration-5 terms (6.75%, no VAT on interest, no cap). */
 export const WITH_TAX_LOAN: ProjectConfig = {
   ...C,
-  financing: { ...C.financing, taxLoan: { ...C.financing.taxLoan, available: true, annualRate: 0.0675 } },
+  financing: { ...C.financing, taxLoan: { ...C.financing.taxLoan, available: true, annualRate: 0.0675, vatOnInterest: false, maxShareOfEntitlement: null } },
 };

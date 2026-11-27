@@ -27,7 +27,8 @@ describe('developer policy for construction services', () => {
   });
 
   it('3 rights: full combination already yields a whole apartment, so it is the expected route', () => {
-    const d = run(3, { availableCapital: 600000, maxMonthlyRepayment: 8000, goal: 'balanced' });
+    // ₪800K: enough to pay the owner's capital-gains tax and services VAT in cash (no tax loan is assumed).
+    const d = run(3, { availableCapital: 800000, maxMonthlyRepayment: 8000, goal: 'balanced' });
     expect(buildIds(d, true)).toEqual([]);
     expect(d.recommendation!.strategyType).toBe('S02');
     expect(d.recommendation!.metrics.wholeApartments).toBe(1);

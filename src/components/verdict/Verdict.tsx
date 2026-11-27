@@ -154,7 +154,7 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
                   <strong>{strategyTitle(n.result)}</strong> —{' '}
                   {n.additionalCapital === null
                     ? 'לא מתאים גם עם הון נוסף סביר'
-                    : `חסרים כ-${formatCurrency(Math.ceil(n.additionalCapital / 1000) * 1000)} הון עצמי (או עסקת נטו / דחיית מס לפי סעיף 91א)`}
+                    : `חסרים כ-${formatCurrency(Math.ceil(n.additionalCapital / 1000) * 1000)} הון עצמי (או הלוואת מסים, עסקת נטו, או דחיית מס לפי סעיף 91א — בכפוף לאישור, עם ריבית והצמדה)`}
                 </li>
               ))}
             </ul>
@@ -453,7 +453,7 @@ function ConditionalDirection({ result }: { result: DecisionResult }) {
         בתנאי ההצעה שהזנתם אין לכם מספיק כסף פנוי לשלם את המסים במועד. אם היזם ייקח אותם על עצמו בחוזה — המסלול הזה
         מתאים ליכולת שלכם. אבל יזם שמשלם מסים מגלם אותם בתמורה: חישבנו לפי אחוז קומבינציה של כ-{pctHalf(c.combinationPct)}{' '}
         בלבד. זה הדבר הראשון לבדוק מול היזם. חלופות: הלוואת מסים מהיזם או מהבנק המלווה, או בקשת דחיית תשלום המס לפי סעיף
-        91א (לא מובטחת).
+        91א — בכפוף לאישור, עם ריבית והצמדה.
       </p>
       <p className="verdict-desc">{STRATEGY_DESCRIPTIONS[r.strategyType]}</p>
       <div className="verdict-numbers">

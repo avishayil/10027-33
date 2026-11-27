@@ -63,7 +63,9 @@ export interface SimulationInput {
    * pay. Interest is capitalised until completion (no payments before it); the balance is then refinanced as a
    * mortgage on the delivered apartment, where the LTV test applies (not against the pre-delivery land price).
    */
-  taxLoan?: { annualRate: number };
+  taxLoan?: { annualRate: number; limit?: number };
+  /** Most that can be borrowed against the other property (default: no limit). */
+  securedLoanLimit?: number;
 }
 
 const EPS = 0.5;
@@ -117,6 +119,9 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let taxLoanDrawn = 0;
   let taxLoanInterest = 0;
   let taxLoanAtMaturity = 0;
+  let taxLoanRefinanced = 0;
+  const taxLoanLimit = input.taxLoan?.limit ?? Infinity;
+  const securedLimit = input.securedLoanLimit ?? Infinity;
   let interestAfterCompletion = 0;
   const taxLoanMonthly = input.taxLoan ? input.taxLoan.annualRate / 12 : 0;
   // Principal repaid so far (prepayments + amortisation), attributed to the secured tax loan first — so the debt
@@ -163,27 +168,32 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const need = -e.amount;
       const fromCash = Math.min(Math.max(cash, 0), need);
       cash -= fromCash;
-      if (need - fromCash > EPS) {
-        if (input.taxesFinanceableBySecuredLoan) {
-          const draw = need - fromCash;
+      let short = need - fromCash;
+      if (short > EPS && input.taxesFinanceableBySecuredLoan) {
+        // A loan secured on the household's other property, up to the limit the household stated.
+        const draw = Math.min(short, Math.max(0, securedLimit - taxesFinanced));
+        debt += draw;
+        totalDrawn += draw;
+        drawsByStage[stage] += draw;
+        taxesFinanced += draw;
+        short -= draw;
+      }
+      if (short > EPS && input.taxLoan && e.taxLoanEligible) {
+        // A developer/bank tax loan for combination taxes, up to the facility cap.
+        const draw = Math.min(short, Math.max(0, taxLoanLimit - taxLoanDrawn));
+        totalDrawn += draw;
+        taxLoanDrawn += draw;
+        if (m >= input.completionMonth) {
           debt += draw;
-          totalDrawn += draw;
-          drawsByStage[stage] += draw;
-          taxesFinanced += draw;
-        } else if (input.taxLoan && e.taxLoanEligible) {
-          const draw = need - fromCash;
-          totalDrawn += draw;
-          taxLoanDrawn += draw;
-          if (m >= input.completionMonth) {
-            debt += draw;
-            drawsByStage.mortgage += draw;
-          } else {
-            taxLoanBalance += draw;
-          }
+          drawsByStage.mortgage += draw;
         } else {
-          unfunded += need - fromCash;
-          unfundedItems.push({ month: m, category: e.category, label: e.label, amount: need - fromCash });
+          taxLoanBalance += draw;
         }
+        short -= draw;
+      }
+      if (short > EPS) {
+        unfunded += short;
+        unfundedItems.push({ month: m, category: e.category, label: e.label, amount: short });
       }
     }
 
@@ -217,6 +227,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       debt -= repay;
       principalRepaid += repay;
       cash -= repay;
+      // The tax-loan balance converted this month that cash did not repay has to be refinanced as a mortgage.
+      if (m === input.completionMonth && taxLoanAtMaturity > 0) taxLoanRefinanced = Math.max(0, Math.min(taxLoanAtMaturity, debt));
     }
     if (taxLoanBalance > 0) {
       const repay = Math.min(taxLoanBalance, Math.max(0, cash - reserveAfter[m]));
@@ -305,6 +317,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanInterest,
     taxLoanAtMaturity,
     interestAfterCompletion,
+    taxLoanRefinanced,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

@@ -9,7 +9,7 @@ import { candidatePnL, developerEconomics } from '../domain/developer';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
-import { levyPerRight, netMonthlyRentPerApartment } from '../domain/taxation';
+import { levyPerRight, netMonthlyRentPerApartment, taxLoanRate } from '../domain/taxation';
 import type {
   Candidate,
   ArrangementOutcome,
@@ -26,6 +26,7 @@ import type {
   StrategyResult,
   StrategyType,
   UserProfile,
+  FundingAlternative,
 } from '../domain/types';
 import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
 import { LAND_TRANSACTIONS } from '../data/evidence';
@@ -42,6 +43,7 @@ import {
   globalTargets,
   requiredAdditionalCapital,
   requiredPrice,
+  solveMax,
   strategyTargets,
 } from './reverse';
 import { evaluateScenarios, type ScenarioEvaluations } from './scenarios';
@@ -461,16 +463,28 @@ export function analyzeProfile(
     ranked.find((r) => r !== recommendation && r.strategyType !== recommendation?.strategyType && r.assessment.commercial !== 'questionable') ??
     null;
   const negotiationOnly = results.filter((r) => r.assessment.commercial === 'negotiable');
-  // Nothing fits under the headline terms? Give a direction anyway: the route that fits under the least demanding
-  // other arrangement (mixed before net), at the lower % a developer would offer for it.
+  // --- Funding for the owner's taxes: never assumed in the headline; evaluated as conditional routes -----------
+  const fundingAlternatives = fundingAlternativesFor(profile, terms, config, ctx);
+  // Nothing fits under the headline terms? Give a direction anyway, least demanding first: financing the taxes
+  // under the offer's own terms (a loan on another property, then a developer/bank tax loan), then other tax terms
+  // (mixed before net) at the lower % a developer would offer for them.
   let conditionalRecommendation: DecisionResult['conditionalRecommendation'] = null;
   if (!recommendation) {
+    for (const method of ['other_property', 'developer_loan'] as const) {
+      const f = fundingAlternatives.find((x) => x.method === method && x.top);
+      if (f?.top) {
+        conditionalRecommendation = { result: f.top, kind: 'funding', method, arrangement: headline, combinationPct: terms.combinationPct };
+        break;
+      }
+    }
+  }
+  if (!recommendation && !conditionalRecommendation) {
     const order: TaxArrangement[] = ['mixed', 'net'];
     for (const arr of order) {
       if (arr === headline) continue;
       const hit = arrangementTops.find((x) => x.arrangement === arr && x.top);
       if (hit?.top && hit.combinationPct !== null) {
-        conditionalRecommendation = { result: hit.top, arrangement: arr, combinationPct: hit.combinationPct };
+        conditionalRecommendation = { result: hit.top, kind: 'arrangement', method: null, arrangement: arr, combinationPct: hit.combinationPct };
         break;
       }
     }
@@ -541,7 +555,67 @@ export function analyzeProfile(
     nearMiss,
     capitalGaps,
     conditionalRecommendation,
+    fundingAlternatives,
   };
+}
+
+const withTaxLoan = (config: ProjectConfig, over: Partial<ProjectConfig['financing']['taxLoan']> = {}): ProjectConfig => ({
+  ...config,
+  financing: { ...config.financing, taxLoan: { ...config.financing.taxLoan, available: true, ...over } },
+});
+
+/**
+ * Funding routes for the owner's taxes the household must still obtain: a developer/bank tax loan (prime + 2% + VAT on
+ * interest, capped), and — when the household owns another property but gave no borrowing limit — a loan on it.
+ * Each with its best route, the loan, the interest, the balance due at delivery, what the owner saves if the developer
+ * also bears the interest, and the highest rate at which the route still fits.
+ */
+function fundingAlternativesFor(profile: UserProfile, terms: CommercialTerms, config: ProjectConfig, ctx: EngineContext): FundingAlternative[] {
+  const out: FundingAlternative[] = [];
+  const R = ctx.info.apartmentEquivalents;
+  const fits = (r: StrategyResult, cfg: ProjectConfig) => {
+    const a = assessEvaluation(r.candidate, evaluateCandidate(r.candidate, ctx, cfg), profile, cfg, R);
+    return a.fails.length === 0 && a.missing.length === 0;
+  };
+  if (!config.financing.taxLoan.available && config.financing.taxLoan.considerAsAlternative && profile.maxMonthlyRepayment !== 0) {
+    const cfg = withTaxLoan(config);
+    const run = coreAnalysis(profile, terms, cfg);
+    const top = run.ranked.find((r) => r.simulation.taxLoanDrawn > 0) ?? null;
+    let saving = 0;
+    let maxRate: number | null = null;
+    if (top) {
+      const free = { ...cfg, commercial: { ...cfg.commercial, offer: { ...cfg.commercial.offer, developerPaysTaxLoanInterest: true } } };
+      const freeEv = evaluateCandidate(top.candidate, ctx, free);
+      saving = Math.max(0, top.simulation.taxLoanInterest - freeEv.sim.taxLoanInterest);
+      maxRate = solveMax(0, 0.3, (x) => fits(top, withTaxLoan(config, { annualRate: x, vatOnInterest: false })));
+    }
+    out.push({
+      method: 'developer_loan',
+      annualRate: taxLoanRate(cfg),
+      top,
+      loan: top?.simulation.taxLoanDrawn ?? 0,
+      interest: top?.simulation.taxLoanInterest ?? 0,
+      atMaturity: top?.simulation.taxLoanAtMaturity ?? 0,
+      savingIfDeveloperPaysInterest: saving,
+      maxRate,
+    });
+  }
+  if (profile.soleHome === false && profile.maxMonthlyRepayment !== 0 && typeof profile.otherPropertyBorrowingLimit !== 'number' && !config.financing.otherPropertyLoanAssumed) {
+    const cfg: ProjectConfig = { ...config, financing: { ...config.financing, otherPropertyLoanAssumed: true } };
+    const run = coreAnalysis(profile, terms, cfg);
+    const top = run.ranked.find((r) => r.simulation.taxesFinancedBySecuredLoan > 0) ?? null;
+    out.push({
+      method: 'other_property',
+      annualRate: config.financing.nominalAnnualInterest,
+      top,
+      loan: top?.simulation.taxesFinancedBySecuredLoan ?? 0,
+      interest: 0,
+      atMaturity: top?.simulation.taxesFinancedBySecuredLoan ?? 0,
+      savingIfDeveloperPaysInterest: 0,
+      maxRate: null,
+    });
+  }
+  return out;
 }
 
 function R_total(ctx: EngineContext, config: ProjectConfig): number {

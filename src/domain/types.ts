@@ -62,6 +62,11 @@ export interface UserProfile {
   liquidityDeadlineYears?: number;
   /** Would a completed apartment be the household's only home? null/undefined = unknown (adaptive follow-up). */
   soleHome?: boolean | null;
+  /**
+   * How much the household can borrow against its other property (₪). Only when given is that loan assumed available
+   * (up to the limit); otherwise it is a conditional funding route.
+   */
+  otherPropertyBorrowingLimit?: number | null;
 }
 
 /** Who carries the taxes in a combination (and revenue-sharing) deal. */
@@ -204,8 +209,23 @@ export interface ProjectConfig {
     comfortableLtv: number;
     /** Share of amounts already paid into construction that a lender might recognise as security before completion. */
     workInProgressRecognition: number;
-    /** Tax loan from the developer or the financing bank for combination taxes (reported practice; conditional). */
-    taxLoan: { available: boolean; annualRate: number };
+    /**
+     * Tax loan from the developer or the financing bank for combination taxes (reported practice). Not assumed:
+     * `available` is off in the headline; the engine evaluates it as a conditional funding route.
+     */
+    taxLoan: {
+      available: boolean;
+      /** Before VAT on interest (prime + 2%). */
+      annualRate: number;
+      /** Developer loans: VAT charged on the interest (Rothstein: prime + 2% plus VAT). */
+      vatOnInterest: boolean;
+      /** Facility cap as a share of the owner's apartment entitlement value today; null = no cap. */
+      maxShareOfEntitlement: number | null;
+      /** Evaluate it as a conditional funding route when it is not assumed (off = no tax loan exists at all). */
+      considerAsAlternative: boolean;
+    };
+    /** Assume a loan on another property without a stated limit (only for the conditional funding run). */
+    otherPropertyLoanAssumed: boolean;
   };
   analysis: {
     horizonYears: number;
@@ -417,6 +437,8 @@ export interface SimulationResult {
   taxLoanAtMaturity: number;
   /** Interest on regular debt paid after delivery, within the horizon. */
   interestAfterCompletion: number;
+  /** Tax-loan balance that had to be refinanced as a mortgage at delivery (not repaid from cash). */
+  taxLoanRefinanced: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -479,7 +501,9 @@ export type ConditionCode =
   | 'NET_TAX_TERMS'
   | 'LEVY_TERMS'
   | 'SECURED_LOAN_OTHER_PROPERTY'
-  | 'TAX_LOAN';
+  | 'TAX_LOAN'
+  | 'TAX_LOAN_REFINANCE'
+  | 'REPAID_FROM_POOL_SALE';
 
 export interface ScenarioAssessment {
   fails: ReasonCode[];
@@ -653,8 +677,20 @@ export interface DecisionResult {
    * When nothing fits under the headline terms but a route fits under a different tax arrangement: that route,
    * presented as a conditional direction ("works if the developer bears the taxes").
    */
-  /** Fits only under other tax terms — at that arrangement's developer-equivalent combination %. */
-  conditionalRecommendation: { result: StrategyResult; arrangement: TaxArrangement; combinationPct: number } | null;
+  /**
+   * Nothing fits under the headline terms, but a route fits with financing the household must still obtain
+   * (kind 'funding': a tax loan or a loan on another property, under the offer's own terms) or under other tax terms
+   * (kind 'arrangement', at that arrangement's equivalent %).
+   */
+  conditionalRecommendation: {
+    result: StrategyResult;
+    kind: 'funding' | 'arrangement';
+    method: FundingMethod | null;
+    arrangement: TaxArrangement;
+    combinationPct: number;
+  } | null;
+  /** Conditional funding routes for the owner's taxes, evaluated automatically (none is assumed in the headline). */
+  fundingAlternatives: FundingAlternative[];
   /** When no evidence-based route fits: the closest ones and the extra capital each would need. */
   nearMiss: { result: StrategyResult; additionalCapital: number | null }[];
   /** Extra own capital per evidence-based route type that does not fit (one per strategy type). */
@@ -679,6 +715,24 @@ export interface Projection {
   total: number;
   /** Non-cash: rent saved by living in the apartment(s) after delivery (not included in total). */
   housingBenefit: number;
+}
+
+export type FundingMethod = 'developer_loan' | 'other_property';
+
+export interface FundingAlternative {
+  method: FundingMethod;
+  /** Effective annual rate to the owner (developer loan: incl. VAT on interest). */
+  annualRate: number;
+  /** Best route with this funding (null = still nothing fits). */
+  top: StrategyResult | null;
+  /** Principal borrowed for taxes, capitalised interest and the balance due at delivery. */
+  loan: number;
+  interest: number;
+  atMaturity: number;
+  /** What the owner saves if the developer also bears the interest. */
+  savingIfDeveloperPaysInterest: number;
+  /** Highest rate at which the route still fits (null = not reached / not applicable). */
+  maxRate: number | null;
 }
 
 export interface ArrangementOutcome {

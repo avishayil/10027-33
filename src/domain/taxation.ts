@@ -49,6 +49,16 @@ export function capitalGainsReserve(args: {
   return { used: high, low, high };
 }
 
+/**
+ * Effective annual rate of a tax loan to the owner: prime + spread, plus VAT on the interest for a developer loan
+ * (Rothstein), or 0 when the developer bears the interest under the offer.
+ */
+export function taxLoanRate(config: ProjectConfig): number {
+  if (config.commercial.offer.developerPaysTaxLoanInterest) return 0;
+  const t = config.financing.taxLoan;
+  return t.annualRate * (t.vatOnInterest ? 1 + config.taxation.vatRate : 1);
+}
+
 /** Net monthly rent per apartment-equivalent after maintenance/vacancy and the rental-tax reserve. */
 export function netMonthlyRentPerApartment(config: ProjectConfig): number {
   return (

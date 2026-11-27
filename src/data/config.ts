@@ -98,7 +98,14 @@ export const PROJECT_CONFIG: ProjectConfig = {
     maxLtv: FINANCING.maxLtv.value,
     comfortableLtv: FINANCING.comfortableLtv.value,
     workInProgressRecognition: COMMERCIAL.workInProgressRecognition.value,
-    taxLoan: { available: true, annualRate: FINANCING.taxLoanAnnualInterest.value },
+    taxLoan: {
+      available: false,
+      annualRate: FINANCING.taxLoanAnnualInterest.value,
+      vatOnInterest: true,
+      maxShareOfEntitlement: FINANCING.taxLoanMaxShareOfEntitlement.value,
+      considerAsAlternative: true,
+    },
+    otherPropertyLoanAssumed: false,
   },
   analysis: {
     horizonYears: PROJECT.horizonYears.value,

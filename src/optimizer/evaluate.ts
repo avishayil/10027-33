@@ -1,5 +1,6 @@
 import { simulateCashflow } from '../domain/cashflow';
 import { permitMonth } from '../domain/construction';
+import { taxLoanRate } from '../domain/taxation';
 import { buildTransactionPlan, monthlyNetRentFor } from '../domain/transactions';
 import type {
   Candidate,
@@ -10,7 +11,7 @@ import type {
   TransactionPlan,
   UserProfile,
 } from '../domain/types';
-import { apartmentValueAt } from '../domain/valuation';
+import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
 
 export interface EngineContext {
   info: RightsInfo;
@@ -69,11 +70,26 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     postCompletionCollateral: plan.postCompletionCollateral,
     workInProgressRecognition: config.financing.workInProgressRecognition,
     // Only when the household said it owns another property and has not ruled out borrowing.
-    taxesFinanceableBySecuredLoan: ctx.profile.soleHome === false && ctx.profile.maxMonthlyRepayment !== 0,
-    // A developer/bank tax loan for combination taxes — unless the household ruled out borrowing.
+    // A loan on another property only up to the limit the household stated (or in the conditional funding run);
+    // never when the household ruled out borrowing.
+    taxesFinanceableBySecuredLoan:
+      ctx.profile.soleHome === false &&
+      ctx.profile.maxMonthlyRepayment !== 0 &&
+      (typeof ctx.profile.otherPropertyBorrowingLimit === 'number' || config.financing.otherPropertyLoanAssumed),
+    securedLoanLimit: typeof ctx.profile.otherPropertyBorrowingLimit === 'number' ? ctx.profile.otherPropertyBorrowingLimit : undefined,
+    // A developer/bank tax loan for combination taxes: only when the configuration enables it (conditional run).
     taxLoan:
       config.financing.taxLoan.available && ctx.profile.maxMonthlyRepayment !== 0
-        ? { annualRate: config.financing.taxLoan.annualRate }
+        ? {
+            annualRate: taxLoanRate(config),
+            limit:
+              config.financing.taxLoan.maxShareOfEntitlement === null
+                ? undefined
+                : // The lender's security is the apartment entitlement the owner receives (before any fraction is sold).
+                  config.financing.taxLoan.maxShareOfEntitlement *
+                  (plan.retainedApartmentEquivalents + (plan.fractionSettled?.share ?? 0) + plan.apartmentsSoldByOwner) *
+                  apartmentValueToday(config),
+          }
         : undefined,
   });
 
