@@ -54,3 +54,9 @@ Secondary sources (law-firm guides, not rulings); verify with a tax lawyer befor
 New source-status values: `official_rule`, `court_ruling`, `offer_confirmed`, `unknown`. Nothing is fetched at
 runtime; the market figures (₪25,000/m², ₪5,500 rent, 5% nominal) remain scenarios, and ₪6,900 / ₪7,100 / ₪1,916
 remain unverified references — not quotes.
+
+## Iteration 4 — evidence registry
+
+See `src/data/evidence.ts` and `docs/validation/market-evidence-2026-11-27.md`. The developer price (₪6,900),
+post-approval land value (₪7,100), sale-today reference (₪1,916), revenue share (45%) and buy-back (80%) are now
+**hypothetical scenario values only**: they never decide the verdict; the engine reports the price each route needs.
