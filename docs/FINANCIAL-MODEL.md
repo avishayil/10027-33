@@ -20,9 +20,20 @@ Allocated per apartment-equivalent and assigned to exactly one payer:
 * purchased complementary rights → the seller.
 
 ## Capital-gains reserve
-**Combination: net deal by default** — the developer pays the owner’s tax, grossed up `T = t / (1 − 25%)`; the
-owner pays none, and the term is a condition to confirm in the contract (legal liability stays with the owner).
-Configurable back to owner-paid at signing.
+**Combination (iteration 3).** Consideration = market value of the construction services received — direct cost
+**plus ordinary contractor profit (17.5%, 15–20%; instruction 23/98)** plus VAT, excluding the developer's
+entrepreneurial profit (EA 6672/19) — plus any owner taxes the developer pays (§17(d)). Only the levy share of the
+land sold, `L × (1 − c)`, is deducted. Three arrangements are always evaluated:
+
+| Arrangement | Levy | Owner's capital-gains tax | Engine |
+|---|---|---|---|
+| Gross | owner | owner | both on the owner's cash flow |
+| Mixed (headline) | developer | owner | levy becomes consideration |
+| Net | developer | developer, grossed up `T = t/(1 − 25%)` | owner pays none |
+
+The developer's purchase tax (6%) is charged on its full consideration, including taxes it pays. Statutory sale
+date: plan approval under §19(3א) / position 06/26 (conditional), otherwise signing. Golden values (levy
+simplified, zero basis): services ₪1,201,055.625 → owner tax ₪300,263.90625 → net gross-up ₪400,351.875.
 Revenue-sharing deals: reserved at signing (assessed on expected consideration; conservative).
 Completed-apartment sales deduct construction cost, levy **and the original land basis** of the right used.
 
@@ -32,6 +43,14 @@ Sale of a completed apartment: gain over its allocated construction cost + levy.
 Purchase tax 6% on complementary rights and completion purchases. Rent: 10% maintenance/vacancy + 10% tax reserve.
 
 ## Cash-flow simulation and staged financing (`domain/cashflow.ts`)
+*Iteration 3:* the reserve is the largest **dated** prefix deficit (a later receipt never funds an earlier tax);
+unfunded obligations are reported with date and type and are **not loans** (no interest, no amortisation) — they
+remain a liability in wealth; the contingency is a liquidity reserve held from signing and released at completion
+(an adverse overrun consumes it); 80% of paid-in amounts count as pre-completion collateral; snapshots are taken at
+the end of the stated month (inclusive); later events extend the horizon instead of being clamped; the last
+payment is clamped to principal + interest. Developer purchases are conditional on approval: payment, levy and tax
+fall at approval.
+
 * Sources go to cash. Each month, **non-financeable** obligations (capital-gains tax, purchase tax, betterment
   levy, transaction costs) are paid first from cash. A shortfall there is an **unfunded obligation** — a strategy
   with any unfunded amount is infeasible (or “חסר מידע” if capital is unknown). Lenders do not finance taxes.
@@ -44,6 +63,14 @@ Purchase tax 6% on complementary rights and completion purchases. Rent: 10% main
   asset**; from completion, whole retained apartments. Sold rights are never collateral. LTV > 75% fails,
   > 50% is a financing condition.
 * Snapshots “at completion” are taken after the completion month’s transactions.
+
+## Apartment value tiers (S13) and balancing pool (S02P)
+Entitlements are measured in value (1 = a standard 100 m² apartment at ₪25,000/m²). S13 converts the fractional
+entitlement into one whole apartment of an illustrative size (80/90/110 m²): the owner pays the value gap (as a
+completion payment) or receives the excess (settlement factor). At 35% and 2.25 rights the gap to 80 m² is
+₪31,250 (vs ₪531,250 for 100 m²); at 40% a 90 m² apartment is covered. Rent, value and collateral scale with value.
+S02P pools fractions into a balancing unit sold at completion (net of 2% costs). Neither is confirmed inventory or a
+project term.
 
 ## Fractional entitlements
 Only whole apartments are rentable. An unresolved fractional share (e.g. 0.7875 from a 35% combination) earns no
@@ -76,7 +103,15 @@ Examples (35% / 17.5%):
 | 3 | none offered | full combination (1.05 → one whole apartment) if the household can fund the combination tax |
 | 1–2.86 | one apartment | depends on finances and goal: sale, combination (+completion), S11, or one apartment in services |
 
-## Developer economics (`domain/developer.ts`)
+## Developer economics (`domain/developer.ts`) — per candidate (iteration 3)
+Each candidate gets its own standalone P&L from the same ledger: apartments the developer sells (ex VAT),
+completion payments, services fees − building every unit (direct + 12% soft), VAT on barter services, land paid,
+revenue share, buy-backs, and every tax the ledger assigns to the developer (levy, grossed-up owner tax, its own
+purchase tax). S06 at full market completion is margin-neutral vs S02; S11 earns a services fee; S02C depends on
+the buy-back factor. Panel figures (residual land price, consistent cash price, max combination at 15%) are solved
+from these P&Ls. A negative margin is a **model warning**, not a statement about a real developer.
+
+## Developer economics — earlier description
 Revenue = apartment sales net of VAT. Developer costs: own direct cost ₪11,000/m², 12% soft costs, VAT on
 construction services delivered to the owner in a combination, the grossed-up owner tax in a net combination,
 the levy where the developer pays it, land plus
@@ -85,7 +120,15 @@ combination / land purchase / revenue share, **cash price consistent with the co
 price and maximum combination % at a 15% target margin. A negative developer margin marks the strategy’s
 commercial certainty as “מוטל בספק” — it never changes affordability or hides the strategy.
 
-## Comparable outcome
+## Comparable outcome (names clarified in iteration 3)
+* **שווי מימוש נטו** (`valueCreated`): pre-liquidation value at the common horizon — whole apartments at market
+  value (no exit tax on a kept home), cash, held land — minus debt, mortgage payments (future-valued), deferred
+  liabilities and unfunded obligations, minus the starting capital grown at 4%. It does not subtract today's land value.
+* **מול מכירה היום** (`gainVsSellingToday`): the same minus the value of selling today at the parcel reference (S01M).
+* Owner-occupied apartments: housing benefit net of a 10% maintenance reserve, no rental tax; rented (S08): also
+  the 10% rental-tax reserve.
+
+## Comparable outcome — earlier formula
 `Net wealth(10y) = cash + whole apartments (₪25,000/m², +2%/y) + fractional share × (1 − 20%) − debt − FV(mortgage payments)`.
 `Value created = Net wealth − starting capital × 1.04^10`.
 

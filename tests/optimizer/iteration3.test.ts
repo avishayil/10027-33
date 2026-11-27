@@ -214,3 +214,13 @@ describe('P1 apartment value tiers (illustrative sizes, not confirmed inventory)
     expect(excess.amount).toBeCloseTo(0.1 * 2_500_000 * Math.pow(1.02, 5) * 0.8, 2);
   });
 });
+
+describe('reverse solvers', () => {
+  it('bracket the first feasible interval of a non-monotone predicate', async () => {
+    const { solveMin, solveMax } = await import('../../src/optimizer/reverse');
+    const pred = (x: number) => (x >= 30 && x <= 40) || x >= 80; // disjoint feasible set
+    expect(solveMin(0, 100, pred)).toBeCloseTo(30, 3);
+    expect(solveMax(30, 100, pred)).toBeCloseTo(40, 3);
+    expect(solveMin(0, 100, () => false)).toBeNull();
+  });
+});

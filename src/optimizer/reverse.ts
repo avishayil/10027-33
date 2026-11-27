@@ -25,32 +25,51 @@ export function financiallyFeasible(candidate: Candidate, ctx: EngineContext, co
   return a.fails.length === 0;
 }
 
-/** Smallest x in [lo, hi] for which pred holds, assuming pred is monotone increasing in x. */
+const SCAN = 24;
+
+/**
+ * Smallest x in [lo, hi] for which pred holds. Scans a grid first (so a non-monotone or disjoint feasible set is
+ * bracketed at its FIRST feasible interval), then bisects inside that bracket.
+ */
 export function solveMin(lo: number, hi: number, pred: (x: number) => boolean): number | null {
   if (pred(lo)) return lo;
-  if (!pred(hi)) return null;
-  let a = lo;
-  let b = hi;
-  for (let i = 0; i < ITER; i += 1) {
-    const mid = (a + b) / 2;
-    if (pred(mid)) b = mid;
-    else a = mid;
+  let prev = lo;
+  for (let i = 1; i <= SCAN; i += 1) {
+    const x = lo + ((hi - lo) * i) / SCAN;
+    if (pred(x)) {
+      let a = prev;
+      let b = x;
+      for (let k = 0; k < ITER; k += 1) {
+        const mid = (a + b) / 2;
+        if (pred(mid)) b = mid;
+        else a = mid;
+      }
+      return b;
+    }
+    prev = x;
   }
-  return b;
+  return null;
 }
 
-/** Largest x in [lo, hi] for which pred holds, assuming pred is monotone decreasing in x. */
+/** Largest x in [lo, hi] for which pred holds, scanning down from the first feasible point at lo. */
 export function solveMax(lo: number, hi: number, pred: (x: number) => boolean): number | null {
   if (!pred(lo)) return null;
-  if (pred(hi)) return hi;
-  let a = lo;
-  let b = hi;
-  for (let i = 0; i < ITER; i += 1) {
-    const mid = (a + b) / 2;
-    if (pred(mid)) a = mid;
-    else b = mid;
+  let prev = lo;
+  for (let i = 1; i <= SCAN; i += 1) {
+    const x = lo + ((hi - lo) * i) / SCAN;
+    if (!pred(x)) {
+      let a = prev;
+      let b = x;
+      for (let k = 0; k < ITER; k += 1) {
+        const mid = (a + b) / 2;
+        if (pred(mid)) a = mid;
+        else b = mid;
+      }
+      return a;
+    }
+    prev = x;
   }
-  return a;
+  return hi;
 }
 
 const withDeveloperPrice = (config: ProjectConfig, price: number): ProjectConfig => ({

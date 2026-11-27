@@ -58,7 +58,7 @@
 
 ## Who pays the capital-gains tax in a combination (researched 2026-11-27)
 
-29. **Base case: a "net" combination (עסקת נטו).** By law the landowner owes the capital-gains tax on the share sold
+29. ~~Base case: a "net" combination~~ — superseded by #30 (iteration 3). By law the landowner owes the capital-gains tax on the share sold
     (and the levy, and VAT on the services), assessed around signing. In practice many combination deals are
     "net": the developer undertakes in the contract to pay the owner’s capital-gains tax — grossed up, since the
     payment is itself consideration — and often the levy too; some deals split them. The engine therefore:
@@ -74,3 +74,26 @@
       ₪235,276 mortgage at completion.
     Effect on the owner’s examples: 3 rights → full combination for every household tested; 4 rights → full
     combination or combination + paid completion; 1–2.86 rights → depends on finances and goal.
+
+## Iteration 3 (review of 1a0d80e)
+
+30. **No global tax-arrangement default.** Gross, mixed and net are evaluated for every household; the headline uses
+    *mixed* (developer pays the levy — reported as common), and the result states the decision under each
+    arrangement plus a fallback. Rationale: no reliable evidence that net deals dominate.
+31. **Contractor profit is part of the taxable services value** (instruction 23/98; entrepreneurial profit excluded
+    per EA 6672/19). Separate parameter from the markup slider and from project profitability.
+32. **Pre-approval combination taxed at approval** (§19(3א), position 06/26) — modelled as a condition; the signing
+    date remains available as a configuration and in the legacy fixtures.
+33. **Developer purchases are conditional on approval**; payment/levy/tax at approval (removes the month-6 vs
+    month-24 contradiction).
+34. **Unfunded ≠ debt.** Taxes the household cannot pay are reported as unfunded, never turned into a loan.
+35. **Contingency = liquidity reserve**, released at completion; consumed only by an actual overrun.
+36. **Per-candidate developer P&L** replaces the per-family margin; commercial risk (ordinal 1 / 0.6 / 0.2 / 0) is a
+    10% ranking dimension; a questionable winner always comes with a fallback.
+37. **Policy reference rate**: service-slot eligibility uses the project reference combination (35%), not the slider;
+    out-of-policy routes are "negotiable" (listed, not ranked) unless the policy is confirmed; integer capacity.
+38. **Apartment value tiers and balancing pool** are illustrative scenarios, not inventory or project terms.
+39. **Local saving is opt-in, unchecked by default** (review requirement), with migration of older saves.
+40. **Verdict changes** (see VALIDATION-REPORT §4–5): the representative household moves from
+    "combination + paid completion" to "wait for approval and sell" under the mixed headline, and to
+    "combination + compact 80 m² apartment, no mortgage" if a net deal is obtained.
