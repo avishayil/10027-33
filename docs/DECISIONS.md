@@ -170,3 +170,9 @@
     an unverified price but affordable (with the price it needs) → short of capital (smallest gap; `capitalGaps`
     gives the gap for every evidence-based route type) → depends on a price and unaffordable → does not fit. With the
     "whole apartment" goal, non-fitting routes that leave no apartment come after those that would.
+58. **The summary speaks in risk levels and plain explanations.** Each card shows affordability and one risk level —
+    סיכון נמוך / בינוני / גבוה — from: mortgage needed (+1), fails the conservative scenario (+2), developer terms in
+    doubt (+1); 0 low, 1–2 medium, 3+ high, with the reasons listed. An unknown price is stated in the card's note,
+    not scored. The description is two or three lines with the owner's own numbers (rights sold, apartments from
+    combination, what is paid for), plus one line on what the out-of-pocket money pays for. Developer-policy notes
+    say why in one sentence. In the advanced view the resilience chip reads "עומד / נכשל בתרחיש שמרני".
