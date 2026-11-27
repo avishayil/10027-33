@@ -626,6 +626,8 @@ export interface DecisionResult {
   conditionalRecommendation: { result: StrategyResult; arrangement: TaxArrangement } | null;
   /** When no evidence-based route fits: the closest ones and the extra capital each would need. */
   nearMiss: { result: StrategyResult; additionalCapital: number | null }[];
+  /** Extra own capital per evidence-based route type that does not fit (one per strategy type). */
+  capitalGaps: { result: StrategyResult; additionalCapital: number | null }[];
   /** Optional illustrative long-term projection for the recommendation, itemised so every shekel is explained. */
   projection: Projection | null;
 }

@@ -162,3 +162,11 @@
     has another whole apartment) is taxed at the additional-home rate (~8%) even when the household answered that
     the apartment will be its only home. Found while comparing two-apartment routes at 334 m²: with the sole-home
     answer the second apartment had been charged 0%.
+57. **The summary shows one deal of each kind, without assumed apartment sizes.** Up to four priorities, at most one
+    per family: combination (S02/S02C/S02P/S06), revenue share — עסקת תמורות (S04), cash (S01/S09/S01M) and
+    construction services (S03/S05/S07/S08/S10/S11). Hybrids count once, in the family of their distinctive part
+    (S06 → combination; S05/S11 → services). S13 (a whole apartment of a requested size) never appears in the
+    summary; it stays in the advanced view. Per family the best option is chosen by: fits (rank order) → depends on
+    an unverified price but affordable (with the price it needs) → short of capital (smallest gap; `capitalGaps`
+    gives the gap for every evidence-based route type) → depends on a price and unaffordable → does not fit. With the
+    "whole apartment" goal, non-fitting routes that leave no apartment come after those that would.

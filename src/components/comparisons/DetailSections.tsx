@@ -568,7 +568,7 @@ function titleFor(result: DecisionResult, id?: string): string {
   return r ? strategyTitle(r) : '';
 }
 
-const KNOB_LABELS: Record<PriceKnob, string> = {
+export const KNOB_LABELS: Record<PriceKnob, string> = {
   developer_price: 'מחיר שהיזם ישלם על הזכויות',
   post_approval_price: 'מחיר קרקע בשוק אחרי אישור התכנית',
   immediate_price: 'מחיר מכירה בשוק היום',
@@ -576,7 +576,7 @@ const KNOB_LABELS: Record<PriceKnob, string> = {
   buyback_factor: 'פיצוי על חלק הדירה (ביחס לשווי שוק)',
 };
 
-function formatKnob(knob: PriceKnob, x: number | null): string {
+export function formatKnob(knob: PriceKnob, x: number | null): string {
   if (x === null) return 'לא נמצא בטווח סביר';
   if (knob === 'revenue_share' || knob === 'buyback_factor') return `${formatNumber(x * 100, 0)}%`;
   return `${formatCurrency(x)} למ״ר קרקע`;

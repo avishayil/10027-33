@@ -1,17 +1,14 @@
 /**
- * The default (simple) result: three ranked routes — first, second and third priority — with only the numbers a
- * household needs to decide whether to look further. Everything else lives in advanced mode.
+ * The default (simple) result: one route per deal family — combination, revenue share, cash, construction
+ * services — ranked, with only the numbers a household needs to decide whether to look further. No route here
+ * assumes a requested apartment size. Everything else lives in advanced mode.
  */
-import type { DecisionResult, StrategyResult, TaxArrangement } from '../../domain/types';
+import type { DecisionResult, Goal, TaxArrangement } from '../../domain/types';
+import { FAMILY_LABELS, priorityRoutes, type PriorityRoute } from '../../optimizer/families';
 import { formatRights, STRATEGY_DESCRIPTIONS, strategyTitle } from '../../optimizer/explain';
 import { formatCompactCurrency, formatCurrency } from '../../utils/format';
+import { formatKnob, KNOB_LABELS } from '../comparisons/DetailSections';
 import { AssessmentChips } from './Verdict';
-
-interface Priority {
-  r: StrategyResult;
-  /** A short line shown under the title when the route depends on something (a contract term, more capital). */
-  note?: string;
-}
 
 const CONDITION_FOR: Record<TaxArrangement, string> = {
   gross: '',
@@ -19,52 +16,47 @@ const CONDITION_FOR: Record<TaxArrangement, string> = {
   net: 'בתנאי שהיזם נושא במס השבח ובהיטל ההשבחה (עסקת נטו)',
 };
 
-/** Recommendation first, then the engine's alternatives, fallback and near-misses — distinct routes, at most 3. */
-export function topPriorities(result: DecisionResult): Priority[] {
-  const out: Priority[] = [];
-  const seen = new Set<string>();
-  const add = (r: StrategyResult | null | undefined, note?: string) => {
-    if (!r || seen.has(r.strategyType) || out.length >= 3) return;
-    seen.add(r.strategyType);
-    out.push({ r, note });
-  };
-  if (result.recommendation) add(result.recommendation);
-  else if (result.conditionalRecommendation) {
-    const c = result.conditionalRecommendation;
-    add(c.result, CONDITION_FOR[c.arrangement] || undefined);
-  }
-  for (const r of result.alternatives) add(r);
-  add(result.fallback, 'אם התנאים של העדיפות הראשונה לא יתקיימו');
-  for (const n of result.nearMiss)
-    add(
-      n.result,
-      n.additionalCapital === null
+const RANK_LABELS = ['עדיפות ראשונה', 'עדיפות שנייה', 'עדיפות שלישית', 'עדיפות רביעית'];
+
+function noteFor(p: PriorityRoute): string | null {
+  switch (p.kind) {
+    case 'fits':
+      return p.condition ? CONDITION_FOR[p.condition] || null : null;
+    case 'price': {
+      const t = p.threshold;
+      if (t.required !== null && t.required <= 0) return t.against ? 'משתלם בכל מחיר סביר' : 'תלוי במחיר שעוד לא ידוע';
+      return `תלוי במחיר שעוד לא ידוע — משתלם רק אם ${KNOB_LABELS[t.knob]} יהיה לפחות ${formatKnob(t.knob, t.required)}`;
+    }
+    case 'short':
+      return p.additionalCapital === null
         ? 'לא מתאים ליכולת שהזנתם'
-        : `חסרים כ-${formatCurrency(Math.ceil(n.additionalCapital / 1000) * 1000)} הון עצמי`,
-    );
-  for (const r of result.ranked) add(r);
-  return out;
+        : `חסרים כ-${formatCurrency(Math.ceil(p.additionalCapital / 1000) * 1000)} הון עצמי`;
+    case 'none':
+      return p.r.assessment.commercial === 'negotiable' ? 'היזם צפוי לא להציע את זה — רק במשא ומתן' : 'לא מתאים ליכולת שהזנתם';
+  }
 }
 
-const RANK_LABELS = ['עדיפות ראשונה', 'עדיפות שנייה', 'עדיפות שלישית'];
-
-export function TopPriorities({ result }: { result: DecisionResult }) {
-  const items = topPriorities(result);
+export function TopPriorities({ result, goal }: { result: DecisionResult; goal: Goal }) {
+  const items = priorityRoutes(result, goal);
   const R = result.rights.apartmentEquivalents;
   return (
     <section className="priorities" aria-live="polite" aria-labelledby="priorities-title">
       <h2 id="priorities-title" className="section-title">
-        המסלולים המתאימים לכם · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
+        סוגי העסקאות לפי סדר התאמה · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
       </h2>
       {items.length === 0 && (
         <p className="card">אין מסלול שאפשר לחשב עם הנתונים שהזנתם. נסו לשנות את התשובות, או פתחו את התצוגה המתקדמת.</p>
       )}
       <ol className="priority-list">
-        {items.map(({ r, note }, i) => {
+        {items.map((p, i) => {
+          const r = p.r;
           const debt = r.mortgageRequired > 1;
+          const note = noteFor(p);
           return (
-            <li key={r.id} className={`card priority-card ${i === 0 ? 'priority-first' : ''}`}>
-              <p className="priority-rank">{RANK_LABELS[i]}</p>
+            <li key={p.family} className={`card priority-card ${i === 0 && p.kind === 'fits' ? 'priority-first' : ''}`}>
+              <p className="priority-rank">
+                {RANK_LABELS[i]} · {FAMILY_LABELS[p.family]}
+              </p>
               <h3>{strategyTitle(r)}</h3>
               {note && <p className="priority-note">{note}</p>}
               <p className="priority-desc">{STRATEGY_DESCRIPTIONS[r.strategyType]}</p>
@@ -91,7 +83,8 @@ export function TopPriorities({ result }: { result: DecisionResult }) {
         })}
       </ol>
       <p className="verdict-note">
-        כיוון לבדיקה, לא אישור. המספרים הם אומדן — הפירוט המלא, המסים והתנאים בתצוגה המתקדמת.
+        עסקה אחת מכל סוג, בלי הנחה על גודל דירה מבוקש. כיוון לבדיקה, לא אישור — הפירוט המלא, המסים והתנאים בתצוגה
+        המתקדמת.
       </p>
     </section>
   );
