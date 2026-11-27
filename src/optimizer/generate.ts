@@ -46,15 +46,15 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, con
     }
   }
 
-  // Apartment mixes (iteration 7): the whole entitlement as several apartments of the available types, within one
-  // standard apartment of its value. Mixes that are one standard apartment(s) + one other type duplicate S13 above;
-  // all-standard mixes are S02/S06.
+  // Apartment mixes (iterations 7–8): the whole entitlement as apartments of the available types — from one apartment
+  // fewer to one more than the entitlement, within one standard apartment of its value (the gap paid or received).
+  // Exact duplicates of S02 / S06 and of the single-tier S13 routes are skipped; the closest six per count are kept.
   if (finished >= 1 - EPS) {
     const types = config.market.apartmentTypes.map((t) => t.rooms).sort((a, b) => a - b);
     const value = (rooms: number[]) => rooms.reduce((s, r) => s + (config.market.apartmentTypes.find((t) => t.rooms === r)?.relativeValue ?? 0), 0);
-    const counts = new Set([Math.max(1, whole), whole + 1]);
-    for (const n of counts) {
-      if (n < 2 || n > MAX_APARTMENTS) continue;
+    const hasFraction = fraction > 0.01;
+    const used = new Set(out.map((c) => c.id));
+    for (let n = Math.max(1, whole - 1); n <= Math.min(MAX_APARTMENTS, whole + 1); n += 1) {
       const mixes: number[][] = [];
       const build = (start: number, acc: number[]) => {
         if (acc.length === n) {
@@ -64,11 +64,21 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, con
         for (let i = start; i < types.length; i += 1) build(i, [...acc, types[i]]);
       };
       build(0, []);
-      for (const mix of mixes) {
-        const nonStandard = mix.filter((r) => r !== 4).length;
-        if (nonStandard <= 1) continue; // all standard (S02/S06) or one other type (S13 single tier)
-        if (Math.abs(value(mix) - finished) > 1 + EPS) continue;
-        add(`S13-${mix.map((r) => `${r}r`).join('+')}`, 'S13', [{ kind: 'combination', rights: R }, { kind: 'apartment_mix', rooms: mix }], n);
+      const kept = mixes
+        .filter((mix) => {
+          const standard = mix.filter((r) => r === 4).length;
+          const allStandard = standard === n;
+          if (allStandard && (n === whole || (hasFraction && n === whole + 1))) return false; // S02 / S06
+          if (hasFraction && n === whole + 1 && standard === whole) return false; // single-tier S13
+          return Math.abs(value(mix) - finished) <= 1 + EPS;
+        })
+        .sort((a, b) => Math.abs(value(a) - finished) - Math.abs(value(b) - finished))
+        .slice(0, 6);
+      for (const mix of kept) {
+        let id = `S13-${mix.map((r) => `${r}r`).join('+')}`;
+        if (used.has(id)) id = `${id}-mix`;
+        used.add(id);
+        add(id, 'S13', [{ kind: 'combination', rights: R }, { kind: 'apartment_mix', rooms: mix }], n);
       }
     }
   }
@@ -106,6 +116,12 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, con
     ], next);
   }
 
+  // Renting out the apartments received in a combination (S14): the same route with rent counting toward repayment.
+  for (const c of [...out]) {
+    const combinationRoute = c.legs.some((l) => l.kind === 'combination') && !c.legs.some((l) => l.kind === 'build' || l.kind === 'sell_rights');
+    const keepsWhole = c.targetApartments >= 1 && (c.type === 'S06' || c.type === 'S13' || (c.type === 'S02' && whole >= 1));
+    if (combinationRoute && keepsWhole) add(`${c.id}-rent`, 'S14', [...c.legs, { kind: 'rent_for_repayment' }], c.targetApartments);
+  }
   return out;
 }
 

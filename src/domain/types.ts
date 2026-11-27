@@ -317,7 +317,8 @@ export type StrategyType =
   | 'S09' // wait and reassess after approval
   | 'S10' // buy complementary rights and build
   | 'S11' // mixed: combination on part of the rights + construction services on the rest
-  | 'S13'; // combination + a whole apartment of a different size (value-based allocation)
+  | 'S13' // combination + a whole apartment of a different size (value-based allocation)
+  | 'S14'; // a combination route with whole apartments, renting them out (rent supports repayment)
 
 export type Leg =
   | { kind: 'sell_rights'; rights: number; market: 'developer' | 'open_market' | 'post_approval' }

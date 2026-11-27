@@ -32,6 +32,8 @@ export const FAMILY_OF: Partial<Record<StrategyType, DealFamily>> = {
   // A whole smaller (or larger) apartment: combination + a completion payment. Shown as an option to negotiate —
   // it depends on the project's inventory and allocation (iteration 6, review §10).
   S13: 'combination_paid',
+  // Renting out the apartments of a combination route: a payment method for the same apartments when it has one.
+  S14: 'combination_paid',
 };
 
 export const FAMILY_LABELS: Record<DealFamily, string> = {
@@ -51,6 +53,7 @@ export const PAYMENT_METHOD: Partial<Record<StrategyType, string>> = {
   S08: 'שירותי בנייה והשכרה',
   S10: 'קניית זכויות ושירותי בנייה',
   S13: 'השלמה לדירה בגודל אחר (תלוי במלאי)',
+  S14: 'עם השכרת הדירות (השכירות עוזרת בהחזר)',
 };
 
 /** The terms a conditional direction depends on (funding to obtain, or other tax terms at their %). */
@@ -133,7 +136,8 @@ export function priorityRoutes(result: DecisionResult, goal: Goal = 'balanced'):
       if (p.family !== 'combination_paid') return { ...p, variants: [] };
       const seen = new Set<StrategyType>([p.r.strategyType]);
       const variants = [...byRoute.values()]
-        .filter((o) => o.p.family === p.family && o.p.r.metrics.wholeApartments === p.r.metrics.wholeApartments)
+        // Renting the apartments out (S14) is a use of them, not another way to pay for them.
+        .filter((o) => o.p.family === p.family && o.p.r.strategyType !== 'S14' && o.p.r.metrics.wholeApartments === p.r.metrics.wholeApartments)
         .sort((a, b) => better(a.key, b.key))
         .filter((o) => (seen.has(o.p.r.strategyType) ? false : (seen.add(o.p.r.strategyType), true)))
         .slice(0, 2)

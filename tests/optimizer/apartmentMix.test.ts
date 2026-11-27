@@ -50,3 +50,32 @@ describe('apartment mixes', () => {
     expect(r.plan.apartmentRooms).toEqual([3, 3]);
   });
 });
+
+describe('bounded mix search (iteration 8, review §7)', () => {
+  // Exactly two standard-apartment equivalents at 35%: R = 2 / 0.35.
+  const area = ((2 / 0.35) / 2.25) * 167;
+  const info = calculateRights(area, C);
+  const ids = generateStrategies(info, TERMS, C).map((c) => c.id);
+  it('an exact integer entitlement still considers smaller and larger mixes', () => {
+    expect(ids).toContain('S13-3r+4r'); // receive the excess
+    expect(ids).toContain('S13-4r+5r'); // pay the gap
+    expect(ids).toContain('S13-3r+3r');
+  });
+  it('fewer apartments with a balancing amount are considered; exact duplicates of S02 / S06 are not', () => {
+    expect(ids).toContain('S13-5r');
+    expect(ids).not.toContain('S13-4r+4r'); // = S02 exactly
+  });
+});
+
+describe('renting the apartments received in a combination (S14, review §7)', () => {
+  const d = analyzeProfile({ ...MODERATE, landAreaSqm: 334, availableCapital: 1_500_000, maxMonthlyRepayment: 15000 }, TERMS, C);
+  it('rental variants of whole-apartment combination routes exist; rent supports repayment, not value', () => {
+    const base = d.results.find((x) => x.id === 'S13-3r+3r')!;
+    const rent = d.results.find((x) => x.id === 'S13-3r+3r-rent')!;
+    expect(rent.strategyType).toBe('S14');
+    expect(rent.simulation.monthlyNetRent).toBeGreaterThan(0);
+    expect(base.simulation.monthlyNetRent).toBe(0);
+    expect(rent.comparisonValue).toBeCloseTo(base.comparisonValue, 0);
+    expect(rent.plan.wholeApartmentsRetained).toBe(2);
+  });
+});

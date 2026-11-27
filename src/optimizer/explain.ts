@@ -40,6 +40,7 @@ export function strategyTitle(r: StrategyResult): string {
   const built = r.plan.apartmentsBuilt;
   const titles: Record<StrategyType, string> = {
     S01: 'מכירת כל הזכויות ליזם',
+    S14: 'קומבינציה והשכרה',
     S01M: 'מכירה מיידית בשוק הפתוח',
     S02: 'קומבינציה מלאה',
     S02C: 'קומבינציה מלאה ופיצוי כספי על חלק הדירה',
@@ -57,10 +58,24 @@ export function strategyTitle(r: StrategyResult): string {
     S09: 'להמתין לאישור התכנית ולמכור בשוק',
     S10: `רכישת זכויות משלימות ובניית ${built} דירות`,
   };
+  if (r.strategyType === 'S14') {
+    // The underlying combination route, then renting the apartments out.
+    const legs = r.candidate.legs;
+    const n = r.plan.wholeApartmentsRetained;
+    const base = legs.some((l) => l.kind === 'apartment_mix')
+      ? `קומבינציה ו-${n} דירות שלמות (${r.plan.apartmentRooms.map((x) => `${x} חד׳`).join(' + ')})`
+      : legs.some((l) => l.kind === 'tier_apartment')
+        ? `קומבינציה ודירת ${r.plan.apartmentRooms[r.plan.apartmentRooms.length - 1] ?? ''} חדרים שלמה`
+        : legs.some((l) => l.kind === 'completion')
+          ? `קומבינציה והשלמה בתשלום ${n === 1 ? 'לדירה שלמה' : `ל-${n} דירות שלמות`}`
+          : 'קומבינציה מלאה';
+    return `${base}, והשכרת ${n === 1 ? 'הדירה' : 'הדירות'}`;
+  }
   return titles[r.strategyType];
 }
 
 export const STRATEGY_DESCRIPTIONS: Record<StrategyType, string> = {
+  S14: 'מסלול קומבינציה שמסתיים בדירות שלמות — והשכרתן. שכר הדירה (אחרי רזרבה להוצאות ולמס) עוזר בהחזר המשכנתא; את שווי הדירות זה לא משנה.',
   S01: 'מוכרים את כל הזכויות ליזם ומקבלים כסף. פשוט, בלי משכנתא — אבל בלי דירה.',
   S01M: 'מכירה היום לקונה פרטי. המחיר מבוסס על עסקאות עבר בחלקה לפני העדכון — דרושה שומה עדכנית.',
   S02: 'היזם מקבל את רוב הזכויות, בונה, ומוסר לכם חלק מהדירות. החלק שאינו דירה שלמה נשאר בעלות משותפת — בלי שכירות ובשווי מופחת.',
