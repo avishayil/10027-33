@@ -1,6 +1,5 @@
 import { Tooltip } from '../Tooltip';
 import { TOOLTIPS } from '../../content/tooltips';
-import { OFFERS_LOTS_NOTE } from '../../content/sourcesAndDisclaimer';
 import { formatArea, formatCurrency, formatNumber } from '../../utils/format';
 
 function Row({ label, value, tone, tip, className }) {
@@ -31,14 +30,9 @@ function TrackCard({ title, tip, sub, children, notes }) {
   );
 }
 
-export function TrackCards({ tracks, config, landArea, versionId }) {
+export function TrackCards({ tracks, config, landArea }) {
   const { combination, costPlus, revenueSharing, cashExit, units, marketValuePerApartment } = tracks;
   const soldPct = Math.round(combination.soldPortion * 100);
-  const offersNote = versionId === 'v2' && (
-    <p className="warn-hint">
-      <strong>שימו לב:</strong> {OFFERS_LOTS_NOTE}
-    </p>
-  );
 
   return (
     <div className="tracks-grid">
@@ -48,7 +42,6 @@ export function TrackCards({ tracks, config, landArea, versionId }) {
         sub={`${config.combinationPct}% מ-${formatNumber(units, 2)} יח״ד כדירות מוגמרות · דירה ${formatCurrency(marketValuePerApartment)}`}
         notes={
           <>
-            {offersNote}
             {combination.hasMushaProblem && (
               <p className="warn-hint">
                 <strong>מושע:</strong>{' '}
@@ -119,7 +112,6 @@ export function TrackCards({ tracks, config, landArea, versionId }) {
         title={`תמורות (${config.revenueSharePct}%)`}
         tip={TOOLTIPS.revenueSharing}
         sub={`${config.revenueSharePct}% מהכנסות ${formatNumber(units, 2)} יח״ד · ללא הון עצמי`}
-        notes={offersNote}
       >
         <Row label="יח״ד על הזכויות שלכם" value={formatNumber(revenueSharing.finishedUnits, 2)} />
         <Row label="שווי מכירה כולל" value={formatCurrency(revenueSharing.totalMarketValue)} />

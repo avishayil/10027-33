@@ -97,3 +97,9 @@
 40. **Verdict changes** (see VALIDATION-REPORT §4–5): the representative household moves from
     "combination + paid completion" to "wait for approval and sell" under the mixed headline, and to
     "combination + compact 80 m² apartment, no mortgage" if a net deal is obtained.
+
+## Tables version
+
+41. **Only the updated 106(b) tables (23/11/2026) are used.** The deposited version (lot 44) was removed from the data,
+    the advanced calculator and all texts. Areas in m² (167, 334 …) are only a familiar way to describe a share of the
+    original parcel; every calculation and consideration follows the updated tables (lots 149/150/153).

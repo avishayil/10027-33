@@ -116,8 +116,9 @@ export function LandFields({ engine }: { engine: DecisionEngine }) {
         </p>
       )}
       <p className="field-hint">
-        כל {PROJECT_CONFIG.rights.originalAreaSqm} מ״ר ≈ {PROJECT_CONFIG.rights.apartmentEquivalents} זכויות לדירה. זו הנחת
-        הסימולציה — הטבלה הרשמית מראה מעט יותר.
+        השטח במ״ר הוא החלק שלכם בחלקה המקורית — רק דרך נוחה לתאר אותו. כל החישובים לפי הטבלאות המעודכנות
+        (106(ב)): כל {PROJECT_CONFIG.rights.originalAreaSqm} מ״ר ≈ {PROJECT_CONFIG.rights.apartmentEquivalents} זכויות לדירה
+        (הנחת הסימולציה; הטבלה מראה כ-2.4 יח״ד).
       </p>
       <div className="field">
         <label htmlFor={ids.lot}>המגרש שהוקצה לכם (לא חובה)</label>

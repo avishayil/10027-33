@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { PARCEL, VERSIONS, VERSION_IDS, DEFAULT_VERSION, BASE_SHARE_AREA, getLot } from './parcel33';
 
 describe('parcel33 data', () => {
-  it('has both versions with v2 as default', () => {
-    expect(VERSION_IDS).toEqual(['v2', 'v1']);
+  it('uses only the updated 106(b) tables', () => {
+    expect(VERSION_IDS).toEqual(['v2']);
     expect(DEFAULT_VERSION).toBe('v2');
+    expect(Object.keys(VERSIONS)).toEqual(['v2']);
   });
 
   it('v2 lots 149/150/153 together absorb the whole parcel (±0.1%)', () => {
@@ -17,8 +18,8 @@ describe('parcel33 data', () => {
     expect(VERSIONS.v2.lots.reduce((s, l) => s + l.value, 0)).toBe(90930000);
   });
 
-  it('getLot falls back to the first lot of the version', () => {
-    expect(getLot('v1', '149').id).toBe('44');
+  it('getLot falls back to the first lot', () => {
+    expect(getLot('v2', '999').id).toBe('149');
     expect(getLot('v2', '153').id).toBe('153');
   });
 });

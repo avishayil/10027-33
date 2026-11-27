@@ -47,7 +47,7 @@ export const COMMERCIAL = {
     sourceType: 'developer_offer',
     retrievedAt: RETRIEVED_AT,
     verification: 'assumed',
-    notes: 'הנחה לא מאומתת מהצעה קודמת (לפני עדכון 106(ב)).',
+    notes: 'הנחה לא מאומתת — אינה הצעה קיימת.',
   },
   developerPaymentYear: {
     value: 2,

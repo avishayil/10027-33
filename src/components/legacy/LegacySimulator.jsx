@@ -1,35 +1,23 @@
 import { AdvancedSettings } from './AdvancedSettings';
 import { Guide } from './Guide';
 import { LandInput } from './LandInput';
-import { SegmentedToggle } from '../SegmentedToggle';
 import { TableRights } from './TableRights';
 import { TrackCards } from './TrackCards';
 import { TracksCompare } from './TracksCompare';
-import { VersionCompare } from './VersionCompare';
-import { MAVAT_URL, PARCEL, VERSIONS, VERSION_IDS, getVersion } from '../../data/parcel33';
+import { MAVAT_URL, PARCEL, getVersion } from '../../data/parcel33';
 import { useSimulation } from '../../hooks/useSimulation';
 
-/** איפה מוצאים את חלקה 33 בכל גרסה — הצעד הראשון בהוראות. */
-function findYourselfStep(versionId) {
-  const link = (
-    <a href={MAVAT_URL} target="_blank" rel="noreferrer">
-      פתחו את אתר התכנית הרשמי (מבא״ת)
-    </a>
-  );
-  if (versionId === 'v1') {
-    return (
-      <li>
-        מצאו את עצמכם בטבלאות: {link} ונווטו אל <strong>מסמכים מופקדים</strong> ←{' '}
-        <strong>טבלאות איזון והקצאה</strong>. בעמודים 69–70 מופיעים בעלי גוש {PARCEL.gush} חלקה{' '}
-        {PARCEL.parcel}, יחד עם השבר של כל אחד בחלקה.
-      </li>
-    );
-  }
+/** איפה מוצאים את חלקה 33 בטבלאות המעודכנות — הצעד הראשון בהוראות. */
+function findYourselfStep() {
   return (
     <li>
-      מצאו את עצמכם בטבלאות: {link} ופתחו את <strong>טבלאות האיזון וההקצאה המעודכנות</strong> (עדכון
-      לפי סעיף 106(ב), נובמבר 2026 — קובץ של 12 עמודים). בעמודים 2–4 מופיעים בעלי חלקה {PARCEL.parcel}:
-      השבר בחלקה, ובאיזה מגרש (149, 150 או 153) הוקצו לכם הזכויות.
+      מצאו את עצמכם בטבלאות:{' '}
+      <a href={MAVAT_URL} target="_blank" rel="noreferrer">
+        פתחו את אתר התכנית הרשמי (מבא״ת)
+      </a>{' '}
+      ופתחו את <strong>טבלאות האיזון וההקצאה המעודכנות</strong> (עדכון לפי סעיף 106(ב), נובמבר 2026 — קובץ של 12
+      עמודים). בעמודים 2–4 מופיעים בעלי חלקה {PARCEL.parcel}: השבר בחלקה, ובאיזה מגרש (149, 150 או 153) הוקצו לכם
+      הזכויות.
     </li>
   );
 }
@@ -50,7 +38,7 @@ export default function LegacySimulator() {
         <div className="card instructions">
           <h2>איך זה עובד? 🙂</h2>
           <ol>
-            {findYourselfStep(sim.versionId)}
+            {findYourselfStep()}
             <li>
               הזינו את השטח שלכם בחלקה במ״ר, או בחרו <strong>״לפי שבר בחלקה״</strong> והקלידו את השבר
               כפי שמופיע בטבלה (למשל 167/21258).
@@ -61,21 +49,10 @@ export default function LegacySimulator() {
               ב<strong>הגדרות המתקדמות</strong>.
             </li>
             <li>
-              יש שתי גרסאות של הטבלאות: <strong>המופקדת</strong> (יוני 2026) ו
-              <strong>העדכון לפי סעיף 106(ב)</strong> (נובמבר 2026). בעדכון בעלי חלקה 33 עברו ממגרש 44
-              למגרשים 149, 150 ו-153 — ההשוואה מופיעה בסוף.
+              כל החישובים לפי הטבלאות המעודכנות (עדכון לפי סעיף 106(ב), נובמבר 2026). השטח במ״ר (למשל 167 מ״ר) הוא
+              רק דרך נוחה לתאר את החלק שלכם בחלקה המקורית.
             </li>
           </ol>
-        </div>
-
-        <div className="card version-card">
-          <p className="version-title">גרסת הטבלאות</p>
-          <SegmentedToggle
-            options={VERSION_IDS.map((v) => ({ value: v, label: VERSIONS[v].label }))}
-            value={sim.versionId}
-            onChange={sim.setVersionId}
-            label="גרסת הטבלאות"
-          />
         </div>
 
         <LandInput
@@ -88,7 +65,7 @@ export default function LegacySimulator() {
 
         <TableRights rights={sim.rights} version={version} tracks={sim.tracks} />
 
-        <TrackCards tracks={sim.tracks} config={sim.config} landArea={sim.landArea} versionId={sim.versionId} />
+        <TrackCards tracks={sim.tracks} config={sim.config} landArea={sim.landArea} />
 
         <TracksCompare tracks={sim.tracks} />
 
@@ -98,13 +75,6 @@ export default function LegacySimulator() {
           resetToDefaults={sim.resetToDefaults}
           marketValuePerApartment={sim.tracks.marketValuePerApartment}
           tableSqmPerUnit={sim.rights.sqmPerUnit}
-        />
-
-        <VersionCompare
-          landArea={sim.landArea}
-          versionId={sim.versionId}
-          lotId={sim.lotId}
-          config={sim.config}
         />
 
         <Guide version={version} lotId={sim.lotId} config={sim.config} />

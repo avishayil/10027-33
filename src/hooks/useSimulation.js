@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG = {
   requiredEquityPct: 25,
 
   marketValueSqm: 25000,
-  /** מחיר קרקע ברוטו למ״ר בחלקה — בסיס למסלול מזומן (760,000 ₪ ÷ 110 מ״ר, מעוגל). */
+  /** מחיר קרקע ברוטו למ״ר בחלקה — בסיס למסלול מזומן. תרחיש לא מאומת, לא הצעה קיימת. */
   landValuePerSqm: 6900,
   entrepreneurProfitMargin: 18,
 

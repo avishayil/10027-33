@@ -30,7 +30,7 @@ export function parseParcelFraction(input) {
 /**
  * הזכויות של בעל קרקע לפי טבלת האיזון וההקצאה, לגרסה ולמגרש שנבחרו.
  * @param {number} landArea שטח בחלקה (מ״ר)
- * @param {'v1'|'v2'} versionId
+ * @param {'v2'} versionId — רק הטבלאות המעודכנות (106(ב))
  * @param {string} lotId
  * @param {number} bettermentLevyPct שיעור היטל ההשבחה מעליית השווי (ברירת מחדל 50%)
  */

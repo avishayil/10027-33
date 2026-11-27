@@ -79,7 +79,7 @@ export const STRATEGY_DESCRIPTIONS: Record<StrategyType, string> = {
 export const CONDITION_TEXT: Record<ConditionCode, string> = {
   DEVELOPER_PRICE_UNVERIFIED: 'מחיר שהיזם ישלם על הזכויות — ההנחה (₪6,900 למ״ר) אינה הצעה מאומתת.',
   PARTIAL_RIGHTS_PURCHASE: 'שהיזם מוכן לקנות רק חלק מהזכויות שלכם.',
-  REVENUE_SHARE_UNVERIFIED: 'אחוז התמורות (45%) — הנחה מהצעה קודמת, לא מאומתת.',
+  REVENUE_SHARE_UNVERIFIED: 'אחוז התמורות (45%) — הנחה לא מאומתת, לא הצעה קיימת.',
   COMPLETION_PRICE: 'המחיר שהיזם יגבה על השלמת החלק החסר לדירה שלמה.',
   COMPLEMENTARY_SELLER: 'שיש מוכר לזכויות המשלימות, ובאיזה מחיר.',
   LENDER_CONFIRMATION: 'שבנק יממן — כולל הכרה בזכויות בקרקע כבטוחה. מימון בנייה אינו זמין בהכרח לפני אישור התכנית.',
