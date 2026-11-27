@@ -47,3 +47,13 @@
     שנוצר”) renamed to “רווח כלכלי משוער” with an explanation; follow-up questions link to the relevant step;
     comparison table becomes stacked cards on phones; 44 px touch targets, visible focus, skip link, focus moved to
     each wizard step heading, labelled inputs and `aria-invalid` / `role="alert"` errors.
+
+## Developer policy for construction services
+
+27. **Lot-level policy** (owner’s domain input): ~100 units per lot; the developer releases 20–30% for construction
+    services, one apartment per owner, none for owners whose full combination already gives a whole apartment
+    (≈ 3 rights). Out-of-policy strategies are shown as “לא צפוי שיוצע” and excluded from ranking. All three
+    parameters are configurable planning assumptions (`developerPolicy`).
+28. **Open point:** with the conservative assumption that the owner pays the combination capital-gains reserve in
+    cash at signing (≈ ₪341K for 3 rights), a 3-rights household with less cash than that is steered to a sale.
+    If developers in this project typically bear that tax, it should become a developer-paid term.

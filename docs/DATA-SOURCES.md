@@ -21,6 +21,7 @@ range and verification level, shown in the app under “הנחות החישוב 
 | Immediate-sale scenarios | ₪1,916 | 1,647–2,739 | reported / derived | parcel 33 deals; table value − levy |
 | Fraction illiquidity / cash settlement | 20% / 80% | — | assumed | — |
 | Approval timing | 2 years | — | assumed | — |
+| Construction-services cap per lot / per owner | 25% (20–30%) / 1 apartment | — | assumed (owner’s assessment) | — |
 | Developer direct cost / soft costs / target margin | ₪11,000 / 12% / 15% | — | assumed | — |
 
 Review cadence is in `src/data/sources.ts`. Updates are made by editing the data files, bumping

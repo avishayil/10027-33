@@ -5,6 +5,7 @@
 import { PROJECT_CONFIG } from '../data/config';
 import { applyScenario, applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
 import { developerEconomics } from '../domain/developer';
+import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
 import { netMonthlyRentPerApartment } from '../domain/taxation';
@@ -84,10 +85,12 @@ export function buildResult(
   };
   const feasibility = classify(assessments.base, assessments.adverse);
   const developerMargin = developerMarginFor(candidate.type, dev);
+  const blocked = policyBlock(candidate, R, ctx.terms.combinationPct, config);
   const reasonCodes = [
     ...assessments.base.fails,
     ...assessments.base.missing,
     ...(feasibility === 'fragile' ? (['ADVERSE_FAILS'] as const) : []),
+    ...(blocked ? [blocked] : []),
     ...informationalReasons(candidate, base, R, ctx.terms.combinationPct),
   ];
 
@@ -136,7 +139,7 @@ export function buildResult(
     netPresentValue: base.valueCreated / Math.pow(1 + alt, config.analysis.horizonYears),
     futureNetWealth: base.futureNetWealth,
     feasibility,
-    assessment: assess(assessments.base, assessments.adverse, developerMargin),
+    assessment: assess(assessments.base, assessments.adverse, developerMargin, blocked !== null),
     developerMargin,
     reasonCodes: [...new Set(reasonCodes)],
     requiredConditions: [...assessments.base.conditions, ...assessments.base.commercial],
@@ -228,7 +231,7 @@ export function analyzeProfile(
     focus.set(preferred.id, true);
   }
   for (const r of results) {
-    if (r.feasibility === 'infeasible' && r.plan.apartmentsBuilt >= 1 && focus.size < 4 && !focus.has(r.id)) {
+    if (r.feasibility === 'infeasible' && r.assessment.commercial !== 'not_offered' && r.plan.apartmentsBuilt >= 1 && focus.size < 4 && !focus.has(r.id)) {
       if (!results.some((o) => focus.has(o.id) && o.plan.wholeApartmentsRetained === r.plan.wholeApartmentsRetained)) focus.set(r.id, true);
     }
   }
@@ -244,7 +247,7 @@ export function analyzeProfile(
   if (benchmark) {
     const seenTargets = new Set<number>();
     for (const r of results) {
-      if (!['S05', 'S03'].includes(r.strategyType) || r.rightsSold <= 1e-6) continue;
+      if (!['S05', 'S03'].includes(r.strategyType) || r.rightsSold <= 1e-6 || r.assessment.commercial === 'not_offered') continue;
       if (seenTargets.has(r.plan.wholeApartmentsRetained)) continue;
       seenTargets.add(r.plan.wholeApartmentsRetained);
       negotiationTargets.push(breakevenSurplusPrice(r.candidate, benchmark.candidate, ctx, config));
@@ -287,5 +290,6 @@ export function analyzeProfile(
         ? null
         : mortgageCapacity(profile.maxMonthlyRepayment, config.financing.nominalAnnualInterest, config.financing.durationYears),
     developer: dev,
+    lotPolicy: lotPolicy(ctx.info, config, terms.combinationPct),
   };
 }

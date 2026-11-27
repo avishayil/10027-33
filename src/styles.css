@@ -1880,3 +1880,8 @@ button {
 .verdict-numbers .big-num strong {
   white-space: nowrap;
 }
+
+.callout-strong {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}

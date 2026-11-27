@@ -65,6 +65,32 @@ export const COMMERCIAL = {
     verification: 'assumed',
     notes: 'שמרני: היזם מוכר את החלק החסר במחיר שוק מלא. המערכת מחשבת את הסכום המקסימלי שתוכלו לשלם.',
   },
+  servicesCapShareOfLot: {
+    value: 0.25,
+    label: 'תקרת שירותי בנייה במגרש (מתוך כ-100 יח״ד)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    range: { low: 0.2, high: 0.3 },
+    verification: 'assumed',
+    notes:
+      'הערכה: יזם יעדיף קומבינציה מלאה (הכי רווחית לו) ויקצה לשירותי בנייה רק 20%–30% מהדירות במגרש, כדי שכל בעל זכויות יוכל להגיע לדירה.',
+  },
+  maxServiceApartmentsPerOwner: {
+    value: 1,
+    label: 'מקסימום דירות בשירותי בנייה לבעל זכויות',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'עם מקומות מוגבלים, כל בעל זכויות יקבל לכל היותר דירה אחת בשירותי בנייה — בדרך כלל הדירה שלו.',
+  },
+  noServicesWhenCombinationYieldsWhole: {
+    value: 1,
+    label: 'אין שירותי בנייה למי שהקומבינציה כבר נותנת לו דירה שלמה',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'זכויות × אחוז קומבינציה ≥ 1 (כ-2.86 זכויות ב-35%, כ-3 זכויות לבעלים של כ-220 מ״ר) → צפויה קומבינציה מלאה.',
+  },
   approvalYears: {
     value: 2,
     label: 'זמן משוער עד אישור התכנית',

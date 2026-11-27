@@ -89,6 +89,7 @@ export const CONDITION_TEXT: Record<ConditionCode, string> = {
   MIXED_STRUCTURE: 'שהיזם מסכים לשלב קומבינציה ושירותי בנייה באותה עסקה.',
   FRACTION_SETTLEMENT: 'שהיזם מסכים לקנות מכם את חלק הדירה, ובאיזה מחיר.',
   PLANNING_APPROVAL: 'אישור סופי של התכנית — מועד וודאות.',
+  SERVICES_CAPACITY: 'שיש מקום פנוי לשירותי בנייה במגרש — היזם צפוי להקצות רק 20%–30% מהדירות, וייתכן שיהיו יותר מבקשים ממקומות.',
 };
 
 export const REASON_TEXT: Record<ReasonCode, string> = {
@@ -104,6 +105,10 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   RENT_SUPPORTS_REPAYMENT: 'שכר הדירה מסייע בהחזר המשכנתא אחרי המסירה.',
   COMBINATION_BELOW_WHOLE_UNIT: 'באחוז הקומבינציה הנוכחי לא מגיעים לדירה שלמה.',
   NOT_ENOUGH_RIGHTS: 'הזכויות שלכם קטנות מדירה אחת.',
+  DEVELOPER_POLICY_WHOLE_FROM_COMBINATION:
+    'הקומבינציה המלאה כבר נותנת לכם דירה שלמה — יזם צפוי להציע לכם קומבינציה מלאה, לא שירותי בנייה.',
+  DEVELOPER_POLICY_PER_OWNER_CAP:
+    'יזם צפוי להגביל שירותי בנייה לדירה אחת לבעל זכויות (המקומות במגרש מוגבלים).',
   UNFUNDED_OBLIGATION: 'יש תשלומים שבנק לא מממן (מסים, היטל, עלויות) ואין מספיק כסף פנוי לכסות אותם במועד.',
   FRACTION_UNRESOLVED: 'חלק הדירה שנשאר לא מוסדר — אין ממנו הכנסה.',
 };
@@ -138,6 +143,7 @@ export const COMMERCIAL_LABELS = {
   not_required: 'לא תלוי ביזם',
   unverified: 'טרם אומת',
   questionable: 'מוטל בספק',
+  not_offered: 'לא צפוי שיוצע',
 } as const;
 
 /** Personalised "why" bullets for a strategy. */

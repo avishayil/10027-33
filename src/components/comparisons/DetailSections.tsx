@@ -30,7 +30,8 @@ const monthLabel = (m: number) => (m === 0 ? 'בחתימה' : m % 12 === 0 ? `ש
 export function WhyFits({ result, goal }: { result: DecisionResult; goal: Goal }) {
   const rec = result.recommendation;
   if (!rec) return null;
-  const rejected = result.results.filter((r) => r.feasibility === 'infeasible');
+  const rejected = result.results.filter((r) => r.feasibility === 'infeasible' && r.assessment.commercial !== 'not_offered');
+  const notOffered = result.results.filter((r) => r.assessment.commercial === 'not_offered');
   return (
     <Section title="למה זה מתאים לי?" sub="הנימוקים, ומה נפסל ולמה">
       <ul>
@@ -50,6 +51,19 @@ export function WhyFits({ result, goal }: { result: DecisionResult; goal: Goal }
                   .map((c) => REASON_TEXT[c])
                   .join(' ')}
               </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {notOffered.length > 0 && (
+        <>
+          <h3>מסלולים שהיזם צפוי שלא להציע לכם</h3>
+          <p className="field-hint">
+            {REASON_TEXT[notOffered[0].reasonCodes.find((c) => c.startsWith('DEVELOPER_POLICY')) ?? 'DEVELOPER_POLICY_PER_OWNER_CAP']}
+          </p>
+          <ul>
+            {notOffered.map((r) => (
+              <li key={r.id}>{strategyTitle(r)}</li>
             ))}
           </ul>
         </>
@@ -402,9 +416,61 @@ export function Conditions({ r }: { r: StrategyResult }) {
 
 export function DeveloperPanel({ result, combinationPct }: { result: DecisionResult; combinationPct: number }) {
   const d = result.developer;
+  const lp = result.lotPolicy;
   const pctFmt = (x: number) => `${formatNumber(x * 100, 1)}%`;
+  const R = result.rights.apartmentEquivalents;
   return (
-    <Section title="היתכנות העסקה מול היזם" sub="האם התנאים שהנחנו הגיוניים גם מבחינת היזם?">
+    <Section title="היתכנות העסקה מול היזם" sub="מדיניות שירותי בנייה במגרש, והאם התנאים הגיוניים מבחינת היזם">
+      <h3>שירותי בנייה במגרש {lp.lotId}</h3>
+      <div className={`callout ${lp.servicesOffered ? '' : 'callout-strong'}`}>
+        {lp.servicesOffered ? (
+          <>
+            עם {formatRights(R)} זכויות, הקומבינציה המלאה ({pctFmt(combinationPct)}) נותנת לכם{' '}
+            {formatRights(R * combinationPct)} דירה — פחות מדירה שלמה. לכן שירותי בנייה לדירה אחת הם אפשרות סבירה,
+            בכפוף למקום פנוי במגרש.
+          </>
+        ) : (
+          <>
+            עם {formatRights(R)} זכויות, הקומבינציה המלאה ({pctFmt(combinationPct)}) כבר נותנת לכם{' '}
+            {formatRights(R * combinationPct)} דירות. יזם צפוי להציע לכם קומבינציה מלאה ולא שירותי בנייה — לכן מסלולי
+            הבנייה מסומנים ״לא צפוי שיוצע״.
+          </>
+        )}
+      </div>
+      <table className="kv-table">
+        <tbody>
+          <tr>
+            <th>יחידות דיור במגרש</th>
+            <td>{lp.lotUnits}</td>
+          </tr>
+          <tr>
+            <th>תקרה משוערת לשירותי בנייה ({pctFmt(lp.capShare)})</th>
+            <td>כ-{formatNumber(lp.capUnits, 0)} דירות</td>
+          </tr>
+          <tr>
+            <th>ביקוש משוער (בעלי ~167 מ״ר שהקומבינציה לא נותנת להם דירה שלמה)</th>
+            <td>כ-{formatNumber(lp.estimatedDemand, 0)} בעלים</td>
+          </tr>
+          <tr>
+            <th>מעל כמה זכויות צפויה קומבינציה מלאה</th>
+            <td>{formatNumber(lp.wholeFromCombinationThreshold, 2)} זכויות</td>
+          </tr>
+          <tr>
+            <th>מקסימום דירות בשירותי בנייה לבעלים</th>
+            <td>{lp.maxServiceApartmentsPerOwner}</td>
+          </tr>
+        </tbody>
+      </table>
+      {lp.servicesOffered && lp.estimatedDemand > lp.capUnits && (
+        <p className="field-hint">
+          לפי ההערכה יש יותר מבקשים ממקומות — כדאי לברר מוקדם מול היזם איך יוקצו מקומות לשירותי בנייה.
+        </p>
+      )}
+      <p className="field-hint">
+        הנחת עבודה: יזם מרוויח הכי הרבה מקומבינציה מלאה, ולכן יקצה לשירותי בנייה רק 20%–30% מהדירות במגרש וידאג שכל בעל
+        זכויות יוכל להגיע לדירה. זו הערכה — לא מדיניות שפורסמה.
+      </p>
+      <h3>כלכלת העסקה מבחינת היזם</h3>
       <table className="kv-table">
         <tbody>
           <tr>

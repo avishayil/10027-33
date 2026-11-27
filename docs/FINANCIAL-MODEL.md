@@ -54,6 +54,25 @@ construction services and put the rest into combination. For 2.25 rights at 35%,
 1.923077 in combination (→ 0.673077), proportional construction quote ₪498,607 before contingency and
 indexation. The owner pays the levy on the built share; the developer on the combination share.
 
+## Developer policy for construction services (`domain/policy.ts`)
+A lot has about 100 units (149: 102, 150: 96, 153: 100). Full combination is the developer’s most profitable
+structure, so it is expected to release only **20–30% (default 25%) of the lot’s units for construction services**
+and to ration them so every owner can reach one apartment:
+* **R × c ≥ 1** (≈ 2.86 rights at 35%, i.e. about 3 rights): full combination already yields a whole apartment →
+  no construction services offered.
+* Otherwise at most **one apartment per owner** in construction services (an S11 partial apartment uses one slot).
+Strategies outside the policy are kept in the comparison as “לא צפוי שיוצע” but never ranked or recommended.
+Lot capacity (≈ 25 slots in lot 149) is compared with an estimate of demand (lot’s parcel area ÷ 167 m² ≈ 42
+owners if holdings are typical); allowed construction-services strategies carry a “slots are limited” condition.
+
+Examples (35% / 17.5%):
+
+| Rights | Construction services | Typical outcome |
+| --- | --- | --- |
+| 4 | none offered | full combination; with means, paid completion to a 2nd apartment |
+| 3 | none offered | full combination (1.05 → one whole apartment) if the household can fund the combination tax |
+| 1–2.86 | one apartment | depends on finances and goal: sale, combination (+completion), S11, or one apartment in services |
+
 ## Developer economics (`domain/developer.ts`)
 Revenue = apartment sales net of VAT. Developer costs: own direct cost ₪11,000/m², 12% soft costs, VAT on
 construction services delivered to the owner in a combination, the levy where the developer pays it, land plus
