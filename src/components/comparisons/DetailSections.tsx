@@ -339,8 +339,10 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
                     {!s.feasible && <span className="muted"> · לא עומד</span>}
                   </td>
                 ))}
-                <td className={r.approvalRisk > 1000 ? 'cell-fail' : ''}>
-                  {r.approvalRisk > 1000 ? `${formatCurrency(r.approvalRisk)} בסיכון` : 'לא משולם דבר לפני האישור'}
+                <td className={r.noApproval.loss > 1000 ? 'cell-fail' : ''}>
+                  {r.noApproval.loss > 1000
+                    ? `הפסד אפשרי ${formatCurrency(r.noApproval.loss)} (מקדמות ${formatCurrency(r.noApproval.advances)}, ריבית ${formatCurrency(r.noApproval.interest)})`
+                    : 'בלי הפסד — הקרקע נשארת שלכם'}
                 </td>
               </tr>
             ))}
@@ -352,8 +354,13 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
         הריבית. כך דירה שמתקבלת מאוחר יותר שווה פחות גם בלי עליית מחירים. אופטימי: דירה
         ₪28,000 למ״ר, ריבית 4%, אישור בעוד 18 חודשים ומסירה בעוד 4 שנים. שמרני: דירה ₪21,000 למ״ר, חריגה של 15% בבנייה,
         ריבית 7% (וגם הלוואת המסים יקרה ב-2%), אישור בעוד 3 שנים, היתר שנה אחריו, מסירה בעוד 8 שנים, מכירת יחידת הסל שנה
-        אחרי המסירה, מחיר זכויות −25%, היטל +25%. ״אם התכנית לא תאושר״: כסף שמשולם לפני האישור (למשל מקדמה לבנייה). אחוז
+        אחרי המסירה, מחיר זכויות −25%, היטל +25%. ״אם התכנית לא תאושר״: חוזה מותנה בטל, לא נבנות דירות והקרקע נשארת שלכם;
+        מקדמות שכבר שולמו והריבית עד אז עלולות לאבוד (זכויות שנקנו נשארות קרקע שלכם, בשווי המצב הנכנס בשמאות). אחוז
         הקומבינציה והרווח היזמי נשארים כפי שבחרתם. אלה תרחישי לחץ — לא תחזית.
+      </p>
+      <p className="field-hint">
+        לפני חתימה כדאי לשאול: אילו ערבויות מבטיחות את המקדמות ואת מסי הבעלים שהיזם מתחייב להם; מהם התנאים המתלים ומה
+        המועד האחרון לאישור התכנית; אילו שעבודים יירשמו על הזכויות; ומי מחזיק את הכספים בנאמנות עד האישור.
       </p>
     </Section>
   );
@@ -609,6 +616,7 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
           </tr>
         </tbody>
       </table>
+      <DeveloperThresholdsView result={result} combinationPct={combinationPct} />
       <p className="field-hint">
         מודל אינדיקטיבי: הכנסות מכירה ללא מע״מ, עלות בנייה ישירה של ₪11,000 למ״ר, 12% עלויות רכות, היטל השבחה, ומע״מ
         על שירותי הבנייה לבעלים בקומבינציה. ״רווח יזמי״ בסליידר הוא תוספת על שירותי בנייה בלבד — כאן מדובר ברווח על
@@ -616,6 +624,90 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
         הקרקע שהוא יכול לשלם גבוה יותר. זו הערכה, לא הצעה.
       </p>
     </Section>
+  );
+}
+
+/**
+ * What would make the offer viable for a developer: calculated thresholds on the lot model — not market estimates and
+ * never new defaults. The ₪11,000/m² construction price charged to owners stays the user's assumption; the
+ * developer's own direct cost is a separate quantity.
+ */
+function DeveloperThresholdsView({ result, combinationPct }: { result: DecisionResult; combinationPct: number }) {
+  const pctFmt = (x: number) => `${formatNumber(x * 100, 1)}%`;
+  const t = result.developerThresholds;
+  const cell = (x: number | null) => (x === null ? '—' : pctFmt(x));
+  return (
+    <>
+      <h3>מה היה צריך להשתנות כדי ש-{pctFmt(combinationPct)} ישתלם ליזם?</h3>
+      <p className="field-hint">
+        יעד היזם: {pctFmt(t.targetMarginOnRevenue)} רווח מההכנסות (שקול ל-{pctFmt(t.profitOnCostAtTarget)} רווח על העלות). עלות הבנייה
+        שהבעלים משלמים (₪11,000 למ״ר) נשארת ההנחה שלכם; עלות הבנייה הישירה של היזם היא גודל נפרד.
+      </p>
+      <table className="kv-table">
+        <tbody>
+          <tr>
+            <th>עלות בנייה ישירה מקסימלית ליזם (בשווי דירה של ₪25,000 למ״ר)</th>
+            <td>{t.maxDirectCostPerSqm === null ? 'לא נמצאה' : `${formatCurrency(t.maxDirectCostPerSqm)} למ״ר`}</td>
+          </tr>
+          <tr>
+            <th>שווי דירה מינימלי (בעלות ישירה של ₪11,000 למ״ר)</th>
+            <td>{t.minApartmentPricePerSqm === null ? 'לא נמצא' : `${formatCurrency(t.minApartmentPricePerSqm)} למ״ר`}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="field-hint">אלה ספי איזון שהמודל מחשב — לא מחירים שנבדקו בשוק ולא ברירת מחדל חדשה.</p>
+      <div className="table-scroll">
+        <table className="compare-table">
+          <caption>אחוז קומבינציה מקסימלי שמשאיר ליזם את יעד הרווח</caption>
+          <thead>
+            <tr>
+              <th>עלות ישירה ליזם \ שווי דירה למ״ר</th>
+              {t.matrix.apartmentPrices.map((p) => (
+                <th key={p}>{formatCurrency(p)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {t.matrix.directCosts.map((d, i) => (
+              <tr key={d}>
+                <th>{formatCurrency(d)}</th>
+                {t.matrix.cells[i].map((x, j) => (
+                  <td key={j} className={x !== null && x >= combinationPct ? '' : 'cell-fail'}>
+                    {cell(x)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <table className="kv-table">
+        <tbody>
+          {t.participation.map((p) => (
+            <tr key={p.share}>
+              <th>רווח היזם במגרש אם {pctFmt(p.share)} ממכסת שירותי הבנייה ינוצלו</th>
+              <td className={p.margin < 0 ? 'cell-fail' : ''}>{pctFmt(p.margin)}</td>
+            </tr>
+          ))}
+          {t.project.lots.map((l) => (
+            <tr key={l.lotId}>
+              <th>
+                מגרש {l.lotId} ({formatNumber(l.units, 0)} יח״ד)
+              </th>
+              <td className={l.margin < 0 ? 'cell-fail' : ''}>
+                {formatCurrency(l.profit)} · {pctFmt(l.margin)}
+              </td>
+            </tr>
+          ))}
+          <tr className="row-total">
+            <th>כל התכנית (שלושת המגרשים, {formatNumber(t.project.units, 0)} יח״ד)</th>
+            <td className={t.project.margin < 0 ? 'cell-fail' : ''}>
+              {formatCurrency(t.project.profit)} · {pctFmt(t.project.margin)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </>
   );
 }
 

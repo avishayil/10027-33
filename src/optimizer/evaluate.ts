@@ -1,7 +1,7 @@
 import { simulateCashflow } from '../domain/cashflow';
 import { permitMonth } from '../domain/construction';
 import { taxLoanRate, taxLoanSubsidyRate } from '../domain/taxation';
-import { buildTransactionPlan, monthlyNetRentFor } from '../domain/transactions';
+import { approvalMonthOf, buildTransactionPlan, monthlyNetRentFor } from '../domain/transactions';
 import type {
   Candidate,
   CommercialTerms,
@@ -148,6 +148,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     postCompletionCollateral: plan.postCompletionCollateral,
     workInProgressRecognition: config.financing.workInProgressRecognition,
     discountRate: config.analysis.discountRate,
+    approvalMonth: approvalMonthOf(config),
     // Only when the household said it owns another property and has not ruled out borrowing.
     // A loan on another property only up to the limit the household stated (or in the conditional funding run);
     // never when the household ruled out borrowing.

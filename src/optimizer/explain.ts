@@ -224,9 +224,9 @@ export function riskLevel(r: StrategyResult): { level: RiskLevel; reasons: strin
     points += 1;
     reasons.push(onlyTaxLoan(r) ? 'נדרשת הלוואת מסים (נפרעת במסירה)' : 'נדרשת משכנתא');
   }
-  if (r.approvalRisk > 1000) {
+  if (r.noApproval.loss > 1000) {
     points += 1;
-    reasons.push(`כ-${fmtN(Math.round(r.approvalRisk / 1000))} אלף ₪ משולמים לפני אישור התכנית — בסיכון אם היא לא תאושר`);
+    reasons.push(`אם התכנית לא תאושר — הפסד אפשרי של כ-${fmtN(Math.round(r.noApproval.loss / 1000))} אלף ₪ (מקדמות וריבית)`);
   }
   if (r.assessment.resilience === 'fragile') {
     points += 2;

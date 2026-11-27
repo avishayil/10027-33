@@ -73,6 +73,8 @@ export interface SimulationInput {
   securedLoanLimit?: number;
   /** Real annual discount rate for pvInterest (default 0). */
   discountRate?: number;
+  /** Plan approval month: interest paid up to it is what a cancellation would cost in financing. */
+  approvalMonth?: number;
 }
 
 const EPS = 0.5;
@@ -128,6 +130,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let taxLoanAtMaturity = 0;
   let taxLoanSubsidy = 0;
   let pvInterest = 0;
+  let interestToApproval = 0;
   const dfMonth = (m: number) => Math.pow(1 + (input.discountRate ?? 0), -m / 12);
   const subsidyMonthly = input.taxLoan?.subsidyRate ? input.taxLoan.subsidyRate / 12 : 0;
   let taxLoanRefinanced = 0;
@@ -274,6 +277,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       if (m <= input.completionMonth) interestToCompletion += interest;
       else interestAfterCompletion += interest;
       pvInterest += interest * dfMonth(m);
+      if (input.approvalMonth !== undefined && m <= input.approvalMonth) interestToApproval += interest;
       if (!afterCompletion) {
         payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
@@ -336,6 +340,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanRefinanced,
     taxLoanSubsidy,
     pvInterest,
+    interestToApproval,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

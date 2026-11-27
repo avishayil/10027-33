@@ -291,9 +291,11 @@ export function requiredPrice(
   ctx: EngineContext,
   config: ProjectConfig,
   benchmark: Candidate | null,
+  /** A benchmark value computed under its own terms (e.g. a conditional direction), instead of `benchmark`. */
+  benchmarkValue: { id: string; value: number } | null = null,
 ): PriceThreshold {
   const R = ctx.info.apartmentEquivalents;
-  const target = benchmark ? evaluateCandidate(benchmark, ctx, config).comparisonValue : null;
+  const target = benchmarkValue ? benchmarkValue.value : benchmark ? evaluateCandidate(benchmark, ctx, config).comparisonValue : null;
   const [lo, hi] = KNOB_RANGE[knob];
   const pred = (x: number) => {
     const cfg = withKnob(config, knob, x);
@@ -303,5 +305,5 @@ export function requiredPrice(
   };
   const direction = KNOB_DIRECTION[knob];
   const required = direction === 'min' ? solveMin(lo, hi, pred) : solveMax(lo, hi, pred);
-  return { strategyId: c.id, knob, required, direction, against: benchmark?.id ?? null, scenarioValue: knobValue(config, knob) };
+  return { strategyId: c.id, knob, required, direction, against: benchmarkValue?.id ?? benchmark?.id ?? null, scenarioValue: knobValue(config, knob) };
 }

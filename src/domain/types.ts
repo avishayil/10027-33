@@ -472,6 +472,8 @@ export interface SimulationResult {
   taxLoanSubsidy: number;
   /** Present value at signing of all interest the owner pays (monthly interest, and capitalised interest at maturity). */
   pvInterest: number;
+  /** Interest paid up to plan approval (what financing would have cost if the plan is then cancelled). */
+  interestToApproval: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -601,6 +603,12 @@ export interface StrategyResult {
    * deal) — at risk if the plan is not approved within the horizon. Conditional contracts risk nothing.
    */
   approvalRisk: number;
+  /**
+   * If the plan is never approved: conditional contracts lapse, no apartments are built and the owner keeps the land.
+   * Advances paid before approval and interest to then are lost unless secured; bought rights remain the owner's land
+   * (credited at the appraisal's incoming value). An estimate — actual terms depend on guarantees and conditions.
+   */
+  noApproval: { advances: number; interest: number; landCredit: number; loss: number; apartments: 0 };
   capitalGainsRange: { low: number; high: number };
   purchaseTax: number;
   additionalCosts: number;
@@ -738,6 +746,8 @@ export interface DecisionResult {
   } | null;
   /** Conditional funding routes for the owner's taxes, evaluated automatically (none is assumed in the headline). */
   fundingAlternatives: FundingAlternative[];
+  /** Developer-side thresholds on the lot model (calculated, not market estimates). */
+  developerThresholds: DeveloperThresholds;
   /** When no evidence-based route fits: the closest ones and the extra capital each would need. */
   nearMiss: { result: StrategyResult; additionalCapital: number | null }[];
   /** Extra own capital per evidence-based route type that does not fit (one per strategy type). */
@@ -775,6 +785,20 @@ export interface LotPnLSummary {
   profitOnCost: number;
 }
 
+export interface DeveloperThresholds {
+  /** Viable % (target margin) for developer direct cost × apartment price; null = not viable even at 0%. */
+  matrix: { directCosts: number[]; apartmentPrices: number[]; cells: (number | null)[][] };
+  /** At the offer's %: highest developer direct cost / lowest apartment price that leave the target margin. */
+  maxDirectCostPerSqm: number | null;
+  minApartmentPricePerSqm: number | null;
+  targetMarginOnRevenue: number;
+  profitOnCostAtTarget: number;
+  /** The three lots on the offer's terms. */
+  project: { lots: { lotId: string; profit: number; margin: number; units: number }[]; profit: number; margin: number; units: number };
+  /** Lot margin at the offer's % with 0 / 50 / 100% of the services quota taken up. */
+  participation: { share: number; margin: number }[];
+}
+
 export type FundingMethod = 'developer_loan' | 'other_property';
 
 export interface FundingAlternative {
@@ -791,6 +815,8 @@ export interface FundingAlternative {
   savingIfDeveloperPaysInterest: number;
   /** Highest rate at which the route still fits (null = not reached / not applicable). */
   maxRate: number | null;
+  /** In the same run: the best whole 3-room apartment route (instead of selling the fraction), if it fits. */
+  smaller: StrategyResult | null;
 }
 
 export interface ArrangementOutcome {

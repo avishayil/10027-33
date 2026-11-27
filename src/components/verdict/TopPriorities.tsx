@@ -150,11 +150,9 @@ function AskDeveloper({ result, availableCapital }: { result: DecisionResult; av
   // not a later tax on selling the fraction.
   const ownerTaxes = r.ledger.filter((e) => e.payer === 'owner' && e.taxLoanEligible).reduce((s, e) => s + e.amount, 0);
   const loan = c.kind === 'funding' && c.method === 'developer_loan' ? result.fundingAlternatives.find((f) => f.method === 'developer_loan') : undefined;
-  // A smaller whole apartment instead of selling the fraction — only when the direction leaves no whole apartment.
-  const smaller =
-    r.metrics.wholeApartments === 0
-      ? result.results.find((x) => x.strategyType === 'S13' && x.metrics.wholeApartments === 1 && x.plan.apartmentRooms.includes(3))
-      : undefined;
+  // A smaller whole apartment instead of selling the fraction — from the same run (same funding terms) as the
+  // direction, and only when the direction leaves no whole apartment.
+  const smaller = r.metrics.wholeApartments === 0 ? (loan?.smaller ?? undefined) : undefined;
   const completion = smaller?.ledger.filter((e) => e.category === 'completion_payment').reduce((s, e) => s + e.amount, 0) ?? 0;
   return (
     <section className="card ask-developer" aria-labelledby="ask-developer-title">
@@ -224,9 +222,18 @@ export function TopPriorities({
 }) {
   const items = priorityRoutes(result, goal);
   const R = result.rights.apartmentEquivalents;
+  // A household that wants no risk or cash soon: a sale may be its direction even though today's price is unknown —
+  // say so, with the price it would need, rather than let a calculable development route look better by default.
+  const sale = (goal === 'minimize_risk' || goal === 'immediate_cash') && result.priceConditional.find((p) => p.result.strategyType === 'S01M' || p.result.strategyType === 'S01');
   return (
     <section className="priorities" aria-live="polite" aria-labelledby="priorities-title">
       <AskDeveloper result={result} availableCapital={availableCapital} />
+      {sale && sale.threshold.required !== null && sale.threshold.required > 0 && (
+        <p className="card priority-note">
+          מכירה עשויה להיות הכיוון המתאים לכם. כדי לקבוע אם היא משתלמת, יש לקבל הצעת מחיר של לפחות{' '}
+          {formatCurrency(Math.ceil((sale.threshold.required * result.rights.landAreaSqm) / 1000) * 1000)} ({formatCurrency(sale.threshold.required)} למ״ר).
+        </p>
+      )}
       <h2 id="priorities-title" className="section-title">
         סוגי העסקאות לפי סדר התאמה · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
       </h2>

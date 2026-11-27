@@ -6,7 +6,14 @@ import { PROJECT_CONFIG } from '../data/config';
 import { applyScenario, applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
 import { TAX_ARRANGEMENTS, withArrangement } from '../domain/arrangements';
 import { candidatePnL, developerEconomics } from '../domain/developer';
-import { lotDeveloperPnL, lotViablePct, routeDelta } from '../domain/lotDeveloper';
+import {
+  developerBreakEvens,
+  lotDeveloperPnL,
+  lotViablePct,
+  profitabilityMatrix,
+  projectDeveloperPnL,
+  routeDelta,
+} from '../domain/lotDeveloper';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
@@ -29,6 +36,7 @@ import type {
   StrategyType,
   UserProfile,
   FundingAlternative,
+  DeveloperThresholds,
 } from '../domain/types';
 import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
 import { LAND_TRANSACTIONS } from '../data/evidence';
@@ -197,6 +205,7 @@ export function buildResult(
     capitalGainsTaxReserve: sum(ledger, (e) => owner(e) && e.category === 'capital_gains_tax'),
     servicesVat: sum(ledger, (e) => owner(e) && e.category === 'services_vat'),
     approvalRisk: sum(ledger, (e) => ownerOut(e) && e.month < approvalMonthOf(config)),
+    noApproval: noApprovalOutcome(ledger, ownerOut, plan, sim, ctx.info, config),
     capitalGainsRange: plan.capitalGainsRange,
     purchaseTax: sum(ledger, (e) => owner(e) && e.category === 'purchase_tax'),
     additionalCosts: sum(ledger, (e) => owner(e) && ['transaction_costs', 'completion_payment', 'rights_purchase'].includes(e.category)),
@@ -238,6 +247,22 @@ export function buildResult(
     plan,
     simulation: sim,
   };
+}
+
+/** The outcome if the plan is never approved (see StrategyResult.noApproval). */
+function noApprovalOutcome(
+  ledger: LedgerEntry[],
+  ownerOut: (e: LedgerEntry) => boolean,
+  plan: StrategyResult['plan'],
+  sim: StrategyResult['simulation'],
+  info: EngineContext['info'],
+  config: ProjectConfig,
+): StrategyResult['noApproval'] {
+  const approval = approvalMonthOf(config);
+  const advances = ledger.filter((e) => ownerOut(e) && e.month < approval).reduce((s, e) => s + e.amount, 0);
+  const landCredit = info.apartmentEquivalents > 0 ? (plan.rightsPurchased * info.table.incomingValue) / info.apartmentEquivalents : 0;
+  const interest = sim.interestToApproval;
+  return { advances, interest, landCredit, loss: Math.max(0, advances + interest - landCredit), apartments: 0 };
 }
 
 export interface CoreAnalysis {
@@ -504,6 +529,14 @@ export function analyzeProfile(
       }
     }
   }
+  // With no evidence-based recommendation, the price a sale (or other price-dependent route) would need is measured
+  // against the conditional direction — at its own terms — so "sell" can be a direction with a price to ask for.
+  if (!recommendation && conditionalRecommendation) {
+    const bench = { id: conditionalRecommendation.result.id, value: conditionalRecommendation.result.comparisonValue };
+    for (const p of priceConditional) {
+      p.threshold = requiredPrice(p.result.candidate, p.result.priceDependency!, ctx, config, null, bench);
+    }
+  }
   // A questionable or unconfirmed winner is never the only answer: if no evidence-based alternative exists, the
   // fallback is a price-dependent route (sale first), shown with the price it would need.
   let finalFallback = fallback;
@@ -571,6 +604,7 @@ export function analyzeProfile(
     capitalGaps,
     conditionalRecommendation,
     fundingAlternatives,
+    developerThresholds: developerThresholdsFor(ctx, terms, config),
   };
 }
 
@@ -604,7 +638,9 @@ function fundingAlternativesFor(profile: UserProfile, terms: CommercialTerms, co
       saving = Math.max(0, top.simulation.taxLoanInterest - freeEv.sim.taxLoanInterest);
       maxRate = solveMax(0, 0.3, (x) => fits(top, withTaxLoan(config, { annualRate: x, vatOnInterest: false })));
     }
+    const smaller = run.ranked.find((r) => r.strategyType === 'S13' && r.metrics.wholeApartments === 1 && r.plan.apartmentRooms.includes(3)) ?? null;
     out.push({
+      smaller,
       method: 'developer_loan',
       annualRate: taxLoanRate(cfg),
       top,
@@ -628,9 +664,33 @@ function fundingAlternativesFor(profile: UserProfile, terms: CommercialTerms, co
       atMaturity: top?.simulation.taxesFinancedBySecuredLoan ?? 0,
       savingIfDeveloperPaysInterest: 0,
       maxRate: null,
+      smaller: null,
     });
   }
   return out;
+}
+
+/** Developer-side thresholds on the lot model, for the panel (computed once per analysis). */
+function developerThresholdsFor(ctx: EngineContext, terms: CommercialTerms, config: ProjectConfig): DeveloperThresholds {
+  const lotCtx = { info: ctx.info, profile: ctx.profile, config };
+  const arr = config.commercial.taxArrangement;
+  const opts = { markup: terms.developerMarkup };
+  const b = developerBreakEvens(lotCtx, arr, terms.combinationPct, opts);
+  const project = projectDeveloperPnL(lotCtx, arr, terms.combinationPct, opts);
+  return {
+    matrix: profitabilityMatrix(lotCtx, arr, [8000, 9000, 10000, 11000], [23000, 25000, 28000, 32000], opts),
+    maxDirectCostPerSqm: b.maxDirectCostPerSqm,
+    minApartmentPricePerSqm: b.minApartmentPricePerSqm,
+    targetMarginOnRevenue: b.targetMarginOnRevenue,
+    profitOnCostAtTarget: b.profitOnCostAtTarget,
+    project: {
+      lots: project.lots.map((l) => ({ lotId: l.lotId, profit: l.pnl.profit, margin: l.pnl.margin, units: l.pnl.units })),
+      profit: project.profit,
+      margin: project.margin,
+      units: project.units,
+    },
+    participation: [0, 0.5, 1].map((share) => ({ share, margin: lotDeveloperPnL(lotCtx, arr, terms.combinationPct, { ...opts, participation: share }).margin })),
+  };
 }
 
 function R_total(ctx: EngineContext, config: ProjectConfig): number {
