@@ -10,6 +10,7 @@ import type {
   SimulationResult,
   TransactionPlan,
   UserProfile,
+  LedgerEntry,
 } from '../domain/types';
 import { apartmentValueAt, apartmentValueToday } from '../domain/valuation';
 
@@ -33,11 +34,53 @@ export interface Evaluation {
    * what the land is already worth today; the incremental gain vs selling today is computed in analyze.ts.
    */
   valueCreated: number;
+  /** Position at delivery (today's prices) — what the owner holds and paid, after financing to delivery. */
+  delivery: Delivery;
+  /**
+   * The value the ranking uses (iteration 6): the position at delivery minus interest paid after delivery within the
+   * horizon. Today's prices, no appreciation or return assumed.
+   */
+  deliveryValue: number;
   horizonMonth: number;
   referenceWealth: number;
   assetsAtHorizon: number;
   liquidity: number;
   sustainableMonthlyIncome: number;
+}
+
+export interface Delivery {
+  apartmentsValue: number;
+  fractionValue: number;
+  ownerCashIn: number;
+  ownerCashOut: number;
+  constructionAndCompletionPaid: number;
+  /** Interest paid during construction plus the tax-loan interest capitalised to delivery. */
+  interestToDelivery: number;
+  debtAtDelivery: number;
+  netPosition: number;
+}
+
+/** What the owner holds at delivery (today's prices) and what it paid in and out, after financing to delivery. */
+export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config: ProjectConfig): Delivery {
+  const sum = (pred: (e: LedgerEntry) => boolean) => plan.ledger.filter(pred).reduce((s, e) => s + e.amount, 0);
+  const owner = (e: LedgerEntry) => e.payer === 'owner' && e.direction === 'out';
+  const aptToday = apartmentValueToday(config);
+  const ownerCashOut = sum((e) => owner(e) && !e.deferred && e.category !== 'contingency_reserve');
+  const ownerCashIn = sum((e) => e.direction === 'in' && e.category !== 'contingency_release');
+  const reserveNet = sum((e) => e.category === 'contingency_reserve') - sum((e) => e.category === 'contingency_release');
+  const apartmentsValue = plan.wholeApartmentValueEq * aptToday;
+  const fractionValue = plan.fractionalShare * aptToday * (1 - config.market.fractionIlliquidityDiscount);
+  const interestToDelivery = sim.interestPaidToCompletion + sim.taxLoanInterest;
+  return {
+    apartmentsValue,
+    fractionValue,
+    ownerCashIn,
+    ownerCashOut: ownerCashOut + reserveNet,
+    constructionAndCompletionPaid: sum((e) => owner(e) && (e.category === 'construction' || e.category === 'completion_payment')),
+    interestToDelivery,
+    debtAtDelivery: sim.debtAtCompletion,
+    netPosition: apartmentsValue + fractionValue + ownerCashIn - (ownerCashOut + reserveNet) - interestToDelivery,
+  };
 }
 
 export function liquidityYears(profile: UserProfile, config: ProjectConfig): number {
@@ -109,12 +152,15 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
   const sustainableMonthlyIncome =
     sim.monthlyNetRent - sim.postCompletionMonthly + (investedProceeds * alt) / 12;
 
+  const delivery = deliveryOf(plan, sim, config);
   return {
     plan,
     sim,
     startingCash,
     futureNetWealth,
     valueCreated: futureNetWealth - referenceWealth,
+    delivery,
+    deliveryValue: delivery.netPosition - sim.interestAfterCompletion,
     horizonMonth,
     referenceWealth,
     assetsAtHorizon,

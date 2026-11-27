@@ -59,6 +59,9 @@ export const PROJECT_CONFIG: ProjectConfig = {
     directCostPerSqm: COMMERCIAL.developerDirectCostPerSqm.value,
     softCostRate: COMMERCIAL.developerSoftCostRate.value,
     targetMarginOnRevenue: COMMERCIAL.developerTargetMargin.value,
+    equityShare: COMMERCIAL.developerEquityShare.value,
+    escortLoanRate: COMMERCIAL.escortLoanRate.value,
+    presaleShare: COMMERCIAL.presaleShare.value,
   },
   market: {
     apartmentTypes: [

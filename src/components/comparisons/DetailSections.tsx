@@ -502,10 +502,37 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
             <strong>{t.overlap ? 'יש טווח חופף למשא ומתן.' : 'אין טווח חופף בהנחות האלה.'}</strong>
           </p>
         ))}
-      <h3>כלכלת העסקה מבחינת היזם</h3>
+      <h3>כלכלת העסקה מבחינת היזם — כל המגרש</h3>
+      <p className="field-hint">
+        כל {formatNumber(d.lot.units, 0)} יחידות המגרש לפי תנאי ההצעה: {formatNumber(d.lot.servicesUnits, 1)} בשירותי בנייה (מכסה),
+        השאר בקומבינציה ({formatNumber(d.lot.developerUnits, 1)} יחידות נמכרות ע״י היזם). חודש אחר חודש, במחירי היום, כולל מימון
+        (הון עצמי ואז ליווי בנקאי) והמסים שהיזם נושא בהם במועדם — כאילו כל הבעלים במצבכם.
+      </p>
+      <table className="kv-table">
+        <tbody>
+          {d.lot.lines.map((l) => (
+            <tr key={l.label}>
+              <th>{l.label}</th>
+              <td>{formatCurrency(l.amount)}</td>
+            </tr>
+          ))}
+          <tr className="row-total">
+            <th>רווח משוער ליזם במגרש (מההכנסות)</th>
+            <td className={d.combinationMargin < 0 ? 'cell-fail' : ''}>
+              {formatCurrency(d.lot.profit)} · {pctFmt(d.combinationMargin)}
+            </td>
+          </tr>
+          <tr>
+            <th>הון עצמי של היזם בשיא · ליווי בנקאי בשיא</th>
+            <td>
+              {formatCurrency(d.lot.peakEquity)} · {formatCurrency(d.lot.peakLoan)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
       {result.recommendation?.developerPnL && (
         <>
-          <p className="field-hint">רווח והפסד משוער של היזם במסלול המומלץ (לבעלים אחד, במחירי היום, לפני מימון ותזמון):</p>
+          <p className="field-hint">החלק שלכם בעסקה מבחינת היזם, במסלול המומלץ (בעלים אחד, במחירי היום, לפני מימון ותזמון):</p>
           <table className="kv-table">
             <tbody>
               {result.recommendation.developerPnL.lines.map((l) => (
@@ -548,7 +575,7 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
             <td>{formatCurrency(d.combinationTaxCost)}</td>
           </tr>
           <tr>
-            <th>רווח משוער ליזם בקומבינציה של {pctFmt(combinationPct)}</th>
+            <th>רווח משוער ליזם בקומבינציה של {pctFmt(combinationPct)} — כל המגרש, כולל מימון</th>
             <td className={d.combinationMargin < 0 ? 'cell-fail' : ''}>{pctFmt(d.combinationMargin)}</td>
           </tr>
           <tr>
@@ -564,7 +591,7 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
             <td>{formatCurrency(d.residualLandValuePerSqm)} למ״ר</td>
           </tr>
           <tr>
-            <th>אחוז קומבינציה מקסימלי שמשאיר ליזם רווח של 15%</th>
+            <th>אחוז קומבינציה מקסימלי שמשאיר ליזם רווח של 15% (מודל המגרש)</th>
             <td>{pctFmt(d.maxCombinationAtTargetMargin)}</td>
           </tr>
         </tbody>

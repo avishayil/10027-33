@@ -6,10 +6,11 @@ import { PROJECT_CONFIG } from '../data/config';
 import { applyScenario, applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
 import { TAX_ARRANGEMENTS, withArrangement } from '../domain/arrangements';
 import { candidatePnL, developerEconomics } from '../domain/developer';
+import { lotDeveloperPnL, lotViablePct } from '../domain/lotDeveloper';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
-import { approvalMonthOf } from '../domain/transactions';
+import { approvalMonthOf, buildTransactionPlan } from '../domain/transactions';
 import { levyPerRight, netMonthlyRentPerApartment, taxLoanRate } from '../domain/taxation';
 import type {
   Candidate,
@@ -63,8 +64,8 @@ export const COMMERCIAL_SCORE: Record<CommercialCertainty, number> = {
 };
 
 function resilienceOf(base: Evaluation, adverseFeasible: boolean, adverse: Evaluation): number {
-  if (!adverseFeasible || base.valueCreated <= 0) return 0;
-  return Math.max(0, Math.min(1, adverse.valueCreated / base.valueCreated));
+  if (!adverseFeasible || base.deliveryValue <= 0) return 0;
+  return Math.max(0, Math.min(1, adverse.deliveryValue / base.deliveryValue));
 }
 
 /**
@@ -100,6 +101,11 @@ export function buildResult(
   evals: ScenarioEvaluations,
   ctx: EngineContext,
   config: ProjectConfig,
+  /**
+   * Lot-level developer P&L on the offer's terms, and this owner's standalone full-combination slice of it: a route's
+   * margin is the lot with this owner taking the route instead of the full combination.
+   */
+  lotBase: { profit: number; revenue: number; s02Profit: number; s02Revenue: number } | null = null,
 ): StrategyResult {
   const R = ctx.info.apartmentEquivalents;
   const base = evals.base;
@@ -111,7 +117,13 @@ export function buildResult(
   };
   const feasibility = classify(assessments.base, assessments.adverse);
   const developerPnL = candidatePnL(candidate, plan, ctx.info, config, ctx.terms);
-  const developerMargin = developerPnL ? developerPnL.marginOnRevenue : null;
+  // Commercial plausibility from the lot-level P&L (a combination is a lot-wide deal), adjusted for this owner's
+  // route: lot − this owner's full-combination slice + this route's slice.
+  let developerMargin = developerPnL ? developerPnL.marginOnRevenue : null;
+  if (developerPnL && lotBase) {
+    const revenue = lotBase.revenue - lotBase.s02Revenue + developerPnL.revenue;
+    developerMargin = revenue > 0 ? (lotBase.profit - lotBase.s02Profit + developerPnL.profit) / revenue : 0;
+  }
   const blocked = policyBlock(candidate, R, config);
   const reasonCodes = [
     ...assessments.base.fails,
@@ -130,24 +142,9 @@ export function buildResult(
   const P = ctx.profile.maxMonthlyRepayment;
   const capacity = P === null ? null : mortgageCapacity(P, config.financing.nominalAnnualInterest, config.financing.durationYears);
   const alt = config.financing.alternativeNetAnnualReturn;
-  const aptToday = apartmentValueToday(config);
   const ownerOut = (e: LedgerEntry) => owner(e) && !e.deferred && e.category !== 'contingency_reserve';
-  const ownerCashOut = sum(ledger, ownerOut);
-  const ownerCashIn = sum(ledger, (e) => e.direction === 'in' && e.category !== 'contingency_release') ;
-  const reserveNet = sum(ledger, (e) => e.category === 'contingency_reserve') - sum(ledger, (e) => e.category === 'contingency_release');
-  const apartmentsValue = plan.wholeApartmentValueEq * aptToday;
-  const fractionValue = plan.fractionalShare * aptToday * (1 - config.market.fractionIlliquidityDiscount);
-  const delivery = {
-    apartmentsValue,
-    fractionValue,
-    ownerCashIn,
-    ownerCashOut: ownerCashOut + reserveNet,
-    constructionAndCompletionPaid: sum(ledger, (e) => owner(e) && (e.category === 'construction' || e.category === 'completion_payment')),
-    // Interest paid during construction plus the tax-loan interest capitalised to delivery.
-    interestToDelivery: sim.interestPaidToCompletion + sim.taxLoanInterest,
-    debtAtDelivery: sim.debtAtCompletion,
-    netPosition: apartmentsValue + fractionValue + ownerCashIn - (ownerCashOut + reserveNet) - sim.interestPaidToCompletion - sim.taxLoanInterest,
-  };
+  // Position at delivery (today's prices) — the basis of the ranking value (deliveryOf, evaluate.ts).
+  const delivery = base.delivery;
   const levyEntries = ledger.filter((e) => e.category === 'betterment_levy' && e.payer !== 'seller');
   const ownerLevyPaid = levyEntries.filter((e) => e.payer === 'owner' && !e.deferred);
   const levy = {
@@ -160,7 +157,8 @@ export function buildResult(
   };
 
   const metrics = {
-    valueCreated: base.valueCreated,
+    // Ranking value: position at delivery minus interest after delivery (iteration 6), not the 10-year wealth.
+    valueCreated: base.deliveryValue,
     resilience: resilienceOf(base, isFeasible(assessments.adverse), evals.adverse),
     wholeApartments: plan.wholeApartmentsRetained,
     liquidity: base.liquidity,
@@ -203,6 +201,7 @@ export function buildResult(
     futureNetWealth: base.futureNetWealth,
     cashAtSigning: 0,
     delivery,
+    deliveryValue: base.deliveryValue,
     levy,
     priceDependency: priceDependencyOf(candidate, plan),
     netCashAtDelivery: sim.cashAtCompletion - sim.referenceAtCompletion,
@@ -216,6 +215,7 @@ export function buildResult(
       scenarioId: id,
       futureNetWealth: evals[id].futureNetWealth,
       valueCreated: evals[id].valueCreated,
+      deliveryValue: evals[id].deliveryValue,
       mortgageRequired: evals[id].sim.peakDebt,
       monthlyRepayment: evals[id].sim.peakPersonalMonthly,
       feasible: isFeasible(assessments[id]),
@@ -243,7 +243,11 @@ export function coreAnalysis(profile: UserProfile, terms: CommercialTerms, confi
   const ctx: EngineContext = { info, profile, terms };
   const dev = developerEconomics(info, config, terms.combinationPct, profile);
   const scales = buildScales(ctx, config);
-  const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
+  const lot = lotDeveloperPnL({ info, profile, config }, config.commercial.taxArrangement, terms.combinationPct);
+  const s02: Candidate = { id: 'S02', type: 'S02', targetApartments: 0, legs: [{ kind: 'combination', rights: info.apartmentEquivalents }] };
+  const s02Pnl = candidatePnL(s02, buildTransactionPlan(s02, { info, profile, terms, config }), info, config, terms);
+  const lotBase = s02Pnl ? { profit: lot.profit, revenue: lot.revenue, s02Profit: s02Pnl.profit, s02Revenue: s02Pnl.revenue } : null;
+  const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config, lotBase));
   for (const r of results) r.cashAtSigning = cashAtSigning(r);
   const { ranked, frontierIds } = rankStrategies(results, profile.goal, scales);
   return { ctx, scales, dev, results, ranked, frontierIds };
@@ -272,7 +276,7 @@ function topUnder(core: CoreAnalysis, config: ProjectConfig): string | null {
       metrics: {
         ...r.metrics,
         commercialScore: COMMERCIAL_SCORE[commercial],
-        valueCreated: ev.valueCreated,
+        valueCreated: ev.deliveryValue,
         liquidity: ev.liquidity,
         sustainableMonthlyIncome: ev.sustainableMonthlyIncome,
         peakDebt: ev.sim.peakDebt,
@@ -447,6 +451,7 @@ export function analyzeProfile(
       arrangement,
       combinationPct: pct,
       ownerBreakEvenPct: arrangement === headline ? terms.combinationPct : ownerBreakEvenPct(eqCtx, headline, terms.combinationPct, arrangement),
+      viablePct: lotViablePct(eqCtx, arrangement),
       recommendationId: top?.id ?? null,
       wholeApartments: top?.metrics.wholeApartments ?? 0,
       feasibility: top?.feasibility ?? null,

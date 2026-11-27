@@ -13,6 +13,7 @@
 import { withArrangement } from '../domain/arrangements';
 import { completionMonth } from '../domain/construction';
 import { candidatePnL } from '../domain/developer';
+import { lotDeveloperPnL } from '../domain/lotDeveloper';
 import { buildTransactionPlan } from '../domain/transactions';
 import type { Candidate, CommercialTerms, ProjectConfig, RightsInfo, TaxArrangement, UserProfile } from '../domain/types';
 import { apartmentValueToday } from '../domain/valuation';
@@ -73,19 +74,24 @@ function solve(f: (c: number) => number, target: number): number | null {
   return (lo + hi) / 2;
 }
 
-/** Which developer model the equivalence holds the profit of: the per-owner standalone P&L or the lot-level P&L. */
-export type DeveloperModel = 'standalone';
+/**
+ * Which developer model the equivalence holds the profit of: the lot-level P&L (default — includes the timing of
+ * the taxes the developer pays and their financing) or the per-owner standalone P&L.
+ */
+export type DeveloperModel = 'lot' | 'standalone';
 
 export function developerEquivalentPct(
   ctx: EquivalenceContext,
   fromArr: TaxArrangement,
   fromPct: number,
   toArr: TaxArrangement,
-  _model: DeveloperModel = 'standalone',
+  model: DeveloperModel = 'lot',
 ): number | null {
   if (fromArr === toArr) return fromPct;
-  const target = developerCombinationProfit(ctx, fromArr, fromPct);
-  return solve((c) => developerCombinationProfit(ctx, toArr, c), target);
+  const profit = (arr: TaxArrangement, c: number) =>
+    model === 'lot' ? lotDeveloperPnL(ctx, arr, c).profit : developerCombinationProfit(ctx, arr, c);
+  const target = profit(fromArr, fromPct);
+  return solve((c) => profit(toArr, c), target);
 }
 
 export function ownerBreakEvenPct(ctx: EquivalenceContext, fromArr: TaxArrangement, fromPct: number, toArr: TaxArrangement): number | null {

@@ -9,6 +9,7 @@
  * share paid, fraction buy-backs, and every tax the ledger assigns to the developer (levy, grossed-up owner tax,
  * the developer's own purchase tax).
  */
+import { lotDeveloperPnL, lotViablePct } from './lotDeveloper';
 import { buildTransactionPlan } from './transactions';
 import type { Candidate, CommercialTerms, DeveloperEconomics, DeveloperPnL, ProjectConfig, RightsInfo, TransactionPlan, UserProfile } from './types';
 import { apartmentValueToday } from './valuation';
@@ -104,35 +105,34 @@ export function developerEconomics(info: RightsInfo, config: ProjectConfig, comb
   const residual = k > 0 ? Math.max(0, (p0 - m * revenue0) / k) : 0;
   const consistent = k > 0 ? Math.max(0, (p0 - (comb?.profit ?? 0)) / k) : 0;
 
-  // Highest combination % that still leaves the target margin (bracket scan + bisection; margin falls with c).
-  const marginAt = (c: number) => pnlFor(S02, info, profile, { ...terms, combinationPct: c }, config)?.marginOnRevenue ?? -1;
-  let maxC = 0;
-  let prev = 0;
-  for (let c = 0; c <= 0.8; c += 0.02) {
-    if (marginAt(c) >= m) prev = c;
-    else break;
-  }
-  let lo = prev;
-  let hi = Math.min(0.8, prev + 0.02);
-  if (marginAt(0) >= m) {
-    for (let i = 0; i < 30; i += 1) {
-      const mid = (lo + hi) / 2;
-      if (marginAt(mid) >= m) lo = mid;
-      else hi = mid;
-    }
-    maxC = lo;
-  }
+  // Combination margin and the highest % at the target margin come from the lot-level P&L (financing and timing
+  // included); the land-purchase and revenue-share figures stay per owner.
+  const lotCtx = { info, profile, config };
+  const lot = lotDeveloperPnL(lotCtx, config.commercial.taxArrangement, combinationPct);
+  const maxC = lotViablePct(lotCtx, config.commercial.taxArrangement) ?? 0;
 
   return {
     impliedCombinationValuePerSqm: A > 0 ? (combinationPct * R * apartmentValueToday(config)) / A : 0,
     combinationEntitlementValue: combinationPct * R * apartmentValueToday(config),
     grossSaleValue: A * config.market.developerRightsSaleScenario.pricePerOriginalSqm,
-    combinationMargin: comb?.marginOnRevenue ?? 0,
+    combinationMargin: lot.margin,
     landPurchaseMargin: land?.marginOnRevenue ?? 0,
     maxCombinationAtTargetMargin: maxC,
     residualLandValuePerSqm: A > 0 ? residual : 0,
     revenueShareMargin: rs?.marginOnRevenue ?? 0,
     combinationTaxCost,
     consistentCashPricePerSqm: A > 0 ? consistent : 0,
+    lot: {
+      units: lot.units,
+      servicesUnits: lot.servicesUnits,
+      developerUnits: lot.developerUnits,
+      revenue: lot.revenue,
+      costs: lot.costs,
+      financingCost: lot.financingCost,
+      profit: lot.profit,
+      peakEquity: lot.peakEquity,
+      peakLoan: lot.peakLoan,
+      lines: lot.lines,
+    },
   };
 }

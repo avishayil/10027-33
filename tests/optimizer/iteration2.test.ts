@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { PROJECT_CONFIG as C } from '../../src/data/config';
 import { simulateCashflow } from '../../src/domain/cashflow';
 import { developerEconomics } from '../../src/domain/developer';
+import { lotDeveloperPnL } from '../../src/domain/lotDeveloper';
 import { calculateRights } from '../../src/domain/rights';
 import type { Goal, UserProfile } from '../../src/domain/types';
 import { analyzeProfile } from '../../src/optimizer/analyze';
@@ -251,15 +252,18 @@ describe('developer economics', () => {
     const s02 = run().results.find((x) => x.id === 'S02')!;
     expect(s02.developerPnL!.revenue).toBeCloseTo(rev, 4);
     expect(s02.developerPnL!.costs).toBeCloseTo(costs, 4);
-    expect(dev.combinationMargin).toBeCloseTo((rev - costs) / rev, 9);
+    // The per-owner standalone P&L reconciles line by line; the panel's combination margin is the lot-level one.
+    expect(s02.developerPnL!.marginOnRevenue).toBeCloseTo((rev - costs) / rev, 9);
+    expect(dev.combinationMargin).toBeCloseTo(lotDeveloperPnL({ info, profile: MODERATE, config: C }, 'mixed', 0.35).margin, 9);
     expect(dev.combinationEntitlementValue).toBeCloseTo(1_968_750, 4);
   });
 
   it('S06 and S11 have their own P&L, different from pure combination', () => {
     const d = run();
     const m = (id: string) => d.results.find((x) => x.id === id)!.developerMargin!;
-    // S11 earns a construction-services fee on the built share → its own margin.
-    expect(m('S11-1')).not.toBeCloseTo(m('S02'), 3);
+    // S11 earns a construction-services fee on the built share → its own margin. Since iteration 6 the margin is the
+    // lot's (with this owner on the route), so one owner's route moves it only slightly.
+    expect(Math.abs(m('S11-1') - m('S02'))).toBeGreaterThan(1e-5);
     // Completion sold at full market value is margin-neutral to the developer (same as selling that share);
     // at any other completion price S06 differs (next test).
     expect(m('S06-1')).toBeCloseTo(m('S02'), 9);

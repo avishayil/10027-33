@@ -215,3 +215,17 @@ describe('borrowing against another property needs a stated limit (review §12)'
     for (const r of d.results) expect(r.simulation.taxesFinancedBySecuredLoan).toBeLessThanOrEqual(100_000 + 1);
   });
 });
+
+describe('ranking on delivery economics (review §12)', () => {
+  it('the ranking value is the position at delivery minus interest paid after delivery', () => {
+    const d = analyzeProfile(profile({ availableCapital: 800_000, maxMonthlyRepayment: 8000 }), TERMS, C);
+    for (const r of d.results) {
+      expect(r.metrics.valueCreated).toBeCloseTo(r.delivery.netPosition - r.simulation.interestAfterCompletion, 4);
+      expect(r.deliveryValue).toBe(r.metrics.valueCreated);
+    }
+  });
+  it('the scenario table reports the delivery value per scenario', () => {
+    const r = analyzeProfile(MODERATE, TERMS, C).results[0];
+    for (const s of r.scenarioResults) expect(typeof s.deliveryValue).toBe('number');
+  });
+});

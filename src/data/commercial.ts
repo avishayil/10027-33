@@ -187,6 +187,33 @@ export const COMMERCIAL = {
     verification: 'assumed',
     notes: 'שונה מ״רווח יזמי על הבנייה״ (הסליידר): זה הרווח על הפרויקט כולו.',
   },
+  developerEquityShare: {
+    value: 0.2,
+    label: 'הון עצמי של היזם (מודל המגרש, מתוך העלויות)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    range: { low: 0.15, high: 0.25 },
+    verification: 'assumed',
+    notes: 'בליווי בנקאי היזם מעמיד בדרך כלל הון עצמי לפני משיכת אשראי. הנחת תכנון.',
+  },
+  escortLoanRate: {
+    value: 0.0625,
+    label: 'ריבית ליווי בנקאי ליזם (פריים + 1.5%)',
+    sourceType: 'planning_assumption',
+    retrievedAt: '2026-11-27',
+    range: { low: 0.0525, high: 0.0775 },
+    verification: 'assumed',
+    notes: 'פריים 4.75% (בנק ישראל, 23.11.2026) ועוד מרווח משוער. העלויות הרכות (12%) עשויות לכלול חלק מהמימון — שמרני.',
+  },
+  presaleShare: {
+    value: 0.15,
+    label: 'חלק ממכירות היזם שמתקבל במכירה מוקדמת בזמן הבנייה',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    range: { low: 0.1, high: 0.4 },
+    verification: 'assumed',
+    notes: 'השאר במסירה. מכירה מוקדמת גבוהה מקטינה את עלות המימון.',
+  },
 } satisfies Record<string, DataPoint<number | string>>;
 
 /** Illustrative construction payment schedule (planning placeholder, not contract terms). */

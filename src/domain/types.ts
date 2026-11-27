@@ -168,6 +168,12 @@ export interface ProjectConfig {
     softCostRate: number;
     /** Indicative profit a developer requires, as a share of revenue net of VAT. */
     targetMarginOnRevenue: number;
+    /** Lot-level model: developer equity as a share of total costs, funded before the escort loan. */
+    equityShare: number;
+    /** Lot-level model: escort (ליווי) loan rate on the drawn balance. */
+    escortLoanRate: number;
+    /** Lot-level model: share of the developer's sales received as presales during construction. */
+    presaleShare: number;
   };
   market: {
     /**
@@ -531,6 +537,8 @@ export interface ScenarioResult {
   scenarioId: ScenarioId;
   futureNetWealth: number;
   valueCreated: number;
+  /** Position at delivery minus interest after delivery, in this scenario (the ranking value). */
+  deliveryValue: number;
   mortgageRequired: number;
   monthlyRepayment: number;
   feasible: boolean;
@@ -538,7 +546,10 @@ export interface ScenarioResult {
 }
 
 export interface Metrics {
-  /** Value created from the land at the horizon (wealth − starting capital grown). */
+  /**
+   * Ranking value (iteration 6): position at delivery in today's prices minus interest paid after delivery within the
+   * horizon. (The 10-year wealth stays in the optional projection.)
+   */
   valueCreated: number;
   resilience: number;
   wholeApartments: number;
@@ -591,6 +602,8 @@ export interface StrategyResult {
   cashAtSigning: number;
   /** Primary, today's-price view at delivery (no appreciation, no investment return). */
   delivery: DeliverySnapshot;
+  /** The ranking value: delivery position minus interest after delivery (= metrics.valueCreated). */
+  deliveryValue: number;
   /** Betterment levy on the owner's original rights: total proxy and who pays it. */
   levy: LevyBreakdown;
   /** Non-null when the outcome depends on a price or term nobody has verified (excluded from the ranking). */
@@ -760,6 +773,8 @@ export interface ArrangementOutcome {
   combinationPct: number | null;
   /** The % under this arrangement at which the owner is as well off as under the headline offer. */
   ownerBreakEvenPct: number | null;
+  /** The highest % at which the lot still leaves the developer its target margin (lot-level P&L); null = none. */
+  viablePct: number | null;
   recommendationId: string | null;
   wholeApartments: number;
   feasibility: Feasibility | null;
@@ -871,4 +886,17 @@ export interface DeveloperEconomics {
   combinationTaxCost: number;
   /** Cash price per original m² that leaves the developer as well off as the selected combination offer. */
   consistentCashPricePerSqm: number;
+  /** Lot-level P&L on the offer's terms (the basis of combinationMargin and maxCombinationAtTargetMargin). */
+  lot: {
+    units: number;
+    servicesUnits: number;
+    developerUnits: number;
+    revenue: number;
+    costs: number;
+    financingCost: number;
+    profit: number;
+    peakEquity: number;
+    peakLoan: number;
+    lines: { label: string; amount: number }[];
+  };
 }
