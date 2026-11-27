@@ -17,6 +17,7 @@ import { Wizard, type WizardStep } from './components/inputs/Wizard';
 import { PrintHeader } from './components/print/PrintHeader';
 import { SegmentedToggle } from './components/SegmentedToggle';
 import { FollowUps } from './components/verdict/FollowUps';
+import { TopPriorities } from './components/verdict/TopPriorities';
 import { Alternatives, Verdict } from './components/verdict/Verdict';
 import { DISCLAIMER_SHORT } from './content/sourcesAndDisclaimer';
 import { MAVAT_URL } from './data/parcel33';
@@ -27,6 +28,15 @@ const LegacySimulator = lazy(() => import('./components/legacy/LegacySimulator')
 
 type Tab = 'smart' | 'advanced';
 
+const ADVANCED_KEY = 'mimush-chacham:advanced-view';
+const readAdvanced = () => {
+  try {
+    return window.localStorage.getItem(ADVANCED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 export default function App() {
   const [saved] = useState(() => loadInputs());
   const engine = useDecisionEngine(saved);
@@ -36,6 +46,18 @@ export default function App() {
   const [wizardStart, setWizardStart] = useState<WizardStep>('welcome');
   const [onboarded, setOnboarded] = useState(saved !== null);
   const [remember, setRemember] = useState(saved !== null);
+  // Simple view by default: only the three priorities. Advanced view shows every detail (a display preference, not
+  // personal data, so it is remembered in this browser).
+  const [advanced, setAdvancedState] = useState(readAdvanced);
+  const setAdvanced = (on: boolean) => {
+    setAdvancedState(on);
+    if (!on) setTab('smart');
+    try {
+      window.localStorage.setItem(ADVANCED_KEY, on ? '1' : '0');
+    } catch {
+      /* storage unavailable — the choice lasts for this visit only */
+    }
+  };
   const base = import.meta.env.BASE_URL;
 
   // Keep saved answers in sync (only with consent, only once onboarding is complete).
@@ -83,12 +105,12 @@ export default function App() {
         <p className="subtitle subtitle-small">מתחם 13 · חדרה · גוש 10027 חלקה 33</p>
       </header>
 
-      {!inWizard && (
+      {!inWizard && advanced && (
         <nav className="tabs no-print" aria-label="מצב תצוגה">
           <SegmentedToggle
             options={[
               { value: 'smart', label: 'מימוש חכם' },
-              { value: 'advanced', label: 'מחשבון מתקדם' },
+              { value: 'advanced', label: 'מחשבון ידני' },
             ]}
             value={tab}
             onChange={setTab}
@@ -114,9 +136,18 @@ export default function App() {
         ) : (
           <main className="main-view">
             {profile && <PrintHeader profile={profile} terms={terms} />}
+            {result && <TopPriorities result={result} />}
             <AnswersBar engine={engine} saved={remember} onEdit={edit} onForget={forget} />
-            {result ? (
+            <label className="advanced-toggle no-print">
+              <input type="checkbox" role="switch" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} />
+              <span>
+                <strong>תצוגה מתקדמת</strong>
+                <span className="field-hint">כל הפירוט: מסים, מימון, תרחישים, תנאים מול היזם והנחות</span>
+              </span>
+            </label>
+            {result && advanced ? (
               <>
+                <h2 className="section-title section-divider">פירוט מלא</h2>
                 <Verdict
                   result={result}
                   goal={profile!.goal}
@@ -145,6 +176,12 @@ export default function App() {
                   <span className="field-hint">החישוב נעשה כולו בדפדפן שלכם. שום נתון לא נשלח לשרת.</span>
                 </div>
               </>
+            ) : result ? (
+              <div className="no-print print-actions">
+                <button type="button" className="btn-primary" onClick={() => window.print()}>
+                  הדפסת סיכום לפגישה
+                </button>
+              </div>
             ) : (
               <section className="card">
                 <p>חסר שטח קרקע תקין.</p>

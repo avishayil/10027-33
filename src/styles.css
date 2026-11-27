@@ -1974,3 +1974,129 @@ button {
   background: #fef3c7;
   color: #92400e;
 }
+
+/* Simple view: three ranked routes. */
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  cursor: pointer;
+}
+.advanced-toggle input {
+  appearance: none;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: #d1d5db;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.advanced-toggle input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: inset-inline-start 0.15s;
+}
+.advanced-toggle input:checked {
+  background: var(--primary);
+}
+.advanced-toggle input:checked::after {
+  inset-inline-start: 21px;
+}
+.advanced-toggle input:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+.advanced-toggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.advanced-toggle .field-hint {
+  margin: 0;
+}
+.priority-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.priority-card {
+  margin: 0;
+}
+.priority-first {
+  border: 2px solid var(--primary);
+}
+.priority-rank {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.priority-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  color: var(--primary-dark);
+}
+.priority-first h3 {
+  font-size: 1.3rem;
+}
+.priority-note {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: #92400e;
+}
+.priority-desc {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+.priority-numbers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.priority-numbers div {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 8px;
+}
+.priority-numbers dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.priority-numbers dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+@media (max-width: 480px) {
+  .priority-numbers {
+    gap: 6px;
+  }
+  .priority-numbers div {
+    padding: 6px;
+  }
+  .priority-numbers dd {
+    font-size: 0.95rem;
+  }
+}
+.priority-numbers .sub {
+  display: block;
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
