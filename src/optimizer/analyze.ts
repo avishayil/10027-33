@@ -11,6 +11,7 @@ import {
   developerBudget,
   lotDeveloperPnL,
   lotViablePct,
+  developerStress,
   profitabilityMatrix,
   projectDeveloperPnL,
   routeDelta,
@@ -728,7 +729,12 @@ function budgetView(lotCtx: { info: EngineContext['info']; profile: UserProfile;
     },
   });
   const margin = (cfg: ProjectConfig) => lotDeveloperPnL({ ...lotCtx, config: cfg }, arr, terms.combinationPct, opts).margin;
+  const stress = developerStress(lotCtx, arr, terms.combinationPct, opts);
+  const basePnL = lotDeveloperPnL(lotCtx, arr, terms.combinationPct, opts);
   return {
+    stress: stress.rows,
+    headroom: stress.headroom,
+    returns: { profitOnCost: basePnL.profitOnCost, peakEquity: basePnL.peakEquity, peakLoan: basePnL.peakLoan, equityIrr: stress.rows[0].equityIrr },
     direct: b.direct,
     perSaleableSqm: b.perSaleableSqm,
     lines: b.lines,

@@ -8,7 +8,7 @@ import {
   formatRights,
   strategyTitle,
 } from '../../optimizer/explain';
-import { formatArea, formatCurrency, formatNumber } from '../../utils/format';
+import { formatArea, formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
 import { AssessmentChips } from '../verdict/Verdict';
 
 function Section({ title, sub, children, open = false }: { title: string; sub?: string; children: React.ReactNode; open?: boolean }) {
@@ -702,6 +702,47 @@ function DeveloperThresholdsView({ result, combinationPct }: { result: DecisionR
         </tbody>
       </table>
       <p className="field-hint">אלה ספי איזון שהמודל מחשב — לא מחירים שנבדקו בשוק ולא ברירת מחדל חדשה.</p>
+      <h3>בדיקות לחץ ליזם — במגרש שלכם, בתנאים שהזנתם</h3>
+      <p className="field-hint">
+        בבסיס: רווח על העלות {pctFmt(t.budget.returns.profitOnCost)}, תשואה שנתית על ההון העצמי של היזם{' '}
+        {t.budget.returns.equityIrr === null ? '— לא מוגדרת' : pctFmt(t.budget.returns.equityIrr)}, הון עצמי בשיא{' '}
+        {formatCompactCurrency(t.budget.returns.peakEquity)}, אשראי בשיא {formatCompactCurrency(t.budget.returns.peakLoan)}. חישוב אינדיקטיבי.
+      </p>
+      <div className="table-scroll">
+        <table className="compare-table">
+          <thead>
+            <tr>
+              <th>תרחיש</th>
+              <th>רווח מההכנסות</th>
+              <th>רווח על העלות</th>
+              <th>תשואה על ההון</th>
+              <th>אשראי בשיא</th>
+            </tr>
+          </thead>
+          <tbody>
+            {t.budget.stress.map((x) => (
+              <tr key={x.label}>
+                <th>{x.label}</th>
+                <td className={x.margin < 0 ? 'cell-fail' : ''}>{pctFmt(x.margin)}</td>
+                <td>{pctFmt(x.profitOnCost)}</td>
+                <td>{x.equityIrr === null ? '—' : pctFmt(x.equityIrr)}</td>
+                <td>{formatCompactCurrency(x.peakLoan)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="field-hint">
+        עלויות שלא נכללו ולא ידועות (היטלי פיתוח, תשתיות, אגרות מעבר ל-12%):{' '}
+        {t.budget.headroom.toTargetPerSqm >= 0
+          ? `הפרויקט סופג עד כ-${formatCurrency(t.budget.headroom.toTargetPerSqm)} למ״ר מכר לפני שהרווח יורד מתחת ליעד, `
+          : 'הרווח כבר מתחת ליעד בתנאים האלה; '}
+        {t.budget.headroom.toZeroPerSqm >= 0
+          ? `ועד כ-${formatCurrency(t.budget.headroom.toZeroPerSqm)} למ״ר לפני הפסד.`
+          : 'והפרויקט כבר בהפסד.'}{' '}
+        לא בדקנו ששטח המגורים בתכנית (11,209 מ״ר במגרש 149) מוגדר כמו השטח שבו נמדדים מחירי הדירות, ולא שמבני הציבור (325 מ״ר) נפרדים
+        מהשטח העילי — לכן שתי השורות בטבלה. מבני הציבור מחושבים כולל מע״מ (לא ברור שהיזם יכול לקזז אותו).
+      </p>
       <div className="table-scroll">
         <table className="compare-table">
           <caption>אחוז קומבינציה מקסימלי שמשאיר ליזם את יעד הרווח</caption>

@@ -286,3 +286,11 @@ Project loan: interest-only to delivery, then 25-year annuity. Loan on another p
   unverified ₪6,900/m² offer scenario.
 * **Old calculator** relabelled "מחשבון ישן (להשוואה)" with a warning that its tax and financing calculations are
   outdated.
+
+### Phase C (developer side)
+* `developerStress()` — margin, profit on cost, equity IRR and peak loan for the base and seven stresses (single and
+  combined); `headroom` = (profit − target × revenue) ÷ saleable area and profit ÷ saleable area.
+* `financeFlows()` returns the equity flows (− injections, + the remainder after the loan at the end);
+  `annualIrr()` solves the monthly rate by bisection. Σ equity flows = Σ project flows − financing cost.
+* `LotOptions.saleableAreaFactor` scales only the developer's sales area (construction stays on the plan areas);
+  `publicBuildingsInPlanAreas` drops the separate public-shell cost.

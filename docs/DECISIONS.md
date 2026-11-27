@@ -357,3 +357,20 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
      `main`. Pinning actions to commit SHAs is left open (the SHAs could not be verified from this environment).
      **Kept (owner)**: the any-purpose loan stays at the 50% base — the BOI "min(70%, 50% + ₪200K)" upper bound is not
      modelled.
+108. **Developer stresses, joint and single** (phase C): cost +10%, apartment price −10%, saleable area −10%, approval
+     delayed 12 months, escort rate +2%, public buildings inside the plan areas, and all adverse ones combined. Each
+     row: margin, profit on cost, equity IRR, peak loan. Calculated sensitivities, not forecasts.
+109. **Developer returns beyond margin**: profit on cost, peak equity, peak loan and an indicative equity IRR (from the
+     monthly equity flows of the escort-loan model). IRR is computed only where shown (it is a solver; in every lot
+     P&L it made an analysis ~21× slower).
+110. **Unknown costs as headroom, not invented values**: development levies, infrastructure and fees beyond the 12% soft
+     costs are not in the budget; the panel shows how much per saleable m² the lot can absorb before the target margin
+     and before a loss. The 12% soft costs are described without financing (financing is modelled separately).
+111. **Area basis and public buildings stay unverified and visible**: not established that 11,209 m² uses the same area
+     definition as the ₪/m² sales evidence, nor that the 325 m² public buildings are outside the 14,269 m² above-ground
+     area — both are stress rows. Public shell cost stays VAT-inclusive (₪8,000/m², appraisal p.97): input VAT recovery
+     on buildings handed to the municipality is not established.
+112. **Evidence labels**: the immediate-sale range is reported transactions only (₪1,647–2,395/m², seven deals
+     10/2024–04/2026, median ₪1,916); the appraisal's allocation value (≈ ₪2,739) is no longer mixed into it nor used as
+     the favourable sale scenario. The block-wide post-approval value is labelled an assumption (its source is a
+     reported statistic; its use for parcel 33 is not).

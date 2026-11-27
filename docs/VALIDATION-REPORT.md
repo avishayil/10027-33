@@ -310,3 +310,11 @@ performance measurement, joint owner–developer contract search. Pinning CI act
 appraiser, a tax adviser and a lawyer remains a release gate.
 
 Commands: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, `npm run test:e2e`.
+
+### Iteration 9 — phase C (developer budget and evidence)
+Tests: `tests/domain/developerStress.test.ts` — IRR of a known 1%-a-month flow; no sign change → no IRR; equity-flow
+conservation; base row = lot P&L; every adverse stress lowers the margin and the public-buildings row raises it; the
+combined stress is worse than any single one; headroom × saleable area = profit (and profit − target × revenue); a 10%
+cost rise lowers profit by more than ₪11.44M × 1.12. Performance: one analysis ≈ 79 ms (unchanged). Recommendations
+unchanged (no owner-side formula changed; the favourable immediate-sale scenario only affects the price-dependent sale
+route's threshold display).

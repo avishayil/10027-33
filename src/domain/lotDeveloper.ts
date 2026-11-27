@@ -76,6 +76,13 @@ export interface LotOptions {
   delta?: RouteDelta | null;
   /** Quota slots the user's route takes (whole slots — `serviceApartments(candidate)`), never a fraction. */
   userServicesUnits?: number;
+  /**
+   * Sensitivity of the area basis (iteration 9 / C1): the developer sells `saleableAreaFactor` × the plan's residential
+   * area (default 1). Not verified that 11,209 m² uses the same area definition as the ₪/m² sales evidence.
+   */
+  saleableAreaFactor?: number;
+  /** Sensitivity: the 325 m² of public buildings are already inside the plan's above-ground area (no separate cost). */
+  publicBuildingsInPlanAreas?: boolean;
 }
 
 export interface RouteDelta {
@@ -109,6 +116,8 @@ export interface LotPnL {
   profitOnCost: number;
   peakEquity: number;
   peakLoan: number;
+  /** The developer's equity cash flows (IRR is computed on demand — `annualIrr` — only where shown). */
+  equityFlows: number[];
   lines: { label: string; amount: number }[];
 }
 
@@ -122,6 +131,23 @@ export interface FinancingResult {
   peakLoan: number;
   endingCash: number;
   endingLoan: number;
+  /** The developer's equity cash flows: − injections, + what is left at the end after the loan. */
+  equityFlows: number[];
+}
+
+/** Annual IRR of monthly flows (bisection on the monthly rate); null when the flows never change sign. */
+export function annualIrr(flows: number[]): number | null {
+  const npv = (r: number) => flows.reduce((s, x, m) => s + x / Math.pow(1 + r, m), 0);
+  if (!flows.some((x) => x < 0) || !flows.some((x) => x > 0)) return null;
+  let lo = -0.99;
+  let hi = 1;
+  if (npv(lo) * npv(hi) > 0) return null;
+  for (let i = 0; i < 200; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (npv(lo) * npv(mid) <= 0) hi = mid;
+    else lo = mid;
+  }
+  return Math.pow(1 + (lo + hi) / 2, 12) - 1;
 }
 
 /**
@@ -136,7 +162,9 @@ export function financeFlows(flows: number[], o: { equityShareOfCosts: number; t
   let loan = 0;
   let financingCost = 0;
   let peakLoan = 0;
+  const equityFlows: number[] = [];
   for (const x of flows) {
+    const equityBefore = equity;
     if (loan > 0) {
       const i = loan * o.monthlyRate;
       loan += i;
@@ -157,8 +185,10 @@ export function financeFlows(flows: number[], o: { equityShareOfCosts: number; t
       cash -= repay;
     }
     peakLoan = Math.max(peakLoan, loan);
+    equityFlows.push(-(equity - equityBefore));
   }
-  return { financingCost, peakEquity: equity, peakLoan, endingCash: cash, endingLoan: loan };
+  if (equityFlows.length) equityFlows[equityFlows.length - 1] += cash - loan;
+  return { financingCost, peakEquity: equity, peakLoan, endingCash: cash, endingLoan: loan, equityFlows };
 }
 
 // ---------------------------------------------------------------------------
@@ -266,13 +296,15 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
   const H = Math.max(horizonOf(config), opts.delta ? opts.delta.flows.length - 1 : 0);
   const f = new Flows(H);
 
-  const sales = addAreaSales(f, config, (1 - c) * combinationArea);
+  const sales = addAreaSales(f, config, (1 - c) * combinationArea * (opts.saleableAreaFactor ?? 1));
   // Services owners pay the owners' price per m² (₪11,000 × (1 + markup)) for their apartment's area.
   const quoteExVat = (constructionQuotePerApartment(config, markup) / (1 + vat)) * (areaPerUnit / config.construction.apartmentSizeSqm);
   const servicesRevenue = servicesUnits * quoteExVat;
   for (const ms of config.construction.schedule) f.add(milestoneMonth(ms, config), servicesRevenue * ms.share);
   const { direct, soft } = addConstruction(f, config, ctx.info.lotId, area);
-  const publicBuildings = config.publicConstruction.sqmPerLot * config.publicConstruction.costPerSqm;
+  // ₪8,000/m² is VAT-inclusive (appraisal p.97) and kept so: whether a developer can reclaim input VAT on buildings handed
+  // to the municipality is not established (iteration 9 / C2).
+  const publicBuildings = opts.publicBuildingsInPlanAreas ? 0 : config.publicConstruction.sqmPerLot * config.publicConstruction.costPerSqm;
   f.spread(permitMonth(config), completionMonth(config), -publicBuildings);
 
   // Owners' taxes the developer bears: a typical holding's, times the holdings in combination (ownership shares).
@@ -310,6 +342,7 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
     profitOnCost: costs + fin.financingCost > 0 ? profit / (costs + fin.financingCost) : 0,
     peakEquity: fin.peakEquity,
     peakLoan: fin.peakLoan,
+    equityFlows: fin.equityFlows,
     lines: [
       { label: 'מכירת דירות היזם (ללא מע״מ)', amount: sales },
       { label: 'שכר שירותי בנייה מהבעלים במכסה', amount: servicesRevenue },
@@ -499,4 +532,43 @@ export function projectDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement
   const revenue = sum('revenue');
   const profit = sum('profit');
   return { lots, units: sum('units'), revenue, costs: sum('costs'), financingCost: sum('financingCost'), profit, margin: revenue > 0 ? profit / revenue : 0 };
+}
+
+/**
+ * Developer stresses on the owner's lot at the offer's terms (iteration 9 / C3) — combined as well as one at a time.
+ * Calculated sensitivities, not forecasts. Also: how much unbudgeted cost per saleable m² (development levies,
+ * infrastructure, fees not in the 12%) the lot can absorb before the target margin, and before a loss.
+ */
+export function developerStress(ctx: LotContext, arrangement: TaxArrangement, c: number, opts: LotOptions = {}) {
+  const base = ctx.config;
+  const cost = (f: number): ProjectConfig => ({
+    ...base,
+    developer: { ...base.developer, survey: { ...base.developer.survey, aboveGroundPerSqm: base.developer.survey.aboveGroundPerSqm * f, undergroundPerSqm: base.developer.survey.undergroundPerSqm * f } },
+  });
+  const price = (cfg: ProjectConfig, f: number): ProjectConfig => ({ ...cfg, market: { ...cfg.market, apartmentValuePerSqm: cfg.market.apartmentValuePerSqm * f } });
+  const delay = (cfg: ProjectConfig, months: number): ProjectConfig => ({ ...cfg, timeline: { ...cfg.timeline, approvalMonths: cfg.timeline.approvalMonths + months } });
+  const rate = (cfg: ProjectConfig, add: number): ProjectConfig => ({ ...cfg, developer: { ...cfg.developer, escortLoanRate: cfg.developer.escortLoanRate + add } });
+  const run = (label: string, cfg: ProjectConfig, extra: LotOptions = {}) => {
+    const p = lotDeveloperPnL({ ...ctx, config: cfg }, arrangement, c, { ...opts, ...extra });
+    return { label, margin: p.margin, profitOnCost: p.profitOnCost, equityIrr: annualIrr(p.equityFlows), peakLoan: p.peakLoan, profit: p.profit };
+  };
+  const rows = [
+    run('בסיס', base),
+    run('עלות בנייה +10%', cost(1.1)),
+    run('מחיר דירה −10%', price(base, 0.9)),
+    run('שטח למכירה −10% (הגדרת שטח שונה)', base, { saleableAreaFactor: 0.9 }),
+    run('עיכוב של 12 חודשים באישור', delay(base, 12)),
+    run('ריבית ליווי +2%', rate(base, 0.02)),
+    run('מבני הציבור כבר בתוך שטחי התכנית', base, { publicBuildingsInPlanAreas: true }),
+    run('משולב: עלות +10%, מחיר −10%, עיכוב 12 ח׳, ריבית +2%', rate(delay(price(cost(1.1), 0.9), 12), 0.02)),
+  ];
+  const b = lotDeveloperPnL(ctx, arrangement, c, opts);
+  const target = base.developer.targetMarginOnRevenue;
+  return {
+    rows,
+    headroom: {
+      toTargetPerSqm: (b.profit - target * b.revenue) / b.saleableArea,
+      toZeroPerSqm: b.profit / b.saleableArea,
+    },
+  };
 }
