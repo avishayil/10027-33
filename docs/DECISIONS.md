@@ -150,3 +150,11 @@
     arrangements, comparisons, financing, scenarios, developer, assumptions, the manual calculator) appears only when
     "תצוגה מתקדמת" is switched on; that display preference is remembered in the browser. The wizard asks for square
     metres only (with 167 / 334 / 500 presets); answers saved as a registry fraction are converted to m² on load.
+55. **Purchase tax on a completion payment stays — and only there.** Checked on request. The owner pays no purchase
+    tax on apartments received as combination consideration, and none on construction services paid for land the
+    owner keeps (services are not a right in land). A completion payment (S06/S13, tier upgrades) buys from the
+    developer a share of an apartment beyond the owner's consideration — a new acquisition of a right in land, so
+    purchase tax applies to that price; tax paid when the land was originally bought covered the land bought then,
+    not this. Rates: 0% for a sole home within the exemption band, ~8% for an additional home, 8% while unknown. The
+    same extra apartment structured as construction services on more retained land (sell less to the developer)
+    carries no purchase tax — that is the mixed combination + services route. Label and source note clarified.

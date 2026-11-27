@@ -204,7 +204,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         // Classification depends on the contract; the rate depends on whether it will be the only home.
         const pt = config.taxation.completionPurchaseTax;
         const rate = profile.soleHome === true ? pt.soleHome : pt.additionalHome;
-        out(permit, price * rate, 'מס רכישה על ההשלמה (לפי סיווג ומצב דירות)', 'purchase_tax', 'owner', {
+        out(permit, price * rate, 'מס רכישה על החלק שאתם קונים מהיזם (לא על הקרקע שלכם)', 'purchase_tax', 'owner', {
           range: { low: price * pt.soleHome, high: price * pt.additionalHome },
         });
         break;
@@ -326,7 +326,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
       out(completion, price / 2, `תשלום השלמה לדירת ${tierSize} מ״ר (יתרה)`, 'completion_payment');
       const pt = config.taxation.completionPurchaseTax;
       const rate = profile.soleHome === true ? pt.soleHome : pt.additionalHome;
-      out(permit, price * rate, 'מס רכישה על ההשלמה (לפי סיווג ומצב דירות)', 'purchase_tax', 'owner', {
+      out(permit, price * rate, 'מס רכישה על החלק שאתם קונים מהיזם (לא על הקרקע שלכם)', 'purchase_tax', 'owner', {
         range: { low: price * pt.soleHome, high: price * pt.additionalHome },
       });
     } else if (gap < -1e-9) {
