@@ -34,3 +34,16 @@
 22. New assumptions (all documented as planning assumptions): approval in 2 years, post-approval land value,
     20% fraction discount, 80% fraction cash settlement, developer soft costs 12%, target margin 15%,
     revenue-share tax at signing.
+
+## UX iteration
+
+23. **Onboarding wizard** so every user sees the key assumptions (2.25 rights, ₪25,000/m², ₪11,000/m², ₪6,900
+    unverified, levy 50%, 5% interest, plan not yet approved) and explicitly acknowledges them before the first result.
+24. **Answers are saved locally after explicit consent** (checked by default on the summary screen, clearly
+    worded, with a one-click delete). This replaces the earlier “memory-only” default at the owner’s request.
+25. **Free capital is a required answer** in the wizard (0 is allowed): the engine never assumes the user has money.
+26. **Review findings fixed:** results no longer below 1,700 px of form on phones; money inputs formatted with
+    separators and ₪; headline numbers compact; rights kept/transferred split into two rows; jargon (“שווי נטו
+    שנוצר”) renamed to “רווח כלכלי משוער” with an explanation; follow-up questions link to the relevant step;
+    comparison table becomes stacked cards on phones; 44 px touch targets, visible focus, skip link, focus moved to
+    each wizard step heading, labelled inputs and `aria-invalid` / `role="alert"` errors.

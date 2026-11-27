@@ -27,3 +27,12 @@ export function formatArea(num) {
 export function formatPercent(fraction, decimals = 2) {
   return `${formatNumber(fraction * 100, decimals)}%`;
 }
+
+/** Short amount for large headline numbers: 202,321 → "202 אלף ₪", 1,250,000 → "1.25 מיליון ₪"; below 10,000 stays exact. */
+export function formatCompactCurrency(amount) {
+  const n = Number.isFinite(amount) ? amount : 0;
+  const abs = Math.abs(n);
+  if (abs < 10000) return formatCurrency(n);
+  if (abs < 1_000_000) return `${formatNumber(n / 1000, 0)} אלף ₪`;
+  return `${formatNumber(n / 1_000_000, 2)} מיליון ₪`;
+}

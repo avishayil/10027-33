@@ -42,18 +42,52 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(origin + '/');
-  await page.waitForSelector('.verdict, .verdict-empty');
-  const initial = requests.length;
+  const shot = async (name) => shotDir && page.screenshot({ path: `${shotDir}/${name}-${viewport.width}.png`, fullPage: true });
 
-  await page.getByPlaceholder('למשל 200,000 — או 0').fill('350000');
-  await page.getByLabel('החזר חודשי מקסימלי').fill('6000');
+  // First visit: the onboarding wizard.
+  await page.waitForSelector('.wizard');
+  const initial = requests.length;
+  await shot('w0-welcome');
+  const next = () => page.locator('.wizard-actions button[type=submit]').click();
+  await next();
+  await shot('w1-land');
+  await next();
+  // Capital is required — an empty answer is blocked with a message.
+  await next();
+  if (!(await page.locator('.wizard .field-error').isVisible())) failures.push(`${viewport.width}px: empty capital was not blocked`);
+  await page.getByLabel('כמה כסף פנוי תוכלו להשקיע?').fill('350000');
+  await shot('w2-capital');
+  await next();
+  await page.getByLabel('כמה תוכלו להחזיר בחודש על משכנתא חדשה?').fill('6000');
+  await shot('w3-repayment');
+  await next();
   await page.getByText('לקבל כמה שיותר דירות').click();
+  await shot('w4-goal');
+  await next();
+  await page.locator('.ack input').check();
   await page.getByLabel('אחוז קומבינציה').fill('0.4');
-  await page.getByRole('button', { name: 'ללא משכנתא' }).click();
-  await page.getByRole('button', { name: 'לא יודע/ת' }).click();
-  await page.waitForTimeout(300);
+  await shot('w5-terms');
+  await next();
+  await shot('w6-summary');
+  await next();
+  await page.waitForSelector('.verdict, .verdict-empty');
+  await shot('main');
+
+  // Main screen interactions.
+  await page.getByLabel('רווח יזמי בשירותי בנייה').fill('0.2');
+  await page.waitForTimeout(200);
   const afterInputs = requests.slice(initial);
   if (afterInputs.length) failures.push(`${viewport.width}px: inputs triggered requests: ${afterInputs.join(', ')}`);
+
+  // Answers persist after a reload (consent was on by default) …
+  await page.reload();
+  await page.waitForSelector('.answers-bar');
+  if (!(await page.locator('.answers-bar').getByText('350,000').isVisible())) failures.push(`${viewport.width}px: saved answers not restored`);
+  // … and can be forgotten.
+  await page.getByRole('button', { name: 'מחיקת התשובות השמורות' }).click();
+  await page.reload();
+  await page.waitForSelector('.wizard');
+  await page.evaluate(() => localStorage.clear());
 
   const foreign = requests.filter((u) => !u.startsWith(origin) && !u.startsWith('data:'));
   if (foreign.length) failures.push(`${viewport.width}px: cross-origin requests: ${foreign.join(', ')}`);
@@ -62,12 +96,11 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   if (overflow > 1) failures.push(`${viewport.width}px: horizontal overflow of ${overflow}px`);
 
-  if (shotDir) {
-    await page.getByLabel('החזר חודשי מקסימלי').fill('6000');
-    await page.waitForTimeout(200);
-    await page.screenshot({ path: `${shotDir}/smart-${viewport.width}.png`, fullPage: true });
-  }
-  await page.getByRole('radio', { name: 'השוואה מתקדמת' }).click();
+  // Advanced calculator (reachable once onboarded): seed answers and open it.
+  await page.evaluate(() => localStorage.setItem('mimush-chacham:answers:v1', JSON.stringify({ version: 1, areaMode: 'sqm', areaText: '167', fractionText: '167/21258', lotId: '', capitalText: '0', repaymentMode: 'none', repaymentText: '', goal: 'balanced', combinationPct: 0.35, developerMarkup: 0.175, basisText: '', deadlineYears: 2 })));
+  await page.reload();
+  await page.waitForSelector('.answers-bar');
+  await page.getByRole('radio', { name: 'מחשבון מתקדם' }).click();
   await page.waitForSelector('.legacy-intro');
   if (errors.length) failures.push(`${viewport.width}px: errors on advanced tab: ${errors.join(' | ')}`);
   await page.close();

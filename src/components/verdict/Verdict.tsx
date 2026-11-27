@@ -15,7 +15,8 @@ import {
   formatRights,
   strategyTitle,
 } from '../../optimizer/explain';
-import { formatCurrency } from '../../utils/format';
+import { formatCompactCurrency, formatCurrency } from '../../utils/format';
+import { Tooltip } from '../Tooltip';
 
 const AFF_CLASS = { fits: 'estimated_feasible', fits_with_financing: 'conditional', does_not_fit: 'infeasible', unknown: 'unknown' } as const;
 const RES_CLASS = { robust: 'estimated_feasible', fragile: 'fragile' } as const;
@@ -51,14 +52,6 @@ export function StatusBadge({ r }: { r: StrategyResult }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 
 interface Props {
   result: DecisionResult;
@@ -86,40 +79,72 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
 
   const conditions = rec.requiredConditions.map((c) => CONDITION_TEXT[c]);
   const why = explainWhy(rec, goal, result.ranked);
-  const kept = R - rec.rightsSold;
+  const kept = Math.max(0, R - rec.rightsSold);
+  const usesCombination = rec.candidate.legs.some((l) => l.kind === 'combination');
+  const builds = rec.plan.apartmentsBuilt > 0;
+  const debt = rec.mortgageRequired > 1;
 
   return (
-    <section className="card verdict" aria-live="polite">
+    <section className="card verdict" aria-live="polite" aria-labelledby="verdict-title">
       <p className="verdict-kicker">
         המסלול המומלץ לבדיקה · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
       </p>
-      <h2>{strategyTitle(rec)}</h2>
-      <AssessmentChips r={rec} />
+      <h2 id="verdict-title">{strategyTitle(rec)}</h2>
       <p className="verdict-desc">{STRATEGY_DESCRIPTIONS[rec.strategyType]}</p>
+      <AssessmentChips r={rec} />
 
       <div className="verdict-numbers">
-        <div className="big-num">
-          <strong>{formatRights(Math.max(0, kept))}</strong>
-          <span>זכויות לשמירה</span>
-        </div>
-        <div className="big-num">
-          <strong>{formatRights(rec.rightsSold)}</strong>
-          <span>זכויות שעוברות ליזם / נמכרות</span>
-        </div>
         <div className="big-num">
           <strong>{rec.metrics.wholeApartments}</strong>
           <span>דירות שלמות בסוף</span>
         </div>
+        <div className="big-num">
+          <strong>{debt ? formatCompactCurrency(rec.mortgageRequired) : 'ללא'}</strong>
+          <span>משכנתא בשיא</span>
+        </div>
+        <div className="big-num">
+          <strong>{debt ? formatCompactCurrency(rec.monthlyRepayment) : '—'}</strong>
+          <span>החזר חודשי</span>
+        </div>
       </div>
 
-      <div className="stats-grid">
-        <Stat label="שווי דירה צפוי (היום)" value={formatCurrency(apartmentValueToday(PROJECT_CONFIG))} />
-        <Stat label="עלות שירותי בנייה בסיסית לדירה" value={formatCurrency(constructionQuotePerApartment(PROJECT_CONFIG, developerMarkup))} />
-        <Stat label="מימון נדרש (משכנתא)" value={rec.mortgageRequired > 1 ? formatCurrency(rec.mortgageRequired) : 'לא נדרש'} />
-        <Stat label="החזר חודשי מקסימלי" value={rec.monthlyRepayment > 1 ? formatCurrency(rec.monthlyRepayment) : '—'} />
-        <Stat label={`זכויות בקומבינציה של ${formatRights(combinationPct * 100)}%`} value={formatRights(R * combinationPct)} />
-        <Stat label="שווי נטו שנוצר בעוד 10 שנים" value={formatCurrency(rec.metrics.valueCreated)} />
-      </div>
+      <dl className="verdict-details">
+        <div>
+          <dt>זכויות שנשארות אצלכם</dt>
+          <dd>{formatRights(kept)}</dd>
+        </div>
+        <div>
+          <dt>זכויות שעוברות ליזם או נמכרות</dt>
+          <dd>{formatRights(rec.rightsSold)}</dd>
+        </div>
+        <div>
+          <dt>כסף פנוי שמשמש את המסלול</dt>
+          <dd>{formatCurrency(rec.personalCapitalRequired)}</dd>
+        </div>
+        {usesCombination && (
+          <div>
+            <dt>דירות מהקומבינציה ({formatRights(combinationPct * 100)}%)</dt>
+            <dd>{formatRights(R * combinationPct)}</dd>
+          </div>
+        )}
+        {builds && (
+          <div>
+            <dt>עלות שירותי בנייה לדירה (לפני הצמדה)</dt>
+            <dd>{formatCurrency(constructionQuotePerApartment(PROJECT_CONFIG, developerMarkup))}</dd>
+          </div>
+        )}
+        <div>
+          <dt>שווי דירה חדשה היום</dt>
+          <dd>{formatCurrency(apartmentValueToday(PROJECT_CONFIG))}</dd>
+        </div>
+        <div>
+          <dt>
+            רווח כלכלי משוער בעוד 10 שנים{' '}
+            <Tooltip content="כמה תהיו ״עשירים יותר״ בזכות הקרקע: דירות, כסף וקרקע בעוד 10 שנים, פחות חובות, החזרי משכנתא ומסים — מעבר למה שהכסף הפנוי שלכם היה צובר ממילא." />
+          </dt>
+          <dd>{formatCurrency(rec.metrics.valueCreated)}</dd>
+        </div>
+      </dl>
 
       <div className="verdict-cols">
         <div>
@@ -171,7 +196,7 @@ export function Alternatives({ result }: { result: DecisionResult }) {
                 <dd>{r.mortgageRequired > 1 ? formatCurrency(r.mortgageRequired) : 'ללא'}</dd>
               </div>
               <div>
-                <dt>שווי נטו שנוצר</dt>
+                <dt>רווח כלכלי משוער (10 שנים)</dt>
                 <dd>{formatCurrency(r.metrics.valueCreated)}</dd>
               </div>
             </dl>
