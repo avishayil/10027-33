@@ -13,6 +13,7 @@ import {
   StrategyComparison,
   WhyFits,
 } from './components/comparisons/DetailSections';
+import { JointSearch } from './components/comparisons/JointSearch';
 import { AnswersBar, TermsCard } from './components/inputs/AnswersBar';
 import { Wizard, type WizardStep } from './components/inputs/Wizard';
 import { PrintHeader } from './components/print/PrintHeader';
@@ -150,6 +151,13 @@ export default function App() {
                 <ScenarioComparison result={result} />
                 <NegotiationPanel result={result} />
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
+                {profile && (
+                  <JointSearch
+                    profile={profile}
+                    terms={terms}
+                    offer={{ levyCap: engine.inputs.levyCapText === '' ? null : Number(engine.inputs.levyCapText) || null, developerPaysTaxLoanInterest: engine.inputs.developerPaysInterest }}
+                  />
+                )}
                 <LandReferences result={result} />
                 <ProjectionSection result={result} />
                 <Assumptions />

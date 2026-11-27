@@ -328,3 +328,12 @@ shown routes only and lowers value); `tests/domain/validation.test.ts` (parcel a
 unknown lot, negatives, percentages, null ≠ 0, engine refuses); storage tests (goal migration reported, unknown saved lot
 dropped). Household matrix unchanged (`docs/validation/before-phaseD.md` = `after-phaseD.md`). Browser timing at 4× CPU
 slowdown: load ≈ 0.9 s; slider step ≈ 40 ms (was ≈ 300 ms); a 5-step drag settles in ≈ 1.5 s (was ≈ 2.0 s).
+
+### Iteration 9 — phase E (bilateral contract search)
+`tests/optimizer/jointSearch.test.ts`: the grid covers 3 × 11 contracts inside the slider; the developer side equals the
+lot P&L on the same terms and "ok" means at or above the hurdle; feasible = both accept; the frontier is non-dominated;
+the whole-apartment goal is respected; the exact developer maximum equals `lotViablePct`; without overlap (167 m²,
+₪300K, ₪5K/month) the net deal fits the owner but never the developer, and pricing apartments at the computed floor
+restores the developer's target. Example (that household): no overlap in 25–45%; mixed deal — the developer's maximum is
+≈ 24.7%, and there the household would need ≈ ₪39K more own capital; net deal — at 25% it works for the developer only
+at ≤ ₪8,920/m² direct cost or ≥ ₪28,701/m² apartment price. Model thresholds, not market data.

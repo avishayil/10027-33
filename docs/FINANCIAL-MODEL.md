@@ -301,3 +301,9 @@ Project loan: interest-only to delivery, then 25-year annuity. Loan on another p
   `failureMonth` → `interestToFailure`, `debtAtFailure`.
 * `StrategyResult.developerFailure` (all routes) and `delayedApproval` (shown routes; +24 months approval).
 * `validateInputs()` at the engine boundary; `maxAreaInLot = 167 ÷ sharePer167`.
+
+### Phase E — bilateral contract search
+`jointSearch(profile, terms, config, step)` → grid cells {arrangement, %, owner {ok, route, value, whole}, developer
+{ok, margin}}, `feasible`, `frontier`, and per arrangement `ownerOk` / `developerOk` / `both` ranges, `developerMaxExact`
+(`lotViablePct`) and, without overlap, `gap` {ownerMin, developerMax, atOwnerMin {margin, maxDirectCostPerSqm,
+minApartmentPricePerSqm}, atDeveloperMax {%, extraCapital, route}}.

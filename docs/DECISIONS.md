@@ -394,3 +394,14 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
      (was ≈ 300 ms). A Web Worker is not needed at this size.
 118. **The old four-track calculator is gone from the app.** The advanced view shows any route's full ledger (all payers)
      and the holding in the official allocation table. The old math stays as `simulationMath.test.js` regression fixture.
+119. **Bilateral contract search, first version** (phase E, `src/optimizer/joint/search.ts`). A contract is
+     (combination %, tax arrangement) on a 2-point grid over the slider range × gross/mixed/net; markup and offer terms
+     stay as entered. Owner accepts: an evidence-based route this household can fund (no price-dependent legs, within the
+     developer policy, no assumed apartment sizes; for the whole-apartment goal, ending with a whole apartment); value =
+     the route's equity NPV. Developer accepts: lot margin ≥ the target (15%, an assumption) — equal profit below the
+     target is not viable. Output: ranges per side and their overlap (read from the grid, no monotonicity assumed), the
+     non-dominated feasible contracts, or a gap certificate per arrangement — the owner's lowest %, the developer's
+     highest % (exact, may lie below the slider), and single levers: the margin the developer would have to accept, the
+     direct-cost ceiling or apartment-price floor that restores its target, and the extra own capital the owner needs at
+     the developer's maximum. On demand in the advanced view (≈ 20–60 ms on a laptop). Each lever is computed alone;
+     joint levers and more contract variables (completion price, payment dates, loan terms) are the next step.
