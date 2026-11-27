@@ -369,6 +369,13 @@ export type LedgerCategory =
 
 export type Payer = 'owner' | 'developer' | 'buyer' | 'seller';
 
+/**
+ * Price basis of an amount (iteration 9 / F04). 'real': today's prices (market values, taxes on them, completion and sale
+ * prices); 'nominal': a fixed or indexed shekel amount on its date (indexed construction payments, loans). The cash-flow
+ * simulation converts everything to one nominal timeline; valuation deflates that timeline once.
+ */
+export type PriceBasis = 'real' | 'nominal';
+
 export interface LedgerEntry {
   category: LedgerCategory;
   label: string;
@@ -386,6 +393,7 @@ export interface LedgerEntry {
   saleRelated?: boolean;
   /** A combination tax the owner pays that a developer/bank tax loan may cover. */
   taxLoanEligible?: boolean;
+  priceBasis: PriceBasis;
 }
 
 export interface CashEvent {
@@ -396,6 +404,8 @@ export interface CashEvent {
   category: LedgerCategory;
   /** A combination tax the owner pays that a developer/bank tax loan may cover. */
   taxLoanEligible?: boolean;
+  /** Default 'nominal' (the amount is used as is). Plan events always state it. */
+  priceBasis?: PriceBasis;
 }
 
 export interface TransactionPlan {

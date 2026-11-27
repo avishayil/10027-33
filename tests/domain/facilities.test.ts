@@ -62,7 +62,9 @@ describe('mortgage limits by purpose and status', () => {
     expect(ok.reasonCodes).not.toContain('LTV_EXCEEDED');
     expect(ok.simulation.taxLoanMaturityGap).toBe(0);
     // Was: the whole balance became a mortgage and then failed the LTV test. Now the facility stops at its limit.
-    expect(capped.simulation.taxLoanRefinanced).toBeLessThanOrEqual(0.1 * capped.plan.postCompletionCollateral + 1);
+    // The cap is 10% of the delivered apartment's value in nominal shekels at delivery (iteration 9 / F04).
+    const indexAtDelivery = Math.pow(1 + C.analysis.inflation, capped.plan.completionMonth / 12);
+    expect(capped.simulation.taxLoanRefinanced).toBeLessThanOrEqual(0.1 * capped.plan.postCompletionCollateral * indexAtDelivery + 1);
     expect(capped.simulation.taxLoanMaturityGap).toBeGreaterThan(0);
     expect(capped.reasonCodes).toContain('TAX_LOAN_EXTENSION_NEEDED');
   });

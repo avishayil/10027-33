@@ -23,12 +23,17 @@ import type {
   Candidate,
   CommercialTerms,
   LedgerEntry,
+  PriceBasis,
   ProjectConfig,
   RightsInfo,
   TransactionPlan,
   UserProfile,
 } from './types';
 import { apartmentValueAt, apartmentValueToday, developerRightsPrice, immediateRightsPrice } from './valuation';
+
+/** Indexed construction payments (and their reserve) are nominal amounts; everything else is in today's prices. */
+export const NOMINAL_CATEGORIES: ReadonlySet<LedgerEntry['category']> = new Set<LedgerEntry['category']>(['construction', 'contingency_reserve', 'contingency_release']);
+export const priceBasisOf = (category: LedgerEntry['category']): PriceBasis => (NOMINAL_CATEGORIES.has(category) ? 'nominal' : 'real');
 
 export interface PlanContext {
   info: RightsInfo;
@@ -100,14 +105,16 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     extra: Partial<LedgerEntry> = {},
   ) => {
     if (amount <= 0 && !extra.rightsPortion) return;
-    ledger.push({ category, label, amount, direction: 'out', month, payer, ...extra });
+    const priceBasis = priceBasisOf(category);
+    ledger.push({ category, label, amount, direction: 'out', month, payer, priceBasis, ...extra });
     if (payer === 'owner' && !extra.deferred && amount > 0)
-      events.push({ month, amount: -amount, label, category, ...(extra.taxLoanEligible ? { taxLoanEligible: true } : {}) });
+      events.push({ month, amount: -amount, label, category, priceBasis, ...(extra.taxLoanEligible ? { taxLoanEligible: true } : {}) });
   };
   const inflow = (month: number, amount: number, label: string, category: LedgerEntry['category']) => {
     if (amount <= 0) return;
-    ledger.push({ category, label, amount, direction: 'in', month, payer: 'owner' });
-    events.push({ month, amount, label, category });
+    const priceBasis = priceBasisOf(category);
+    ledger.push({ category, label, amount, direction: 'in', month, payer: 'owner', priceBasis });
+    events.push({ month, amount, label, category, priceBasis });
   };
   const addCg = (t: { used: number; low: number; high: number }) => {
     cgRange.low += t.low;

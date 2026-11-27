@@ -892,7 +892,7 @@ export function ProjectionSection({ result }: { result: DecisionResult }) {
     ['פחות: הכסף הפנוי שהיה צובר ממילא', -p.startingCapitalGrown],
   ];
   return (
-    <Section title="תחזית כלכלית ארוכת טווח" sub={`המחשה בלבד — ${p.years} שנים, ${formatNumber(p.apartmentGrowth * 100, 0)}% עליית ערך, ${formatNumber(p.alternativeReturn * 100, 0)}% תשואה`}>
+    <Section title="תחזית כלכלית ארוכת טווח" sub={`המחשה בלבד — ${p.years} שנים, ${formatNumber(p.apartmentGrowth * 100, 0)}% עליית ערך, ${formatNumber(p.alternativeReturn * 100, 0)}% תשואה, בשקלים של שנת היעד`}>
       <p className="field-hint">
         זו לא תחזית ולא סכום שתקבלו. ההנחות (עליית ערך דירות, תשואה על כסף) הן תרחיש. הדירות מוערכות לפי שווי שוק
         ולא לפי מכירה בפועל (בלי מס ועלויות מכירה).

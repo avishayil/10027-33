@@ -449,6 +449,10 @@ export function analyzeProfile(
     };
     const ev = evaluateCandidate(recommendation.candidate, ctx, pcfg);
     const monthsLiving = Math.max(0, ev.horizonMonth - ev.plan.completionMonth);
+    // Stated in the shekels of the horizon year (iteration 9 / F04): every item nominal, the total their sum.
+    const startingCapitalGrown = ev.referenceWealthNominal;
+    const total =
+      ev.assetsAtHorizon + ev.sim.cashAtHorizon - ev.sim.debtAtHorizon - ev.sim.personalPaymentsFV - ev.plan.deferredLiabilities - ev.sim.unfunded - startingCapitalGrown;
     projection = {
       years: ev.horizonMonth / 12,
       apartmentGrowth: config.projection.apartmentValueAnnualGrowth,
@@ -459,8 +463,8 @@ export function analyzeProfile(
       mortgagePaymentsFV: ev.sim.personalPaymentsFV,
       deferredLiabilities: ev.plan.deferredLiabilities,
       unfunded: ev.sim.unfunded,
-      startingCapitalGrown: ev.referenceWealth,
-      total: ev.valueCreated,
+      startingCapitalGrown,
+      total,
       housingBenefit: ev.plan.housingBenefitMonthly * monthsLiving,
     };
   }

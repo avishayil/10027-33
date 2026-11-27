@@ -20,6 +20,8 @@ export const LEGACY_BASE: ProjectConfig = {
   financing: { ...C.financing, alternativeNetAnnualReturn: 0.04 },
   commercial: { ...C.commercial, contractorProfitRate: 0, combinationSaleDate: 'signing' },
   taxation: { ...C.taxation, bettermentLevyFactor: 0, completionPurchaseTax: { soleHome: 0.06, additionalHome: 0.06 }, servicesVatOnOwner: false },
+  // Iteration 2 had a single money basis with no inflation (iteration 9 converts today's prices to nominal shekels).
+  analysis: { ...C.analysis, inflation: 0 },
 };
 export const LEGACY_OWNER_PAYS = withArrangement(LEGACY_BASE, 'mixed');
 export const LEGACY_NET = withArrangement(LEGACY_BASE, 'net');
