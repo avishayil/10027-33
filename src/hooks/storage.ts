@@ -49,7 +49,10 @@ export function loadInputs(): SavedInputs | null {
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isValid(parsed)) return null;
-    return { soleHome: 'unknown', ...parsed };
+    // The wizard now offers three goals; the two retired ones map to their nearest successor.
+    const goal: Goal =
+      parsed.goal === 'passive_income' ? 'maximize_apartments' : parsed.goal === 'immediate_cash' ? 'minimize_risk' : parsed.goal;
+    return { soleHome: 'unknown', ...parsed, goal };
   } catch {
     return null;
   }

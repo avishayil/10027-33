@@ -64,7 +64,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   await page.getByLabel('כמה תוכלו להחזיר בחודש על משכנתא חדשה?').fill('6000');
   await shot('w3-repayment');
   await next();
-  await page.getByText('לקבל כמה שיותר דירות').click();
+  await page.getByText('לסיים עם דירה שלמה').click();
   await shot('w4-goal');
   await next();
   await page.locator('.ack input').check();
