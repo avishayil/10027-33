@@ -1,0 +1,114 @@
+# Validation report — iteration 3
+
+Baseline reviewed: `1a0d80e` (2026-11-27). This report records what was reproduced, what changed and why, and
+what still needs professional review. **Every number here is illustrative arithmetic under stated assumptions —
+not a tax assessment, appraisal, lending approval or legal opinion.**
+
+## 1. Reproduction of the baseline
+
+The reviewer's independent Python check (`independent-financial-check.py`) was run unchanged; the TypeScript
+engine at `1a0d80e` produced the same figures:
+
+| Case | S06 net | S06 owner-paid | S11 net | S05 |
+|---|---|---|---|---|
+| 2.25 rights, ₪300K | 235,276 / 1,375 | 515,041 / 3,011 | 313,615 / 1,833 | 1,249,749 / 7,306 |
+| 1.125, ₪300K | 1,282,082 / 7,495 | 1,420,281 / 8,303 | 1,506,055 / 8,804 | — |
+| 1.5, ₪300K | 934,270 / 5,462 | 1,118,534 / 6,539 | 1,109,754 / 6,488 | — |
+| 2.25, ₪800K | 0 / 0 | 0 / 0 | 0 / 0 | 688,074 / 4,022 |
+
+Developer P&L (Python): −13.8% at 35% net; −18.8% with contractor profit and purchase tax (old base). The two
+iteration-2 golden fixtures are kept as named **LEGACY** scenarios (`tests/fixtures/configs.ts`) and still
+reproduce ₪515,041 / ₪3,011 and ₪235,276 exactly.
+
+## 2. Household matrix — before (`1a0d80e`)
+
+| R | Cash | Repay | Goal | Decision | Status | Cash at signing | Tax reserve (owner) | Peak debt | Monthly | Dev. margin | Adverse value | S06 / S11 / S05 peak / monthly |
+|---|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| 2.25 | 300,000 | 5,000 | balanced | S06-1 | conditional/questionable | 0 | 0 | 235,276 | 1,375 | -13.8% | 2,077,211 | 235,276 / 1,375 · 313,615 / 1,833 · 1,249,749 / 7,306 |
+| 2.25 | 0 | 0 | balanced | S02 | estimated_feasible/questionable | 0 | 0 | 0 | 0 | -13.8% | 1,612,730 | 563,125 / 3,292 · 637,155 / 3,725 · 1,573,623 / 9,199 |
+| 2.25 | 800,000 | 5,000 | balanced | S06-1 | estimated_feasible/questionable | 0 | 0 | 0 | 0 | -13.8% | 2,081,874 | 0 / 0 · 0 / 0 · 688,074 / 4,022 |
+| 1.125 | 300,000 | 5,000 | balanced | S02 | estimated_feasible/questionable | 0 | 0 | 0 | 0 | -13.8% | 806,365 | 1,282,082 / 7,495 · 1,506,055 / 8,804 · — |
+| 1.5 | 300,000 | 5,000 | maximize_apartments | S08-1 | fragile/unverified | 167,767 | 48,462 | 1,483,960 | 4,968 | 16.2% | -420,514 (fails) | 934,270 / 5,462 · 1,109,754 / 6,488 · — |
+| 3 | 600,000 | 8,000 | balanced | S02 | estimated_feasible/questionable | 0 | 0 | 0 | 0 | -13.8% | 2,752,310 | 1,868,540 / 10,923 · 2,219,507 / 12,975 · 672,348 / 3,930 |
+| 3 | 300,000 | 5,000 | balanced | S02 | estimated_feasible/questionable | 0 | 0 | 0 | 0 | -13.8% | 2,752,310 | 2,193,020 / 12,820 · 2,535,346 / 14,821 · 1,013,133 / 5,923 |
+| 4 | 3,000,000 | 20,000 | maximize_apartments | S06-2 | estimated_feasible/questionable | 0 | 0 | 0 | 0 | -13.8% | 3,695,949 | 0 / 0 · 0 / 0 · 0 / 0 |
+| 2.25 | ? | ? | balanced | S02 | estimated_feasible/questionable | 0 | 0 | 0 | 0 | -13.8% | 1,612,730 | 563,125 / 3,292 · 637,155 / 3,725 · 1,573,623 / 9,199 |
+
+## 3. Household matrix — after (this PR, headline = mixed deal)
+
+| R | Cash | Repay | Goal | Decision | Status | Cash at signing | Tax reserve (owner) | Peak debt | Monthly | Dev. margin | Adverse value | S06 / S11 / S05 peak / monthly |
+|---|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| 2.25 | 300,000 | 5,000 | balanced | S09 | estimated_feasible/unverified | 0 | 226,262 | 0 | 0 | — | 564,858 | 531,250 / 3,106 · 534,178 / 3,123 · 1,118,686 / 6,540 |
+| 2.25 | 0 | 0 | balanced | S09 | estimated_feasible/unverified | 0 | 226,262 | 0 | 0 | — | 564,858 | 531,250 / 3,106 · 545,293 / 3,188 · 1,418,686 / 8,293 |
+| 2.25 | 800,000 | 5,000 | balanced | S13-80 | estimated_feasible/questionable | 0 | 322,746 | 0 | 0 | -5.6% | 1,645,441 | 1,947 / 11 · 0 / 0 · 562,812 / 3,290 |
+| 1.125 | 300,000 | 5,000 | balanced | S09 | estimated_feasible/unverified | 0 | 113,131 | 0 | 0 | — | 282,429 | 1,473,768 / 8,616 · 1,379,247 / 8,063 · — |
+| 1.5 | 300,000 | 5,000 | maximize_apartments | S13-80 | conditional/questionable | 0 | 215,164 | 633,184 | 3,702 | -5.6% | 1,008,990 | 1,173,184 / 6,858 · 1,097,455 / 6,416 · — |
+| 3 | 600,000 | 8,000 | balanced | S02 | estimated_feasible/questionable | 0 | 430,328 | 0 | 0 | -5.6% | 2,164,373 | 2,346,368 / 13,717 · 2,194,910 / 12,831 · 560,965 / 3,279 |
+| 3 | 300,000 | 5,000 | balanced | S09 | estimated_feasible/unverified | 0 | 301,682 | 0 | 0 | — | 753,144 | 2,375,000 / 13,884 · 2,437,780 / 14,251 · 896,541 / 5,241 |
+| 4 | 3,000,000 | 20,000 | maximize_apartments | S13-80 | estimated_feasible/questionable | 0 | 573,771 | 0 | 0 | -5.6% | 2,899,965 | 0 / 0 · 0 / 0 · 0 / 0 |
+| 2.25 | ? | ? | balanced | S09 | estimated_feasible/unverified | 0 | 226,262 | 0 | 0 | — | 564,858 | 531,250 / 3,106 · 545,293 / 3,188 · 1,418,686 / 8,293 |
+
+Columns: decision; status (feasibility/commercial); owner cash at signing; owner capital-gains reserve; peak debt;
+peak monthly payment; modelled developer margin of that candidate; value under the adverse scenario; and the S06 /
+S11 / S05 peak debt / monthly for comparison.
+
+## 4. Decision by tax arrangement (after)
+
+| Household | Gross | Mixed (headline) | Net |
+|---|---|---|---|
+| 2.25 rights, ₪300K, ₪5K | wait for approval, sell (S09) | S09 | **combination + 80 m² apartment, no debt (S13-80)** |
+| 2.25, ₪0, no mortgage | S09 | S09 | full combination (fraction) |
+| 1.5, ₪300K, ₪5K | S09 | combination + 80 m² (₪633K mortgage) | combination + 80 m² (₪418K mortgage) |
+| 3, ₪300K, ₪5K | S09 | S09 | full combination (1 apartment) |
+| 4, ₪3M, ₪20K, max apts | S13-80 (2 apartments) | S13-80 | S13-80 |
+
+## 5. Why verdicts changed (each change traced to a model correction, not a preference)
+
+1. **Contractor profit in the taxable services value** (+17.5%): the owner's reserve for 2.25 rights at 35% rises
+   from ₪255,544 to ₪300,264 before levy effects (mixed deal with proportional levy: ₪322,746).
+2. **No global net default.** Under the headline mixed deal the owner pays that tax at plan approval (§19(3א),
+   conditional). ₪300K grown to month 24 (₪324,480) no longer covers tax + 8% completion purchase tax → S06 is
+   infeasible (unfunded), and a pure combination is "fragile" (just covered, fails in the adverse scenario).
+3. **Completion purchase tax 8% when property status is unknown** (was 6%): ₪42,500 on ₪531,250. Answering
+   "sole home" can set it to 0% — the app asks only when that changes the outcome.
+4. **Value-based apartment tiers**: the 0.7875 entitlement nearly covers a compact 80 m² apartment (gap ₪31,250),
+   so under a net deal the moderate household gets a whole apartment without a mortgage.
+5. **Commercial risk in ranking**: combination candidates carry a negative modelled developer margin (−5.6% mixed,
+   −14%+ net) → "questionable"; waiting (S09) is unverified but not developer-dependent at signing.
+6. **Developer sales are conditional on approval**: S05 proceeds now arrive at month 24 (was 6), so the hybrid
+   needs bridge financing for longer.
+7. **Negotiation overlap**: for the 1-apartment hybrid the owner's break-even surplus price (≈ ₪14,700/m²) is far
+   above the developer's plausible maximum at a 15% margin (≈ ₪7,230/m²) → **no overlap** under these assumptions.
+
+## 6. Source evidence (retrieved 2026-11-27)
+
+| Topic | What was verified | Status |
+|---|---|---|
+| EA 6672/19 Yekutieli | Secondary summaries (Nadlan Center) confirm: entrepreneurial profit excluded; instruction 23/98 includes 15–20% contractor profit | Full ruling text not read |
+| Position 06/26, §19(3א) | Secondary sources (Gelberg & co.) report sale date = approval date also when the buyer bears the seller's taxes; declaration and payment deferred | Official paper text not extracted |
+| Net vs gross practice | Law-firm guides: many deals "net", others split; legal liability stays with the owner | No industry-wide statistic |
+| Mihali (2026) | Reported limited construction-services election within a 106-unit project | Supports quotas as a mechanism only |
+| Purchase-tax rates | Official simulator page referenced; 0% sole home within exemption / ~8% additional | Brackets not encoded; range used |
+| Balancing pool (יחידת סל) | Ministry of Construction historical study | Practice, not a project term |
+
+## 7. Professional review required before relying on results
+
+- **Tax lawyer / adviser:** combination consideration (contractor profit, levy allocation, gross-up), §19(3א)
+  eligibility for this project, completion classification and purchase tax, revenue-share timing, basis/inheritance.
+- **Appraiser:** apartment values and tiers, post-approval land value, pre-approval sale price.
+- **Project lender:** bridge / construction / mortgage availability, security, recognition of paid-in amounts.
+- **Developer / owners' representative:** actual offers, services quota and eligibility, tax arrangement, completion
+  pricing, balancing-pool mechanics, inventory.
+
+## 8. Not implemented in this iteration (documented limitations)
+
+- Project-wide (lot-level) developer P&L and IRR; the per-candidate P&L is standalone, at today's prices.
+- Explicit no-approval scenario and separate planning-delay vs construction-duration stress.
+- Mortgage-term stress (15/20/30 years), insurance and fees; directive-329 payment-to-income rules.
+- Encoded residential purchase-tax brackets; capital-gains linear apportionment and surtax.
+- Family consolidation (S12); anonymised owner-size distribution for actual slot demand.
+
+## 9. Commands run
+
+`npm ci` · `npm run typecheck` · `npm run lint` · `npm test` · `npm run build` · `npm run test:e2e`
+(results in the PR description).

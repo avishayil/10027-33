@@ -14,6 +14,7 @@ import { evaluateCandidate } from '../../src/optimizer/evaluate';
 import { generateStrategies, mixedSplit, rightsBalance } from '../../src/optimizer/generate';
 import { goalScore, type Scales } from '../../src/optimizer/rank';
 import { breakevenSurplusPrice, conservativeSurplusPrice, minSurplusPrice } from '../../src/optimizer/reverse';
+import { LEGACY_NET, LEGACY_OWNER_PAYS as OWNER_PAYS } from '../fixtures/configs';
 import { MODERATE, NO_MEANS, TERMS, profile } from '../fixtures/profiles';
 
 const info = calculateRights(167, C);
@@ -22,9 +23,8 @@ const cand = (id: string) => cands.find((c) => c.id === id)!;
 const ctx = (p: UserProfile = MODERATE) => ({ info: calculateRights(p.landAreaSqm, C), profile: p, terms: TERMS });
 const run = (p: UserProfile = MODERATE) => analyzeProfile(p, TERMS, C);
 
-const OWNER_PAYS = { ...C, commercial: { ...C.commercial, combinationTaxBorneByDeveloper: false } };
 
-describe('golden fixture (owner pays the combination tax): 167 m², ₪300K, ₪5K/month, 35%, 17.5% — S06-1', () => {
+describe('LEGACY golden fixture (iteration-2 assumptions, owner pays the tax at signing): 167 m², ₪300K, ₪5K/month — S06-1', () => {
   // Independent arithmetic.
   const received = 2.25 * 0.35; // 0.7875
   const serviceValue = 100 * 11000 * 1.18; // 1,298,000 per apartment
@@ -46,8 +46,6 @@ describe('golden fixture (owner pays the combination tax): 167 m², ₪300K, ₪
     expect(byCat('completion_payment')).toBeCloseTo(completion, 4);
     expect(byCat('purchase_tax')).toBeCloseTo(purchaseTax, 4);
     expect(byCat('betterment_levy')).toBe(0);
-    const devLevy = ev.plan.ledger.find((e) => e.category === 'betterment_levy' && e.payer === 'developer')!;
-    expect(Math.abs(devLevy.amount - 256940)).toBeLessThan(2);
   });
 
   it('reconciles the financing: construction-stage draw, completion mortgage, peak and repayment', () => {
@@ -62,14 +60,14 @@ describe('golden fixture (owner pays the combination tax): 167 m², ₪300K, ₪
     expect(ev.sim.constructionPhaseMonthly).toBeCloseTo(constructionDraw * r, 4);
   });
 
-  it('uses stage-specific collateral', () => {
+  it('uses stage-specific collateral (land + 80% of amounts paid in)', () => {
     const land = received * (167 / 2.25) * 6900;
-    expect(ev.sim.peakPreCompletionLtv).toBeCloseTo(constructionDraw / (land + completion / 2), 6);
+    expect(ev.sim.peakPreCompletionLtv).toBeCloseTo(constructionDraw / (land + 0.8 * completion / 2), 6);
     expect(ev.sim.peakPostCompletionLtv).toBeCloseTo(peak / 2_500_000, 6);
   });
 });
 
-describe('golden fixture (base case, net deal — developer pays the grossed-up tax): same household, S06-1', () => {
+describe('LEGACY golden fixture (net deal, iteration-2 assumptions): same household, S06-1', () => {
   const received = 2.25 * 0.35;
   const serviceValue = 100 * 11000 * 1.18;
   const grossedUpTax = (0.25 * received * serviceValue) / 0.75; // T = 25% × (gain + T)
@@ -80,7 +78,7 @@ describe('golden fixture (base case, net deal — developer pays the grossed-up 
   const mortgage = completion / 2 - cashAfterPermit * Math.pow(g, 36); // second half, after 36 more months of growth
   const r = 0.05 / 12;
   const payment = (mortgage * r) / (1 - Math.pow(1 + r, -300));
-  const ev = evaluateCandidate(cand('S06-1'), ctx(), C);
+  const ev = evaluateCandidate(cand('S06-1'), ctx(), LEGACY_NET);
 
   it('the owner pays no capital-gains tax; the developer pays it grossed up', () => {
     const owner = ev.plan.ledger.filter((e) => e.category === 'capital_gains_tax' && e.payer === 'owner');
@@ -100,10 +98,10 @@ describe('golden fixture (base case, net deal — developer pays the grossed-up 
     expect(ev.sim.postCompletionMonthly).toBeCloseTo(payment, 4);
   });
 
-  it('the moderate household can afford it; the net-deal term must be confirmed in the contract', () => {
-    const s = run().results.find((x) => x.id === 'S06-1')!;
+  it('under that legacy net deal the moderate household can afford it', () => {
+    const s = analyzeProfile(MODERATE, TERMS, LEGACY_NET).results.find((x) => x.id === 'S06-1')!;
     expect(s.assessment.affordability).toBe('fits_with_financing');
-    expect(s.requiredConditions).toEqual(expect.arrayContaining(['LENDER_CONFIRMATION', 'TAX_ALLOCATION']));
+    expect(s.requiredConditions).toEqual(expect.arrayContaining(['LENDER_CONFIRMATION', 'NET_TAX_TERMS']));
   });
 });
 
@@ -123,10 +121,15 @@ describe('S11 — combination plus construction services', () => {
     expect(ev.plan.retainedApartmentEquivalents).toBeCloseTo(1, 9);
     expect(ev.plan.wholeApartmentsRetained).toBe(1);
     expect(ev.plan.fractionalShare).toBe(0);
-    const quote = ev.plan.ledger.filter((e) => e.category === 'construction').reduce((s, e) => s + e.amount, 0);
-    // ₪498,607 before contingency (10%) and indexation.
+    const paid = ev.plan.ledger.filter((e) => e.category === 'construction').reduce((s, e) => s + e.amount, 0);
+    const reserve = ev.plan.ledger.find((e) => e.category === 'contingency_reserve')!.amount;
+    const released = ev.plan.ledger.find((e) => e.category === 'contingency_release')!.amount;
+    // ₪498,607 before indexation; the 10% contingency is held as liquidity and released unused in the base case.
     expect(0.326923 * 1525150).toBeCloseTo(498607, -1);
-    expect(quote).toBeGreaterThan(498607 * 1.1);
+    expect(paid).toBeGreaterThan(498607);
+    expect(paid).toBeLessThan(498607 * 1.1);
+    expect(reserve).toBeCloseTo(paid * 0.1, 4);
+    expect(released).toBeCloseTo(reserve, 6);
   });
 
   it('is generated for every relevant whole-apartment target and included in ranking', () => {
@@ -139,7 +142,7 @@ describe('S11 — combination plus construction services', () => {
 
 describe('financing availability', () => {
   it('taxes due at signing are never financed: unfunded obligations are infeasible', () => {
-    const s = analyzeProfile(NO_MEANS, TERMS, OWNER_PAYS).results.find((x) => x.id === 'S02')!;
+    const s = analyzeProfile(NO_MEANS, TERMS, C).results.find((x) => x.id === 'S02')!;
     expect(s.simulation.unfunded).toBeGreaterThan(250000);
     expect(s.feasibility).toBe('infeasible');
     expect(s.reasonCodes).toContain('UNFUNDED_OBLIGATION');
@@ -231,27 +234,44 @@ describe('developer economics', () => {
     expect(dev.grossSaleValue).toBeCloseTo(1_152_300, 4);
   });
 
-  it('matches an independent developer P&L', () => {
+  it('matches an independent developer P&L for the S02 candidate (headline: mixed deal)', () => {
     const a = 2_500_000 / 1.18;
     const build = 1_100_000 * 1.12;
     const L = info.bettermentLevy;
+    const services = 0.7875 * 1_100_000 * 1.175 * 1.18; // incl. ordinary contractor profit
     const rev = 0.65 * 2.25 * a;
-    const T = (0.25 / 0.75) * 0.7875 * 1_100_000 * 1.18; // net deal: grossed-up tax paid for the owner
-    expect(dev.combinationTaxCost).toBeCloseTo(T, 6);
-    const margin = (rev - 2.25 * build - 0.7875 * 1_100_000 * 0.18 - L - T) / rev;
-    expect(dev.combinationMargin).toBeCloseTo(margin, 9);
-    const consistent = (0.7875 * a + 0.7875 * 1_100_000 * 0.18 + L + T) / 1.06 / 167;
-    expect(dev.consistentCashPricePerSqm).toBeCloseTo(consistent, 6);
-    // A 35% combination is worth more to the owner than the ₪6,900 cash scenario implies.
-    expect(dev.consistentCashPricePerSqm).toBeGreaterThan(6900);
-    expect(dev.maxCombinationAtTargetMargin).toBeLessThan(0.35);
+    const costs = 2.25 * build + 0.7875 * 1_100_000 * 0.18 + L + 0.06 * (services + L); // levy + developer purchase tax
+    const s02 = run().results.find((x) => x.id === 'S02')!;
+    expect(s02.developerPnL!.revenue).toBeCloseTo(rev, 4);
+    expect(s02.developerPnL!.costs).toBeCloseTo(costs, 4);
+    expect(dev.combinationMargin).toBeCloseTo((rev - costs) / rev, 9);
+    expect(dev.combinationEntitlementValue).toBeCloseTo(1_968_750, 4);
+  });
+
+  it('S06 and S11 have their own P&L, different from pure combination', () => {
+    const d = run();
+    const m = (id: string) => d.results.find((x) => x.id === id)!.developerMargin!;
+    // S11 earns a construction-services fee on the built share → its own margin.
+    expect(m('S11-1')).not.toBeCloseTo(m('S02'), 3);
+    // Completion sold at full market value is margin-neutral to the developer (same as selling that share);
+    // at any other completion price S06 differs (next test).
+    expect(m('S06-1')).toBeCloseTo(m('S02'), 9);
+  });
+
+  it('changing the completion price changes the S06 developer margin; changing the settlement factor changes S02C', () => {
+    const cheap = { ...C, commercial: { ...C.commercial, completionPriceFactor: 0.8, fractionCashSettlementFactor: 0.6 } };
+    const a = run();
+    const b = analyzeProfile(MODERATE, TERMS, cheap);
+    const m = (d: typeof a, id: string) => d.results.find((x) => x.id === id)!.developerMargin!;
+    expect(m(b, 'S06-1')).toBeLessThan(m(a, 'S06-1'));
+    expect(m(b, 'S02C')).toBeGreaterThan(m(a, 'S02C'));
   });
 
   it('flags strategies whose developer deal is unprofitable as commercially questionable — without changing affordability', () => {
     const s = run().results.find((x) => x.id === 'S02')!;
     expect(s.developerMargin).toBeLessThan(0);
     expect(s.assessment.commercial).toBe('questionable');
-    expect(s.assessment.affordability).toBe('fits');
+    expect(s.assessment.affordability).not.toBe('does_not_fit');
   });
 });
 

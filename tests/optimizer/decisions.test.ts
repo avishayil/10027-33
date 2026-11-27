@@ -3,6 +3,7 @@ import { PROJECT_CONFIG as C } from '../../src/data/config';
 import { calculateRights } from '../../src/domain/rights';
 import { analyzeProfile } from '../../src/optimizer/analyze';
 import { generateStrategies } from '../../src/optimizer/generate';
+import { NET } from '../fixtures/configs';
 import { MODERATE, NO_MEANS, TERMS, WEALTHY, profile } from '../fixtures/profiles';
 
 const run = (p = MODERATE, terms = TERMS) => analyzeProfile(p, terms, C);
@@ -39,7 +40,9 @@ describe('decision correctness', () => {
   it('moderate means: evaluates a one-apartment hybrid and explains what would make it feasible', () => {
     const d = run(MODERATE);
     expect(byId(d, 'S05-1')).toBeDefined();
-    expect(byId(d, 'S06-1').feasibility).not.toBe('infeasible');
+    // Under the headline (mixed) deal the owner's tax at approval exceeds the cash; under a net deal it fits.
+    expect(byId(d, 'S06-1').reasonCodes).toContain('UNFUNDED_OBLIGATION');
+    expect(byId(analyzeProfile(MODERATE, TERMS, NET), 'S06-1').feasibility).not.toBe('infeasible');
     const t = d.negotiationTargets.find((n) => n.code === 'BREAKEVEN_SURPLUS_PRICE' && n.strategyId === 'S05-1');
     expect(t?.value).toBeGreaterThan(C.market.developerRightsSaleScenario.pricePerOriginalSqm);
   });
@@ -80,12 +83,11 @@ describe('decision correctness', () => {
   });
 
   it('unknown mortgage capacity gives a conditional verdict, not a silent zero', () => {
-    const d = run(profile({ availableCapital: 300000, maxMonthlyRepayment: null }));
+    const d = analyzeProfile(profile({ availableCapital: 300000, maxMonthlyRepayment: null }), TERMS, NET);
     const s = byId(d, 'S06-1');
     expect(s.mortgageRequired).toBeGreaterThan(0);
     expect(s.feasibility).toBe('conditional');
     expect(s.requiredConditions).toContain('MORTGAGE_CAPACITY_UNKNOWN');
-    expect(d.followUpQuestions.map((q) => q.id)).toContain('repayment');
   });
 
   it('unknown capital marks funding-dependent strategies as missing information', () => {

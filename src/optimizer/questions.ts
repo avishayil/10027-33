@@ -8,12 +8,12 @@ import type { FollowUpQuestion, ProjectConfig, RightsInfo, UserProfile } from '.
 export function findMaterialUnknowns(
   profile: UserProfile,
   info: RightsInfo,
-  currentTop: string | null,
-  topFor: (p: UserProfile) => string | null,
+  changesOutcome: (p: UserProfile) => boolean,
   config: ProjectConfig,
 ): FollowUpQuestion[] {
   const qs: FollowUpQuestion[] = [];
-  const changes = (variants: Partial<UserProfile>[]) => variants.some((v) => topFor({ ...profile, ...v }) !== currentTop);
+  // Material = the recommended strategy, its affordability or its funding need changes — not just any number.
+  const changes = (variants: Partial<UserProfile>[]) => variants.some((v) => changesOutcome({ ...profile, ...v }));
 
   if (profile.availableCapital === null) {
     // Without it nothing that needs money can be assessed — always ask.
@@ -38,6 +38,14 @@ export function findMaterialUnknowns(
       id: 'basis',
       question: 'מתי ובכמה נרכשה הקרקע (או התקבלה בירושה)?',
       why: 'מס השבח תלוי בעלות הרכישה, וההנחה השמרנית שלנו (עלות אפס) משנה כאן את המסלול המומלץ.',
+    });
+  }
+
+  if (profile.soleHome == null && changes([{ soleHome: true }, { soleHome: false }])) {
+    qs.push({
+      id: 'soleHome',
+      question: 'האם הדירה שתקבלו תהיה הדירה היחידה שלכם?',
+      why: 'מס הרכישה על השלמה לדירה שלמה הוא 0% לדירה יחידה (בתוך מדרגת הפטור) ועד כ-8% לדירה נוספת — וזה משנה כאן את ההמלצה.',
     });
   }
 

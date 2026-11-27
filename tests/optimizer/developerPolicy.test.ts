@@ -12,7 +12,7 @@ import { TERMS, profile } from '../fixtures/profiles';
 const areaFor = (R: number) => (R / 2.25) * 167;
 const run = (R: number, over = {}) => analyzeProfile(profile({ landAreaSqm: areaFor(R), ...over }), TERMS, C);
 const buildIds = (d: ReturnType<typeof run>, offered: boolean) =>
-  d.results.filter((r) => serviceApartments(r.candidate) > 0 && (r.assessment.commercial !== 'not_offered') === offered).map((r) => r.id);
+  d.results.filter((r) => serviceApartments(r.candidate) > 0 && (r.assessment.commercial !== 'negotiable') === offered).map((r) => r.id);
 
 describe('developer policy for construction services', () => {
   it('4 rights: no construction services at all — you will not build 4 apartments', () => {
@@ -22,7 +22,7 @@ describe('developer policy for construction services', () => {
     expect(d.results.find((r) => r.id === 'S03-4')!.reasonCodes).toContain('DEVELOPER_POLICY_WHOLE_FROM_COMBINATION');
     expect(d.lotPolicy.servicesOffered).toBe(false);
     // Even with ample means, the best route to more apartments is combination (with paid completion).
-    expect(['S02', 'S02C', 'S06']).toContain(d.recommendation!.strategyType);
+    expect(['S02', 'S02C', 'S02P', 'S06', 'S13']).toContain(d.recommendation!.strategyType);
     expect(serviceApartments(d.recommendation!.candidate)).toBe(0);
   });
 
@@ -63,23 +63,26 @@ describe('developer policy for construction services', () => {
   it('a strategy the developer will not offer is never recommended or ranked', () => {
     for (const R of [1.125, 2.25, 3, 4, 6]) {
       const d = run(R, { availableCapital: 5_000_000, maxMonthlyRepayment: 40000, goal: 'maximize_apartments' });
-      for (const r of d.ranked) expect(r.assessment.commercial).not.toBe('not_offered');
+      for (const r of d.ranked) expect(r.assessment.commercial).not.toBe('negotiable');
     }
   });
 
-  it('lot capacity: ~25 of ~100 units against ~42 typical owners in lot 149', () => {
+  it('lot capacity: 25 of 102 units (20–30 across policy scenarios) against a hypothetical ~42 typical owners', () => {
     const lp = run(2.25).lotPolicy;
     expect(lp.lotUnits).toBe(102);
-    expect(lp.capUnits).toBeCloseTo(25.5, 6);
+    expect(lp.capUnits).toBe(25); // integer slots, rounded down
+    expect(lp.capUnitsRange).toEqual({ restrictive: 20, flexible: 30 });
     expect(lp.estimatedDemand).toBeGreaterThan(40);
     expect(lp.wholeFromCombinationThreshold).toBeCloseTo(1 / 0.35, 9);
   });
 
-  it('the threshold follows the combination slider', () => {
+  it('the threshold follows the project reference rate, not the slider', () => {
     const c30 = { ...TERMS, combinationPct: 0.3 };
     const R = 3;
     const cand = { id: 'x', type: 'S05' as const, targetApartments: 1, legs: [{ kind: 'build' as const, apartments: 1, ownRightsUsed: 1, purchasedRightsUsed: 0 }] };
-    expect(policyBlock(cand, R, 0.35, C)).toBe('DEVELOPER_POLICY_WHOLE_FROM_COMBINATION');
-    expect(policyBlock(cand, R, c30.combinationPct, C)).toBeNull(); // 3 × 30% = 0.9 < 1
+    expect(policyBlock(cand, R, C)).toBe('DEVELOPER_POLICY_WHOLE_FROM_COMBINATION');
+    // The test uses the project reference rate, not the slider: lowering the slider does not unlock a slot.
+    const ref30 = { ...C, developerPolicy: { ...C.developerPolicy, referenceCombinationPct: c30.combinationPct } };
+    expect(policyBlock(cand, R, ref30)).toBeNull(); // 3 × 30% = 0.9 < 1
   });
 });

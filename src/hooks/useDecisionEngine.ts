@@ -37,6 +37,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const [developerMarkup, setDeveloperMarkup] = useState(saved ? clampTo(saved.developerMarkup, c.developerMarkup) : c.developerMarkup.default);
   const [basisText, setBasisText] = useState(saved?.basisText ?? '');
   const [deadlineYears, setDeadlineYears] = useState(saved?.deadlineYears ?? PROJECT_CONFIG.analysis.liquidityDeadlineYears);
+  const [soleHome, setSoleHome] = useState<'unknown' | 'yes' | 'no'>(saved?.soleHome ?? 'unknown');
 
   const area = useMemo((): { value: number | null; error: string | null } => {
     if (areaMode === 'fraction') {
@@ -77,6 +78,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
           lotId: lotId || undefined,
           acquisitionBasis: basis === null || Number.isNaN(basis) ? null : basis,
           liquidityDeadlineYears: deadlineYears,
+          soleHome: soleHome === 'unknown' ? null : soleHome === 'yes',
         };
 
   const terms: CommercialTerms = { combinationPct, developerMarkup };
@@ -92,7 +94,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const values: SavedInputs = {
     version: 1,
     areaMode, areaText, fractionText, lotId, capitalText, repaymentMode, repaymentText,
-    goal, combinationPct, developerMarkup, basisText, deadlineYears,
+    goal, combinationPct, developerMarkup, basisText, deadlineYears, soleHome,
   };
 
   return {
@@ -102,6 +104,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
       lotId, setLotId, capitalText, setCapitalText, repaymentMode, setRepaymentMode,
       repaymentText, setRepaymentText, goal, setGoal, combinationPct, setCombinationPct,
       developerMarkup, setDeveloperMarkup, basisText, setBasisText, deadlineYears, setDeadlineYears,
+      soleHome, setSoleHome,
     },
     landArea: area.value,
     errors,

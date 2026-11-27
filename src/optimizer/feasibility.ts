@@ -55,13 +55,20 @@ export function assessEvaluation(
     if (sim.drawsByStage.bridge > EPS) conditions.add('BRIDGE_FINANCING');
     if (sim.drawsByStage.construction > EPS) conditions.add('CONSTRUCTION_FINANCING');
     conditions.add('LENDER_CONFIRMATION');
+    // Without the user's capital the borrowing need itself is unknown, so collateral cannot be judged either.
     const ltv = Math.max(sim.peakPreCompletionLtv, sim.peakPostCompletionLtv);
-    if (ltv > config.financing.maxLtv) fails.push('LTV_EXCEEDED');
-    else if (ltv > config.financing.comfortableLtv) conditions.add('LTV_ABOVE_COMFORT');
+    if (capitalKnown && ltv > config.financing.maxLtv) fails.push('LTV_EXCEEDED');
+    else if (capitalKnown && ltv > config.financing.comfortableLtv) conditions.add('LTV_ABOVE_COMFORT');
   }
 
   const hasCombination = candidate.legs.some((l) => l.kind === 'combination');
-  if (hasCombination && config.commercial.combinationTaxBorneByDeveloper) commercial.add('TAX_ALLOCATION');
+  if (hasCombination) {
+    const arr = config.commercial.taxArrangement;
+    if (arr === 'net') commercial.add('NET_TAX_TERMS');
+    if (arr === 'mixed' || arr === 'net') commercial.add('LEVY_TERMS');
+    if (config.commercial.combinationSaleDate === 'approval') commercial.add('SALE_DATE_DEFERRAL');
+  }
+  if (candidate.legs.some((l) => l.kind === 'completion') && profile.soleHome == null) commercial.add('COMPLETION_CLASSIFICATION');
   for (const leg of candidate.legs) {
     if (leg.kind === 'sell_rights' && leg.market === 'developer') {
       if (!config.market.developerRightsSaleScenario.confirmedOffer) commercial.add('DEVELOPER_PRICE_UNVERIFIED');
@@ -72,7 +79,7 @@ export function assessEvaluation(
     if (leg.kind === 'revenue_share') commercial.add('REVENUE_SHARE_UNVERIFIED');
     if (leg.kind === 'completion') commercial.add('COMPLETION_PRICE');
     if (leg.kind === 'buy_rights') commercial.add('COMPLEMENTARY_SELLER');
-    if (leg.kind === 'settle_fraction_cash') commercial.add('FRACTION_SETTLEMENT');
+    if (leg.kind === 'settle_fraction_cash' || leg.kind === 'balancing_pool') commercial.add('FRACTION_SETTLEMENT');
     if (leg.kind === 'build' && hasCombination) commercial.add('MIXED_STRUCTURE');
     if (leg.kind === 'build' || leg.kind === 'completion') commercial.add('WHOLE_UNIT_ALLOCATION');
     if (leg.kind === 'build') commercial.add('SERVICES_CAPACITY');
@@ -103,7 +110,7 @@ export function assess(
   const affordability: Affordability =
     base.fails.length > 0 ? 'does_not_fit' : base.missing.length > 0 ? 'unknown' : base.conditions.length > 0 ? 'fits_with_financing' : 'fits';
   const commercial: CommercialCertainty = blockedByPolicy
-    ? 'not_offered'
+    ? 'negotiable'
     : developerMargin !== null && developerMargin < 0 ? 'questionable' : base.commercial.length > 0 ? 'unverified' : 'not_required';
   return { affordability, resilience: adverse.fails.length > 0 ? 'fragile' : 'robust', commercial };
 }

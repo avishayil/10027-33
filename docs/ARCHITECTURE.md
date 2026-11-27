@@ -13,7 +13,9 @@ UserProfile + CommercialTerms ─▶ analyzeProfile()  (src/optimizer/analyze.ts
         └ evaluateCandidate  optimizer/evaluate.ts  legs → ledger + dated cash events → monthly simulation
    4. assess + classify      optimizer/feasibility.ts  unfunded obligations, staged financing, repayment,
                                                        stage-specific LTV → affordability / resilience / commercial
-   5. rankStrategies         optimizer/rank.ts      Pareto frontier, then goal weights
+   4b. candidatePnL          domain/developer.ts    per-candidate developer P&L from the same ledger
+   5. rankStrategies         optimizer/rank.ts      Pareto frontier, then goal weights (incl. commercial risk)
+   5b. arrangements          analyze.ts             gross / mixed / net re-analysis → decision tree + fallback
    6. strategy/global targets optimizer/reverse.ts  bisection for negotiation thresholds
    7. sensitivity            analyze.ts             one-at-a-time adverse flips of each assumption
    8. findMaterialUnknowns   optimizer/questions.ts re-runs coreAnalysis with plausible answers; asks only if the top changes

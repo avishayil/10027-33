@@ -1,21 +1,23 @@
 /**
- * Month-by-month cash-flow simulation with staged financing.
+ * Month-by-month cash-flow simulation with staged financing. Indicative — not an approved draw schedule.
  *
  * Policy (deterministic):
- *  - Sources (sale proceeds) go to cash first; within a month, obligations no lender finances
- *    (taxes, levy, transaction costs) are paid before anything else.
- *  - Cash is kept in reserve for future non-financeable obligations not covered by future sources.
- *  - Financeable uses beyond available cash are borrowed, by stage:
- *      before the permit  → bridge financing (conditional)
- *      permit → completion → construction financing (conditional, staged drawdowns)
- *      from completion     → completed-property mortgage
- *  - A non-financeable shortfall is an UNFUNDED obligation. It is still carried as debt so the
- *    simulation stays consistent, but a strategy with unfunded obligations can never be feasible.
+ *  - Within a month, sources arrive first; then obligations lenders do not finance (taxes, levy, transaction
+ *    costs) are paid from cash; then financeable uses.
+ *  - Cash is reserved for later non-financeable obligations in date order: the reserve at month m is the largest
+ *    cumulative deficit of (non-financeable uses − sources) over any later prefix. A receipt that arrives after a
+ *    tax is due can never fund that tax.
+ *  - Financeable uses beyond available cash are borrowed, by stage: bridge (before the permit), construction
+ *    financing (permit → completion), completed-property mortgage (from completion). All conditional.
+ *  - A non-financeable shortfall is an UNFUNDED obligation: reported with date and type, never turned into a
+ *    loan, never charged interest. Any unfunded amount makes a strategy infeasible.
  *  - Surplus cash above the reserve repays debt at the end of each month.
- *  - Interest-only until completion, then amortising. Payments come from income (future-valued outflow).
- *  - Rent arrives only after completion and only for whole, rentable apartments.
- *  - Collateral: before completion, retained land + amounts paid into the asset (sold rights excluded);
- *    from completion, whole retained apartments.
+ *  - Interest-only until completion, then amortising; the last payment is clamped to principal + interest.
+ *  - Rent (or rent saved) arrives only after completion and only from whole apartments.
+ *  - Collateral before completion: retained land at the developer price + a recognised share of amounts already
+ *    paid into the asset (not the contingency reserve, interest or taxes). From completion: whole apartments.
+ *  - Snapshots are taken at the END of the stated month, after that month's transactions (inclusive).
+ *  - Events after the requested horizon extend it; nothing is clamped into the final month.
  */
 import { monthlyPayment } from './mortgage';
 import type { CashEvent, FinancingStage, LedgerCategory, SimulationResult } from './types';
@@ -27,7 +29,7 @@ export const NON_FINANCEABLE: ReadonlySet<LedgerCategory> = new Set<LedgerCatego
   'betterment_levy',
 ]);
 
-/** Payments that create the asset and therefore count toward pre-completion collateral. */
+/** Payments that create the asset and can partly count toward pre-completion collateral. */
 const ASSET_BUILDING: ReadonlySet<LedgerCategory> = new Set<LedgerCategory>([
   'construction',
   'completion_payment',
@@ -48,6 +50,8 @@ export interface SimulationInput {
   rentCountsForRepayment: boolean;
   preCompletionLandCollateral?: number;
   postCompletionCollateral?: number;
+  /** Share of amounts paid into the asset recognised as security before completion (default 1). */
+  workInProgressRecognition?: number;
 }
 
 const EPS = 0.5;
@@ -58,29 +62,37 @@ export function stageOf(month: number, permitMonth: number, completionMonth: num
   return 'bridge';
 }
 
+/**
+ * reserve[m] = max(0, max over k > m of Σ_{j=m+1..k} (nonFinanceableUses_j − sources_j)).
+ * Computed backwards: reserve[m] = max(0, d[m+1] + reserve[m+1]).
+ */
+export function datedReserve(byMonth: Map<number, CashEvent[]>, H: number): number[] {
+  const reserve: number[] = new Array(H + 1).fill(0);
+  for (let m = H - 2; m >= 0; m -= 1) {
+    let d = 0;
+    for (const e of byMonth.get(m + 1) ?? []) {
+      if (e.amount >= 0) d -= e.amount;
+      else if (NON_FINANCEABLE.has(e.category)) d += -e.amount;
+    }
+    reserve[m] = Math.max(0, d + reserve[m + 1]);
+  }
+  return reserve;
+}
+
 export function simulateCashflow(input: SimulationInput): SimulationResult {
   const growth = Math.pow(1 + input.alternativeReturn, 1 / 12);
   const r = input.annualRate / 12;
-  const H = input.horizonMonth;
+  const lastEvent = input.events.reduce((m, e) => Math.max(m, Math.round(e.month)), 0);
+  const H = Math.max(input.horizonMonth, lastEvent + 1);
+  const wip = input.workInProgressRecognition ?? 1;
   const byMonth = new Map<number, CashEvent[]>();
   for (const e of input.events) {
-    const m = Math.max(0, Math.min(H - 1, Math.round(e.month)));
+    const m = Math.max(0, Math.round(e.month));
     const list = byMonth.get(m) ?? [];
     list.push(e);
     byMonth.set(m, list);
   }
-
-  // Reserve: future non-financeable uses not covered by future sources (undiscounted, conservative).
-  const reserveAfter: number[] = new Array(H + 1).fill(0);
-  let futureNonFin = 0;
-  let futureSources = 0;
-  for (let m = H - 1; m >= 0; m -= 1) {
-    reserveAfter[m] = Math.max(0, futureNonFin - futureSources);
-    for (const e of byMonth.get(m) ?? []) {
-      if (e.amount >= 0) futureSources += e.amount;
-      else if (NON_FINANCEABLE.has(e.category)) futureNonFin += -e.amount;
-    }
-  }
+  const reserveAfter = datedReserve(byMonth, H);
 
   let cash = input.startingCash;
   let reference = input.startingCash;
@@ -88,6 +100,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let peakDebt = 0;
   let totalDrawn = 0;
   let unfunded = 0;
+  const unfundedItems: SimulationResult['unfundedItems'] = [];
   const drawsByStage: Record<FinancingStage, number> = { bridge: 0, construction: 0, mortgage: 0 };
   let amortPayment = 0;
   let amortBase = 0;
@@ -104,12 +117,6 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let peakPostLtv = 0;
   const yearly: SimulationResult['yearly'] = [];
 
-  const draw = (amount: number, stage: FinancingStage) => {
-    debt += amount;
-    totalDrawn += amount;
-    drawsByStage[stage] += amount;
-  };
-
   for (let m = 0; m < H; m += 1) {
     if (m > 0) {
       cash *= growth;
@@ -121,20 +128,17 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
 
     for (const e of events) if (e.amount >= 0) cash += e.amount;
 
-    // Non-financeable obligations first, from all cash.
     for (const e of events) {
       if (e.amount >= 0 || !NON_FINANCEABLE.has(e.category)) continue;
       const need = -e.amount;
       const fromCash = Math.min(Math.max(cash, 0), need);
       cash -= fromCash;
-      if (need - fromCash > 0) {
+      if (need - fromCash > EPS) {
         unfunded += need - fromCash;
-        debt += need - fromCash;
-        totalDrawn += need - fromCash;
+        unfundedItems.push({ month: m, category: e.category, label: e.label, amount: need - fromCash });
       }
     }
 
-    // Financeable uses: cash above the reserve, then borrowing for this stage.
     for (const e of events) {
       if (e.amount >= 0 || NON_FINANCEABLE.has(e.category)) continue;
       const need = -e.amount;
@@ -142,13 +146,16 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const available = Math.max(0, cash - reserveAfter[m]);
       const fromCash = Math.min(available, need);
       cash -= fromCash;
-      if (need - fromCash > 0) draw(need - fromCash, stage);
+      const draw = need - fromCash;
+      if (draw > 0) {
+        debt += draw;
+        totalDrawn += draw;
+        drawsByStage[stage] += draw;
+      }
     }
 
-    // Surplus cash above the reserve repays debt.
     if (debt > 0) {
-      const surplus = Math.max(0, cash - reserveAfter[m]);
-      const repay = Math.min(debt, surplus);
+      const repay = Math.min(debt, Math.max(0, cash - reserveAfter[m]));
       debt -= repay;
       cash -= repay;
     }
@@ -159,7 +166,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     const afterCompletion = m >= input.completionMonth;
     if (debt > EPS) {
       if (!afterCompletion) {
-        const collateral = (input.preCompletionLandCollateral ?? 0) + paidIntoAsset;
+        const collateral = (input.preCompletionLandCollateral ?? 0) + paidIntoAsset * wip;
         peakPreLtv = Math.max(peakPreLtv, collateral > 0 ? debt / collateral : Infinity);
       } else {
         const collateral = input.postCompletionCollateral ?? 0;
@@ -169,16 +176,16 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
 
     let payment = 0;
     if (debt > 1e-9) {
+      const interest = debt * r;
       if (!afterCompletion) {
-        payment = debt * r;
+        payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
       } else {
         if (amortPayment === 0 || Math.abs(debt - amortBase) > EPS) {
           amortPayment = monthlyPayment(debt, input.annualRate, input.mortgageYears);
         }
-        payment = amortPayment;
+        payment = Math.min(amortPayment, debt + interest);
         postCompletionMonthly = Math.max(postCompletionMonthly, payment);
-        const interest = debt * r;
         debt = Math.max(0, debt - (payment - interest));
         amortBase = debt;
       }
@@ -190,14 +197,14 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     const personal = payment - (input.rentCountsForRepayment ? rent : 0);
     peakPersonal = Math.max(peakPersonal, personal);
 
-    if (m + 1 === input.liquidityMonth) cashAtLiquidity = cash;
+    if (m === input.liquidityMonth) cashAtLiquidity = cash;
     if (m === input.completionMonth) {
-      // Snapshot after the completion month's transactions.
       cashAtCompletion = cash;
       referenceAtCompletion = reference;
     }
     if ((m + 1) % 12 === 0) yearly.push({ year: (m + 1) / 12, cash, debt });
   }
+  if (input.liquidityMonth >= H) cashAtLiquidity = cash;
 
   cash *= growth;
   paymentsFV *= growth;
@@ -218,6 +225,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     personalCapitalUsed: Math.max(0, maxCapitalUsed),
     drawsByStage,
     unfunded,
+    unfundedItems,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

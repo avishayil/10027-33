@@ -50,6 +50,18 @@ export const REGULATION = {
     verification: 'assumed',
     notes: 'רזרבה שמרנית לפי מסלול 10% מההכנסה ברוטו, עד לבדיקת המסלול המתאים לכם.',
   },
+  completionPurchaseTaxAdditional: {
+    value: 0.08,
+    label: 'מס רכישה על השלמה לדירה — דירה נוספת',
+    sourceType: 'official_rule',
+    sourceName: 'סימולטור מס רכישה, רשות המסים',
+    sourceUrl: 'https://www.gov.il/he/service/real_eatate_taxsimulator',
+    retrievedAt: '2026-11-27',
+    range: { low: 0, high: 0.08 },
+    verification: 'reported',
+    notes:
+      'סיווג ההשלמה (קרקע / דירה / שירותים) תלוי בחוזה. לדירה יחידה בתוך מדרגת הפטור — 0%; לדירה נוספת — כ-8%. כל עוד לא ידוע אם זו דירה יחידה, מחושב 8% שמרני.',
+  },
   saleTransactionCostRate: {
     value: 0.02,
     label: 'עלויות עסקה במכירה (עו״ד ותיווך)',

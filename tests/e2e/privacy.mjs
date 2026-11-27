@@ -50,6 +50,9 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   await shot('w0-welcome');
   const next = () => page.locator('.wizard-actions button[type=submit]').click();
   await next();
+  // Keyboard / screen reader: focus moves to the step heading, and every visible control has an accessible name.
+  const focused = await page.evaluate(() => document.activeElement?.classList.contains('wizard-title'));
+  if (!focused) failures.push(`${viewport.width}px: focus did not move to the wizard step heading`);
   await shot('w1-land');
   await next();
   // Capital is required — an empty answer is blocked with a message.
@@ -68,10 +71,24 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   await page.getByLabel('אחוז קומבינציה').fill('0.4');
   await shot('w5-terms');
   await next();
+  // Saving is opt-in (unchecked by default).
+  await page.getByLabel(/לשמור את התשובות/).check();
   await shot('w6-summary');
   await next();
   await page.waitForSelector('.verdict, .verdict-empty');
   await shot('main');
+
+  const unnamed = await page.evaluate(() =>
+    [...document.querySelectorAll('input, select, button')]
+      .filter((el) => el.offsetParent !== null)
+      .filter((el) => {
+        const id = el.getAttribute('id');
+        const byFor = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null;
+        return !(el.getAttribute('aria-label') || el.closest('label') || byFor || (el.tagName === 'BUTTON' && el.textContent.trim()));
+      })
+      .map((el) => el.outerHTML.slice(0, 80)),
+  );
+  if (unnamed.length) failures.push(`${viewport.width}px: controls without an accessible name: ${unnamed.join(' | ')}`);
 
   // Main screen interactions.
   await page.getByLabel('רווח יזמי בשירותי בנייה').fill('0.2');

@@ -21,6 +21,8 @@ export interface SavedInputs {
   developerMarkup: number;
   basisText: string;
   deadlineYears: number;
+  /** Added in iteration 3; older saved answers without it are migrated to 'unknown'. */
+  soleHome?: 'unknown' | 'yes' | 'no';
 }
 
 const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'passive_income', 'immediate_cash', 'minimize_risk'];
@@ -36,7 +38,8 @@ function isValid(x: unknown): x is SavedInputs {
     ['areaText', 'fractionText', 'lotId', 'capitalText', 'repaymentText', 'basisText'].every(str) &&
     (o.repaymentMode === 'amount' || o.repaymentMode === 'none' || o.repaymentMode === 'unknown') &&
     GOALS.includes(o.goal as Goal) &&
-    ['combinationPct', 'developerMarkup', 'deadlineYears'].every(num)
+    ['combinationPct', 'developerMarkup', 'deadlineYears'].every(num) &&
+    (o.soleHome === undefined || o.soleHome === 'unknown' || o.soleHome === 'yes' || o.soleHome === 'no')
   );
 }
 
@@ -45,7 +48,8 @@ export function loadInputs(): SavedInputs | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValid(parsed) ? parsed : null;
+    if (!isValid(parsed)) return null;
+    return { soleHome: 'unknown', ...parsed };
   } catch {
     return null;
   }

@@ -37,3 +37,20 @@ Secondary sources (law-firm guides, not rulings); verify with a tax lawyer befor
 * [יגאל גולד — מיסוי עסקת קומבינציה](https://ygoldlaw.co.il/real-estate-lawyer/tax/combination/) — consideration = construction services incl. developer profit and VAT (Kamhi).
 * [יוני לוי — הסכם קומבינציה](https://yonilevy.co.il/combination-agreement-landowners-advantages/) — developers commonly bear the levy, sometimes split.
 * [אהרון צ׳יסמדיה — סעיף 91א](https://www.atz-law.co.il/%D7%93%D7%97%D7%99%D7%99%D7%AA-%D7%AA%D7%A9%D7%9C%D7%95%D7%9D-%D7%94%D7%9E%D7%A1-%D7%9C%D7%A4%D7%99-%D7%A1%D7%A2%D7%99%D7%A3-91%D7%90-%D7%9C%D7%97%D7%95%D7%A7-%D7%9E%D7%99%D7%A1%D7%95%D7%99-%D7%9E/) and [כל זכות — דחיית תשלום מס שבח](https://www.kolzchut.org.il/he/%D7%93%D7%97%D7%99%D7%99%D7%AA_%D7%AA%D7%A9%D7%9C%D7%95%D7%9D_%D7%9E%D7%A1_%D7%A9%D7%91%D7%97) — administrative deferral for owners without cash.
+
+## Iteration 3 additions (2026-11-27)
+
+| Value | Base | Range | Status | Source |
+|---|---|---|---|---|
+| Contractor profit in services value | 17.5% | 15–20% | court_ruling / reported | [EA 6672/19](https://www.gov.il/BlobFolder/legalinfo/law6672-19/he/LegalInformation_kesher_6672-19.pdf); instruction 23/98 (via [Nadlan Center](https://www.nadlancenter.co.il/article/4756)) |
+| Combination sale date | plan approval (§19(3א)) | signing | official_rule (secondary report) | [position 06/26](https://www.gov.il/he/pages/procedures-260726-1); [Gelberg](https://gelberglaw.co.il/combination-net-sale-date-section-19-3a/) |
+| Tax arrangement headline | mixed | gross / net | reported | law-firm guides; [MoC study](https://www.gov.il/BlobFolder/reports/r1060_moch/he/r1060.pdf) |
+| Completion purchase tax | 8% (unknown status) | 0–8% | official_rule (range) | [purchase-tax simulator](https://www.gov.il/he/service/real_eatate_taxsimulator) |
+| Developer payment for rights | at approval (year 2) | — | planning assumption | — |
+| Work-in-progress recognised as collateral | 80% | — | planning assumption | — |
+| Policy reference combination | 35% | — | project assumption | owner's input |
+| Apartment tiers | 80/90/100/110 m² | — | illustrative | — |
+
+New source-status values: `official_rule`, `court_ruling`, `offer_confirmed`, `unknown`. Nothing is fetched at
+runtime; the market figures (₪25,000/m², ₪5,500 rent, 5% nominal) remain scenarios, and ₪6,900 / ₪7,100 / ₪1,916
+remain unverified references — not quotes.
