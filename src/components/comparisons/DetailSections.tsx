@@ -225,6 +225,20 @@ export function Financing({ result, r }: { result: DecisionResult; r: StrategyRe
             <th>— מתוכה משכנתא על הדירה הגמורה</th>
             <td>{formatCurrency(s.drawsByStage.mortgage)}</td>
           </tr>
+          {s.facilities.map((f) => (
+            <tr key={f.type}>
+              <th>
+                {f.type === 'project_loan' ? 'מימון הפרויקט (בנייה ← משכנתא על הדירה)' : f.type === 'secured_other_property' ? 'הלוואה על הנכס האחר (״לכל מטרה״)' : 'הלוואת מסים'}
+                <span className="summary-sub">
+                  {formatNumber(f.annualRate * 100, 2)}% ·{' '}
+                  {f.repayment === 'amortising_from_draw' ? 'החזר מהמשיכה' : f.repayment === 'bullet_at_delivery' ? 'פירעון במסירה' : 'ריבית בלבד עד המסירה, אחר כך שפיצר'}
+                </span>
+              </th>
+              <td>
+                {formatCurrency(f.drawn)} · בשיא {formatCurrency(f.peak)}
+              </td>
+            </tr>
+          ))}
           {s.taxesFinancedBySecuredLoan > 1 && (
             <tr>
               <th>הלוואה על הנכס האחר שלכם (״לכל מטרה״, עד הסכום שהזנתם)</th>

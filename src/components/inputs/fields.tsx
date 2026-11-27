@@ -378,10 +378,11 @@ export function BasisField({ engine, open = false }: { engine: DecisionEngine; o
       <summary>פרטים נוספים שמשפרים את אומדן המסים (לא חובה)</summary>
       <div className="field">
         <label htmlFor={homeId}>אם תקבלו דירה — האם היא תהיה הדירה היחידה שלכם?</label>
-        <select id={homeId} value={i.soleHome} onChange={(e) => i.setSoleHome(e.target.value as 'unknown' | 'yes' | 'no')}>
+        <select id={homeId} value={i.soleHome} onChange={(e) => i.setSoleHome(e.target.value as 'unknown' | 'yes' | 'no' | 'replacement')}>
           <option value="unknown">לא יודע/ת</option>
           <option value="yes">כן, דירה יחידה</option>
           <option value="no">לא, יש לנו דירה נוספת</option>
+          <option value="replacement">היא תחליף את הדירה הנוכחית (נמכור אותה)</option>
         </select>
       </div>
       <p className="field-hint">משפיע על מס הרכישה אם תשלמו ליזם על השלמה לדירה שלמה (0% לדירה יחידה, עד כ-8% לנוספת).</p>

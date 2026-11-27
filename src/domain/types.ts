@@ -67,6 +67,8 @@ export interface UserProfile {
    * (up to the limit); otherwise it is a conditional funding route.
    */
   otherPropertyBorrowingLimit?: number | null;
+  /** The completed apartment replaces the household's current home (sold within the period): 70% mortgage limit. */
+  replacementHome?: boolean;
 }
 
 /** Who carries the taxes in a combination (and revenue-sharing) deal. */
@@ -254,6 +256,8 @@ export interface ProjectConfig {
     };
     /** Assume a loan on another property without a stated limit (only for the conditional funding run). */
     otherPropertyLoanAssumed: boolean;
+    /** The loan on another property ("any purpose"): rate and term; it amortises from the draw. */
+    securedLoan: { annualRate: number; years: number };
   };
   analysis: {
     horizonYears: number;
@@ -483,6 +487,16 @@ export interface SimulationResult {
   interestToApproval: number;
   /** PV of the owner's financing flows: + loan proceeds, − debt service (interest + principal), − debt left at the end. */
   pvFinancing: number;
+  /** Each financing facility on its own: drawn, peak balance, rate and repayment schedule. */
+  facilities: {
+    type: 'project_loan' | 'secured_other_property' | 'tax_loan';
+    drawn: number;
+    peak: number;
+    annualRate: number;
+    repayment: 'interest_only_then_amortising' | 'amortising_from_draw' | 'bullet_at_delivery';
+    termMonths: number;
+    monthsUsed: number;
+  }[];
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;

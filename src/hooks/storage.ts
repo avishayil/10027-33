@@ -22,7 +22,7 @@ export interface SavedInputs {
   basisText: string;
   deadlineYears: number;
   /** Added in iteration 3; older saved answers without it are migrated to 'unknown'. */
-  soleHome?: 'unknown' | 'yes' | 'no';
+  soleHome?: 'unknown' | 'yes' | 'no' | 'replacement';
   /** What the developer pays at the offered combination %. Older saves without it load as 'mixed'. */
   taxArrangement?: TaxArrangement;
   /** Optional actual-offer terms and borrowing on another property (iteration 6). Older saves: empty / false. */
@@ -45,7 +45,7 @@ function isValid(x: unknown): x is SavedInputs {
     (o.repaymentMode === 'amount' || o.repaymentMode === 'none' || o.repaymentMode === 'unknown') &&
     GOALS.includes(o.goal as Goal) &&
     ['combinationPct', 'developerMarkup', 'deadlineYears'].every(num) &&
-    (o.soleHome === undefined || o.soleHome === 'unknown' || o.soleHome === 'yes' || o.soleHome === 'no') &&
+    (o.soleHome === undefined || o.soleHome === 'unknown' || o.soleHome === 'yes' || o.soleHome === 'no' || o.soleHome === 'replacement') &&
     (o.taxArrangement === undefined || o.taxArrangement === 'gross' || o.taxArrangement === 'mixed' || o.taxArrangement === 'net') &&
     (o.levyCapText === undefined || typeof o.levyCapText === 'string') &&
     (o.otherPropertyLimitText === undefined || typeof o.otherPropertyLimitText === 'string') &&

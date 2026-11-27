@@ -48,7 +48,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const [developerMarkup, setDeveloperMarkup] = useState(saved ? clampTo(saved.developerMarkup, c.developerMarkup) : c.developerMarkup.default);
   const [basisText, setBasisText] = useState(saved?.basisText ?? '');
   const [deadlineYears, setDeadlineYears] = useState(saved?.deadlineYears ?? PROJECT_CONFIG.analysis.liquidityDeadlineYears);
-  const [soleHome, setSoleHome] = useState<'unknown' | 'yes' | 'no'>(saved?.soleHome ?? 'unknown');
+  const [soleHome, setSoleHome] = useState<'unknown' | 'yes' | 'no' | 'replacement'>(saved?.soleHome ?? 'unknown');
   // What the offer at the combination % includes — the headline arrangement; the others are derived from it.
   const [taxArrangement, setTaxArrangement] = useState<TaxArrangement>(saved?.taxArrangement ?? c.taxArrangement);
   // Optional actual-offer terms and borrowing on another property.
@@ -99,7 +99,9 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
           lotId: lotId || undefined,
           acquisitionBasis: basis === null || Number.isNaN(basis) ? null : basis,
           liquidityDeadlineYears: deadlineYears,
-          soleHome: soleHome === 'unknown' ? null : soleHome === 'yes',
+          // A replacement home (the current one will be sold) counts as the sole home, with a 70% mortgage limit.
+          soleHome: soleHome === 'unknown' ? null : soleHome === 'yes' || soleHome === 'replacement',
+          replacementHome: soleHome === 'replacement',
           otherPropertyBorrowingLimit: otherPropertyLimit === null || Number.isNaN(otherPropertyLimit) ? null : otherPropertyLimit,
         };
 

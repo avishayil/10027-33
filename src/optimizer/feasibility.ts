@@ -40,7 +40,8 @@ export function assessEvaluation(
     else missing.push('CAPITAL_UNKNOWN');
   }
 
-  const financed = sim.drawsByStage.bridge + sim.drawsByStage.construction + sim.drawsByStage.mortgage + sim.taxLoanDrawn;
+  const financed =
+    sim.drawsByStage.bridge + sim.drawsByStage.construction + sim.drawsByStage.mortgage + sim.taxLoanDrawn + sim.taxesFinancedBySecuredLoan;
   if (financed > EPS) {
     const P = profile.maxMonthlyRepayment;
     if (!capitalKnown) {
@@ -61,8 +62,11 @@ export function assessEvaluation(
     conditions.add('LENDER_CONFIRMATION');
     // Without the user's capital the borrowing need itself is unknown, so collateral cannot be judged either.
     // Construction-stage limit before delivery; the Bank of Israel limit by property status on the delivered homes.
-    const postLimit = mortgageLtvLimit(ev.plan.apartmentValues, profile.soleHome ?? null, config);
-    const exceeds = sim.peakPreCompletionLtv > config.financing.maxLtv || sim.peakPostCompletionLtv > postLimit + 1e-9;
+    const postLimit = mortgageLtvLimit(ev.plan.apartmentValues, profile.soleHome ?? null, config, profile.replacementHome === true);
+    // Refinancing a tax loan on the delivered apartment is not a purchase loan: "any purpose" limit (50%).
+    const refinanceCap = config.financing.ltvLimits.additionalHome * ev.plan.postCompletionCollateral;
+    const refinanceExceeds = sim.taxLoanRefinanced > refinanceCap + 1;
+    const exceeds = sim.peakPreCompletionLtv > config.financing.maxLtv || sim.peakPostCompletionLtv > postLimit + 1e-9 || refinanceExceeds;
     const ltv = Math.max(sim.peakPreCompletionLtv, sim.peakPostCompletionLtv);
     if (capitalKnown && exceeds) fails.push('LTV_EXCEEDED');
     else if (capitalKnown && ltv > config.financing.comfortableLtv) conditions.add('LTV_ABOVE_COMFORT');
@@ -100,13 +104,14 @@ export function assessEvaluation(
  * apartment 50% (an additional / investment home); an unknown status counts as an additional home until answered.
  * With several apartments the limit is value-weighted — the most valuable one is the sole home.
  */
-export function mortgageLtvLimit(values: number[], soleHome: boolean | null, config: ProjectConfig): number {
+export function mortgageLtvLimit(values: number[], soleHome: boolean | null, config: ProjectConfig, replacement = false): number {
   const l = config.financing.ltvLimits;
+  // A replacement home (the current one will be sold): 70%; a sole home 75%; otherwise an additional home.
+  const firstLimit = replacement ? l.replacementHome : soleHome === true ? l.soleHome : l.additionalHome;
   const total = values.reduce((s, v) => s + v, 0);
-  if (total <= 0) return soleHome === true ? l.soleHome : l.additionalHome;
-  if (soleHome !== true) return l.additionalHome;
+  if (total <= 0) return firstLimit;
   const first = Math.max(...values);
-  return (first * l.soleHome + (total - first) * l.additionalHome) / total;
+  return (first * firstLimit + (total - first) * l.additionalHome) / total;
 }
 
 export function isFeasible(a: ScenarioAssessment): boolean {

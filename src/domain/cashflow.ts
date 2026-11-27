@@ -77,6 +77,8 @@ export interface SimulationInput {
   approvalMonth?: number;
   /** Inflation to deflate the (nominal) financing flows in pvFinancing (default 0). */
   inflation?: number;
+  /** The loan on another property ("any purpose"): its own rate and term; it amortises from the draw. */
+  securedLoan?: { annualRate: number; years: number };
 }
 
 const EPS = 0.5;
@@ -149,10 +151,16 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   const securedLimit = input.securedLoanLimit ?? Infinity;
   let interestAfterCompletion = 0;
   const taxLoanMonthly = input.taxLoan ? input.taxLoan.annualRate / 12 : 0;
-  // Principal repaid so far (prepayments + amortisation), attributed to the secured tax loan first — so the debt
-  // counted against the project's own collateral is never understated.
-  let principalRepaid = 0;
-  const projectDebt = () => Math.max(0, debt - Math.max(0, taxesFinanced - principalRepaid));
+  // Facilities kept apart: project debt (construction → mortgage on the delivered apartment), the loan on another
+  // property (its own rate, amortising from the draw, secured outside the project) and the tax loan.
+  let secured = 0;
+  let securedPayment = 0;
+  let securedPeak = 0;
+  const securedRate = (input.securedLoan?.annualRate ?? input.annualRate) / 12;
+  const securedYears = input.securedLoan?.years ?? input.mortgageYears;
+  let projectPeak = 0;
+  let mortgageMonthsUsed = 0;
+  const projectDebt = () => debt;
   const unfundedItems: SimulationResult['unfundedItems'] = [];
   const drawsByStage: Record<FinancingStage, number> = { bridge: 0, construction: 0, mortgage: 0 };
   let amortPayment = 0;
@@ -199,12 +207,13 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       if (short > EPS && input.taxesFinanceableBySecuredLoan) {
         // A loan secured on the household's other property, up to the limit the household stated.
         const x = Math.min(short, Math.max(0, securedLimit - taxesFinanced));
-        debt += x;
+        secured += x;
         totalDrawn += x;
-        drawsByStage[stage] += x;
         taxesFinanced += x;
         draw(m, x);
         short -= x;
+        // An "any purpose" loan amortises from the draw: the payment is recomputed on the new balance.
+        if (x > 0) securedPayment = monthlyPayment(secured, securedRate * 12, securedYears);
       }
       if (short > EPS && input.taxLoan && e.taxLoanEligible) {
         // A developer/bank tax loan for combination taxes, up to the facility cap.
@@ -244,7 +253,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
 
     // At delivery the tax loan (principal + capitalised interest) is refinanced as a mortgage on the apartment.
     // Maximum exposure is measured before any same-month repayment.
-    peakDebt = Math.max(peakDebt, debt + taxLoanBalance);
+    peakDebt = Math.max(peakDebt, debt + taxLoanBalance + secured);
     if (taxLoanBalance > 0 && m >= input.completionMonth) {
       taxLoanAtMaturity = taxLoanBalance;
       // The capitalised tax-loan interest falls due at maturity.
@@ -257,7 +266,6 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if (debt > 0) {
       const repay = Math.min(debt, Math.max(0, cash - reserveAfter[m]));
       debt -= repay;
-      principalRepaid += repay;
       cash -= repay;
       service(m, repay);
       // The tax-loan balance converted this month that cash did not repay has to be refinanced as a mortgage.
@@ -270,7 +278,9 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       service(m, repay);
     }
 
-    peakDebt = Math.max(peakDebt, debt + taxLoanBalance);
+    peakDebt = Math.max(peakDebt, debt + taxLoanBalance + secured);
+    projectPeak = Math.max(projectPeak, debt);
+    securedPeak = Math.max(securedPeak, secured);
     maxCapitalUsed = Math.max(maxCapitalUsed, Math.min(reference, reference - cash));
 
     const afterCompletion = m >= input.completionMonth;
@@ -302,13 +312,24 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
           amortPayment = monthlyPayment(debt, input.annualRate, input.mortgageYears);
         }
         payment = Math.min(amortPayment, debt + interest);
-        postCompletionMonthly = Math.max(postCompletionMonthly, payment);
-        const before = debt;
         debt = Math.max(0, debt - (payment - interest));
-        principalRepaid += before - debt;
         amortBase = debt;
+        mortgageMonthsUsed += 1;
       }
     }
+    // The loan on another property: interest and principal every month from the draw.
+    if (secured > 1e-9) {
+      const interest = secured * securedRate;
+      if (m <= input.completionMonth) interestToCompletion += interest;
+      else interestAfterCompletion += interest;
+      pvInterest += interest * dfMonth(m);
+      if (input.approvalMonth !== undefined && m <= input.approvalMonth) interestToApproval += interest;
+      const p = Math.min(securedPayment, secured + interest);
+      secured = Math.max(0, secured - (p - interest));
+      payment += p;
+      if (!afterCompletion) constructionMonthly = Math.max(constructionMonthly, payment);
+    }
+    if (afterCompletion) postCompletionMonthly = Math.max(postCompletionMonthly, payment);
     paymentsFV += payment;
     service(m, payment);
 
@@ -320,21 +341,21 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if (m === input.liquidityMonth) cashAtLiquidity = cash;
     if (m === input.completionMonth) {
       cashAtCompletion = cash;
-      debtAtCompletion = debt;
+      debtAtCompletion = debt + secured;
       referenceAtCompletion = reference;
     }
     if ((m + 1) % 12 === 0) yearly.push({ year: (m + 1) / 12, cash, debt });
   }
   if (input.liquidityMonth >= H) cashAtLiquidity = cash;
   // Debt left at the end is still owed.
-  service(H, debt + taxLoanBalance);
+  service(H, debt + taxLoanBalance + secured);
 
   cash *= growth;
   paymentsFV *= growth;
 
   return {
     cashAtHorizon: cash,
-    debtAtHorizon: debt + taxLoanBalance,
+    debtAtHorizon: debt + taxLoanBalance + secured,
     peakDebt,
     totalDrawn,
     peakPersonalMonthly: Math.max(0, peakPersonal),
@@ -361,6 +382,11 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     pvInterest,
     interestToApproval,
     pvFinancing,
+    facilities: [
+      { type: 'project_loan', drawn: drawsByStage.bridge + drawsByStage.construction + drawsByStage.mortgage - taxLoanAtMaturity, peak: projectPeak, annualRate: input.annualRate, repayment: 'interest_only_then_amortising', termMonths: input.mortgageYears * 12, monthsUsed: mortgageMonthsUsed },
+      { type: 'secured_other_property', drawn: taxesFinanced, peak: securedPeak, annualRate: securedRate * 12, repayment: 'amortising_from_draw', termMonths: securedYears * 12, monthsUsed: 0 },
+      { type: 'tax_loan', drawn: taxLoanDrawn, peak: taxLoanAtMaturity, annualRate: taxLoanMonthly * 12, repayment: 'bullet_at_delivery', termMonths: input.completionMonth, monthsUsed: 0 },
+    ].filter((f) => f.drawn > 0.5) as SimulationResult['facilities'],
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,

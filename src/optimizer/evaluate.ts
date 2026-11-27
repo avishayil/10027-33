@@ -165,6 +165,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
       ctx.profile.maxMonthlyRepayment !== 0 &&
       (typeof ctx.profile.otherPropertyBorrowingLimit === 'number' || config.financing.otherPropertyLoanAssumed),
     securedLoanLimit: typeof ctx.profile.otherPropertyBorrowingLimit === 'number' ? ctx.profile.otherPropertyBorrowingLimit : undefined,
+    securedLoan: config.financing.securedLoan,
     // A developer/bank tax loan for combination taxes: only when the configuration enables it (conditional run).
     taxLoan:
       config.financing.taxLoan.available && ctx.profile.maxMonthlyRepayment !== 0

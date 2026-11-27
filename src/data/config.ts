@@ -118,6 +118,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
       considerAsAlternative: true,
     },
     otherPropertyLoanAssumed: false,
+    securedLoan: { annualRate: FINANCING.nominalAnnualInterest.value, years: 20 },
   },
   analysis: {
     horizonYears: PROJECT.horizonYears.value,
