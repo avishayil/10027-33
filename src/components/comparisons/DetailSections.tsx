@@ -320,6 +320,7 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
               {(['favorable', 'base', 'adverse'] as const).map((id) => (
                 <th key={id}>{SCENARIO_LABELS[id]}</th>
               ))}
+              <th>אם התכנית לא תאושר</th>
             </tr>
           </thead>
           <tbody>
@@ -328,19 +329,24 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
                 <td>{strategyTitle(r)}</td>
                 {r.scenarioResults.map((s) => (
                   <td key={s.scenarioId} className={s.feasible ? '' : 'cell-fail'}>
-                    {formatCurrency(s.valueCreated)}
+                    {formatCurrency(s.deliveryValue)}
                     {!s.feasible && <span className="muted"> · לא עומד</span>}
                   </td>
                 ))}
+                <td className={r.approvalRisk > 1000 ? 'cell-fail' : ''}>
+                  {r.approvalRisk > 1000 ? `${formatCurrency(r.approvalRisk)} בסיכון` : 'לא משולם דבר לפני האישור'}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="field-hint">
-        אופטימי: דירה ₪28,000 למ״ר, ריבית 4%, 3 שנים. שמרני: דירה ₪21,000 למ״ר, חריגה של 15% בבנייה, ריבית 7%, 8
-        שנים, מחיר זכויות −25%, היטל +25%. אחוז הקומבינציה והרווח היזמי נשארים כפי שבחרתם. אלה תרחישי לחץ — לא
-        תחזית.
+        הערך: מה שיש לכם במסירה במחירי היום, אחרי כל התשלומים והריבית עד המסירה, פחות ריבית אחרי המסירה. אופטימי: דירה
+        ₪28,000 למ״ר, ריבית 4%, אישור בעוד 18 חודשים ומסירה בעוד 4 שנים. שמרני: דירה ₪21,000 למ״ר, חריגה של 15% בבנייה,
+        ריבית 7% (וגם הלוואת המסים יקרה ב-2%), אישור בעוד 3 שנים, היתר שנה אחריו, מסירה בעוד 8 שנים, מכירת יחידת הסל שנה
+        אחרי המסירה, מחיר זכויות −25%, היטל +25%. ״אם התכנית לא תאושר״: כסף שמשולם לפני האישור (למשל מקדמה לבנייה). אחוז
+        הקומבינציה והרווח היזמי נשארים כפי שבחרתם. אלה תרחישי לחץ — לא תחזית.
       </p>
     </Section>
   );

@@ -1,4 +1,7 @@
-/** The summary shows one route per deal family and never assumes a requested apartment size. */
+/**
+ * The summary shows one route per deal family. Since iteration 6 a whole smaller apartment (S13) is shown on the
+ * combination + payment card when it is the best way there — always marked as depending on inventory.
+ */
 import { describe, expect, it } from 'vitest';
 import { PROJECT_CONFIG as C } from '../../src/data/config';
 import { analyzeProfile } from '../../src/optimizer/analyze';
@@ -20,7 +23,7 @@ describe('summary priorities by deal family', () => {
     expect(new Set(families).size).toBe(families.length);
     expect(p.length).toBeLessThanOrEqual(4);
     for (const x of p) {
-      expect(x.r.strategyType).not.toBe('S13');
+      if (x.r.strategyType === 'S13') expect(x.family).toBe('combination_paid');
       expect(FAMILY_OF[x.r.strategyType]).toBe(x.family);
     }
     // Variants: other payment methods for the same apartments, only on the combination + payment card.
@@ -49,4 +52,13 @@ it('167 m²: completion and construction services are one card, not two', () => 
   expect(paid).toHaveLength(1);
   const types = [paid[0].r.strategyType, ...paid[0].variants.map((v) => v.r.strategyType)];
   expect(types).toEqual(expect.arrayContaining(['S06', 'S11']));
+});
+
+describe('a smaller whole apartment is shown when it is the best way to one (review §10)', () => {
+  it('167 m², ₪800K: the 3-room route appears on the combination + payment card', () => {
+    const d = analyzeProfile(profile({ availableCapital: 800_000, maxMonthlyRepayment: 5000 }), TERMS, C);
+    const card = priorityRoutes(d, 'balanced').find((x) => x.family === 'combination_paid')!;
+    const types = [card.r.strategyType, ...card.variants.map((v) => v.r.strategyType)];
+    expect(types).toContain('S13');
+  });
 });

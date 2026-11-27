@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { PROJECT_CONFIG } from '../../data/config';
 import type { DecisionEngine } from '../../hooks/useDecisionEngine';
 import { formatCurrency } from '../../utils/format';
-import { BasisField, CapitalField, describeAnswers, GoalFields, LandFields, RepaymentFields, TermsFields } from './fields';
+import { BasisField, CapitalField, describeAnswers, GoalFields, LandFields, OfferFields, RepaymentFields, TermsFields } from './fields';
 
 export const WIZARD_STEPS = ['welcome', 'land', 'capital', 'repayment', 'goal', 'terms', 'summary'] as const;
 export type WizardStep = (typeof WIZARD_STEPS)[number];
@@ -184,6 +184,7 @@ export function Wizard({ engine, startAt = 'welcome', editing, initialRemember, 
               ))}
             </dl>
             <BasisField engine={engine} />
+            <OfferFields engine={engine} />
             <label className="ack">
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
               <span>

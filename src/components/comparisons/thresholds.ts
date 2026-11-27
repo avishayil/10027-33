@@ -11,6 +11,15 @@ export const KNOB_LABELS: Record<PriceKnob, string> = {
   complementary_price: 'מחיר שתשלמו על זכויות משלימות',
 };
 
+/** An annual rate to two decimals (7.97%). */
+export const formatRate = (x: number) => `${formatNumber(x * 100, 2)}%`;
+
+/** The highest tax-loan rate at which a route still fits; the search stops at 30%. */
+export function maxRateText(x: number | null): string | null {
+  if (x === null) return null;
+  return x >= 0.299 ? 'מתאים גם בריבית של 30% ומעלה' : `מתאים עד ריבית של כ-${formatRate(x)}`;
+}
+
 /** "לפחות X" for a price you receive, "לכל היותר X" for a price you pay. */
 export function thresholdBound(t: { knob: PriceKnob; required: number | null; direction: 'min' | 'max' }): string {
   if (t.required === null) return formatKnob(t.knob, null);

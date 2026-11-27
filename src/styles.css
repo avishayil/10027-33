@@ -1877,6 +1877,19 @@ button {
   margin-top: 16px;
 }
 
+.ask-developer {
+  border-inline-start: 4px solid var(--accent, #1d4ed8);
+  margin-bottom: 16px;
+}
+
+.ask-developer h2 {
+  margin-top: 0;
+}
+
+.ask-developer .priority-numbers {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .build-version {
   margin: 8px 0 16px;
   text-align: center;

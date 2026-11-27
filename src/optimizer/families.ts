@@ -6,9 +6,9 @@
  *    (S03/S05/S07/S08/S10).
  *  - combination_only: all rights into combination, no payment; the fraction is held jointly, pooled or paid out.
  *  - cash: sell (S01/S09/S01M).  - revenue_share: עסקת תמורות (S04).
- * Never a route that assumes a requested apartment size (S13 tiers stay in the advanced view).
+ * A whole apartment of another size (S13) sits on the combination + payment card, marked as depending on inventory.
  */
-import type { DecisionResult, Goal, PriceThreshold, StrategyResult, StrategyType, TaxArrangement } from '../domain/types';
+import type { DecisionResult, Goal, PriceThreshold, StrategyResult, StrategyType } from '../domain/types';
 
 export type DealFamily = 'combination_paid' | 'combination_only' | 'cash' | 'revenue_share';
 
@@ -29,7 +29,9 @@ export const FAMILY_OF: Partial<Record<StrategyType, DealFamily>> = {
   S09: 'cash',
   S01M: 'cash',
   S04: 'revenue_share',
-  // S13 is deliberately absent: it assumes a requested apartment size.
+  // A whole smaller (or larger) apartment: combination + a completion payment. Shown as an option to negotiate —
+  // it depends on the project's inventory and allocation (iteration 6, review §10).
+  S13: 'combination_paid',
 };
 
 export const FAMILY_LABELS: Record<DealFamily, string> = {
@@ -48,7 +50,11 @@ export const PAYMENT_METHOD: Partial<Record<StrategyType, string>> = {
   S07: 'שירותי בנייה ומכירת דירה במסירה',
   S08: 'שירותי בנייה והשכרה',
   S10: 'קניית זכויות ושירותי בנייה',
+  S13: 'השלמה לדירה בגודל אחר (תלוי במלאי)',
 };
+
+/** The terms a conditional direction depends on (funding to obtain, or other tax terms at their %). */
+export type RouteCondition = Omit<NonNullable<DecisionResult['conditionalRecommendation']>, 'result'>;
 
 interface Base {
   family: DealFamily;
@@ -56,7 +62,7 @@ interface Base {
 }
 export type RouteOption =
   /** Fits under the evidence-based assumptions (or under a stated contract condition). */
-  | (Base & { kind: 'fits'; condition: TaxArrangement | null })
+  | (Base & { kind: 'fits'; condition: RouteCondition | null })
   /** Depends on a price nobody has verified: shown with the price it would need. */
   | (Base & { kind: 'price'; threshold: PriceThreshold })
   /** Close: fits with this much more capital. */
@@ -83,7 +89,8 @@ export function priorityRoutes(result: DecisionResult, goal: Goal = 'balanced'):
   const options: { p: RouteOption; key: [number, number] }[] = [];
   const c = result.conditionalRecommendation;
   if (!result.recommendation && c && familyOf(c.result)) {
-    options.push({ p: { family: familyOf(c.result)!, kind: 'fits', r: c.result, condition: c.arrangement }, key: [0, -1] });
+    const condition: RouteCondition = { kind: c.kind, method: c.method, arrangement: c.arrangement, combinationPct: c.combinationPct };
+    options.push({ p: { family: familyOf(c.result)!, kind: 'fits', r: c.result, condition }, key: [0, -1] });
   }
   result.ranked.forEach((r, i) => {
     const f = familyOf(r);

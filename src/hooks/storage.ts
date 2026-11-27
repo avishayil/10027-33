@@ -25,6 +25,10 @@ export interface SavedInputs {
   soleHome?: 'unknown' | 'yes' | 'no';
   /** What the developer pays at the offered combination %. Older saves without it load as 'mixed'. */
   taxArrangement?: TaxArrangement;
+  /** Optional actual-offer terms and borrowing on another property (iteration 6). Older saves: empty / false. */
+  levyCapText?: string;
+  developerPaysInterest?: boolean;
+  otherPropertyLimitText?: string;
 }
 
 const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'passive_income', 'immediate_cash', 'minimize_risk'];
@@ -42,7 +46,10 @@ function isValid(x: unknown): x is SavedInputs {
     GOALS.includes(o.goal as Goal) &&
     ['combinationPct', 'developerMarkup', 'deadlineYears'].every(num) &&
     (o.soleHome === undefined || o.soleHome === 'unknown' || o.soleHome === 'yes' || o.soleHome === 'no') &&
-    (o.taxArrangement === undefined || o.taxArrangement === 'gross' || o.taxArrangement === 'mixed' || o.taxArrangement === 'net')
+    (o.taxArrangement === undefined || o.taxArrangement === 'gross' || o.taxArrangement === 'mixed' || o.taxArrangement === 'net') &&
+    (o.levyCapText === undefined || typeof o.levyCapText === 'string') &&
+    (o.otherPropertyLimitText === undefined || typeof o.otherPropertyLimitText === 'string') &&
+    (o.developerPaysInterest === undefined || typeof o.developerPaysInterest === 'boolean')
   );
 }
 
@@ -55,7 +62,7 @@ export function loadInputs(): SavedInputs | null {
     // The wizard now offers three goals; the two retired ones map to their nearest successor.
     const goal: Goal =
       parsed.goal === 'passive_income' ? 'maximize_apartments' : parsed.goal === 'immediate_cash' ? 'minimize_risk' : parsed.goal;
-    return { soleHome: 'unknown', taxArrangement: 'mixed', ...parsed, goal };
+    return { soleHome: 'unknown', taxArrangement: 'mixed', levyCapText: '', developerPaysInterest: false, otherPropertyLimitText: '', ...parsed, goal };
   } catch {
     return null;
   }

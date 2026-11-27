@@ -17,7 +17,7 @@ import {
 import { formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
 
 const pctHalf = (x: number) => `${formatNumber(Math.round(x * 200) / 2, 1)}%`;
-import { KNOB_LABELS, thresholdBound } from '../comparisons/thresholds';
+import { formatRate, KNOB_LABELS, maxRateText, thresholdBound } from '../comparisons/thresholds';
 import { Tooltip } from '../Tooltip';
 
 const AFF_CLASS = { fits: 'estimated_feasible', fits_with_financing: 'conditional', does_not_fit: 'infeasible', unknown: 'unknown' } as const;
@@ -405,10 +405,56 @@ export function ArrangementTree({ result }: { result: DecisionResult }) {
         ))}
       </ul>
       <BreakEvens result={result} />
+      <FundingTable result={result} />
       <p className="field-hint">
         יזם שלוקח על עצמו מסים מגלם אותם בתמורה: לכן כל הסדר מחושב באחוז שמשאיר ליזם אותו רווח, ולא באותו אחוז. ההמלצה
         הראשית לפי ההצעה שהזנתם. בפועל זה נקבע בחוזה — אף הסדר אינו ״ברירת המחדל של השוק״. הלוואה לתשלום המסים אינה
         תשלום שלהם: הקרן והריבית עליכם.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Funding for the owner's taxes that the household must still obtain — evaluated, never assumed: the best route with
+ * it, the loan, the rate, the balance due at delivery and what the owner saves if the developer bears the interest.
+ */
+function FundingTable({ result }: { result: DecisionResult }) {
+  const rows = result.fundingAlternatives;
+  if (!rows.length) return null;
+  const name = (m: string) => (m === 'other_property' ? 'הלוואה על הנכס האחר שלכם' : 'הלוואת מסים מהיזם / מהבנק המלווה');
+  return (
+    <div className="funding-alternatives">
+      <h3>מימון המסים — אפשרויות שצריך להשיג (לא מונחות)</h3>
+      <ul>
+        {rows.map((f) => (
+          <li key={f.method}>
+            <span className="muted">{name(f.method)}:</span>{' '}
+            {f.top ? (
+              <>
+                <strong>{strategyTitle(f.top)}</strong>
+                <span className="muted">
+                  {' '}
+                  · הלוואה {formatCurrency(f.loan)}
+                  {f.method === 'developer_loan' && (
+                    <>
+                      {' '}
+                      ב-{formatRate(f.annualRate)} · ריבית עד המסירה {formatCurrency(f.interest)} · לפירעון במסירה {formatCurrency(f.atMaturity)}
+                      {f.savingIfDeveloperPaysInterest > 1 && <> · אם היזם יישא בריבית: חיסכון {formatCurrency(f.savingIfDeveloperPaysInterest)}</>}
+                      {maxRateText(f.maxRate) && <> · {maxRateText(f.maxRate)}</>}
+                    </>
+                  )}
+                </span>
+              </>
+            ) : (
+              <strong>גם עם המימון הזה אין מסלול מתאים</strong>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="field-hint">
+        הלוואת מסים היא הלוואה ולא תשלום של המס: הקרן והריבית עליכם, בדרך כלל בשעבוד הזכויות, בכפוף לבנק המלווה ולתנאים
+        המתלים. בהלוואת יזם עשוי לחול מע״מ על הריבית (כמו בעסקאות רוטשטיין). תקרה מונחת: עד 50% משווי הדירות שתקבלו.
       </p>
     </div>
   );
@@ -419,13 +465,19 @@ function BreakEvens({ result }: { result: DecisionResult }) {
   const lines = result.arrangements.filter(
     (a) => a.combinationPct !== null && a.ownerBreakEvenPct !== null && Math.abs(a.combinationPct - a.ownerBreakEvenPct) > 1e-9,
   );
-  if (!lines.length) return null;
+  const viable = result.arrangements.filter((a) => a.viablePct !== null);
+  if (!lines.length && !viable.length) return null;
   return (
     <ul className="field-hint">
+      {viable.map((a) => (
+        <li key={`v-${a.arrangement}`}>
+          {ARRANGEMENT_NAME[a.arrangement]}: אחוז מקסימלי שמשאיר ליזם רווח של 15% במודל המגרש — כ-{pctHalf(a.viablePct!)}.
+        </li>
+      ))}
       {lines.map((a) => (
         <li key={a.arrangement}>
-          {ARRANGEMENT_NAME[a.arrangement]} משתלמת לכם רק מ-{pctHalf(a.ownerBreakEvenPct!)} ומעלה; יזם צפוי להציע בה כ-
-          {pctHalf(a.combinationPct!)}
+          {ARRANGEMENT_NAME[a.arrangement]} משתלמת לכם רק מ-{pctHalf(a.ownerBreakEvenPct!)} ומעלה; האחוז השקול לפי המודל
+          הכלכלי (אותו רווח ליזם) הוא כ-{pctHalf(a.combinationPct!)}
           {a.combinationPct! >= a.ownerBreakEvenPct! ? ' — בערך שווה או טוב יותר לכם.' : ' — פחות טוב לכם מההצעה שהזנתם.'}
         </li>
       ))}
@@ -444,17 +496,40 @@ function ConditionalDirection({ result }: { result: DecisionResult }) {
   const c = result.conditionalRecommendation!;
   const r = c.result;
   const debt = r.mortgageRequired > 1;
+  const loan = result.fundingAlternatives.find((f) => f.method === c.method);
   return (
     <>
       <h2 id="verdict-title">
-        {strategyTitle(r)} — בתנאי {CONDITION_FOR[c.arrangement]}
+        {strategyTitle(r)} —{' '}
+        {c.kind === 'funding'
+          ? c.method === 'other_property'
+            ? 'בתנאי שתוכלו ללוות על הנכס האחר'
+            : 'בתנאי שתקבלו הלוואת מסים'
+          : `בתנאי ${CONDITION_FOR[c.arrangement]}`}
       </h2>
-      <p className="verdict-desc">
-        בתנאי ההצעה שהזנתם אין לכם מספיק כסף פנוי לשלם את המסים במועד. אם היזם ייקח אותם על עצמו בחוזה — המסלול הזה
-        מתאים ליכולת שלכם. אבל יזם שמשלם מסים מגלם אותם בתמורה: חישבנו לפי אחוז קומבינציה של כ-{pctHalf(c.combinationPct)}{' '}
-        בלבד. זה הדבר הראשון לבדוק מול היזם. חלופות: הלוואת מסים מהיזם או מהבנק המלווה, או בקשת דחיית תשלום המס לפי סעיף
-        91א — בכפוף לאישור, עם ריבית והצמדה.
-      </p>
+      {c.kind === 'funding' ? (
+        <p className="verdict-desc">
+          בתנאי ההצעה שהזנתם אין לכם מספיק כסף פנוי לשלם את המסים במועד, והמחשבון לא מניח שתקבלו מימון. אם תקבלו{' '}
+          {c.method === 'other_property' ? 'הלוואה על הנכס האחר' : 'הלוואת מסים מהיזם או מהבנק המלווה'} — המסלול הזה מתאים
+          ליכולת שלכם.
+          {loan && c.method === 'developer_loan' && (
+            <>
+              {' '}
+              הלוואה של כ-{formatCompactCurrency(loan.loan)} ב-{formatRate(loan.annualRate)} בשנה (פריים + 2% ומע״מ על הריבית), לפירעון
+              במסירה כ-{formatCompactCurrency(loan.atMaturity)}
+              {maxRateText(loan.maxRate) && <> · {maxRateText(loan.maxRate)}</>}.
+            </>
+          )}{' '}
+          זה הדבר הראשון לבדוק מול היזם. חלופה: דחיית תשלום המס לפי סעיף 91א — בכפוף לאישור, עם ריבית והצמדה.
+        </p>
+      ) : (
+        <p className="verdict-desc">
+          בתנאי ההצעה שהזנתם אין לכם מספיק כסף פנוי לשלם את המסים במועד. אם היזם ייקח אותם על עצמו בחוזה — המסלול הזה
+          מתאים ליכולת שלכם. אבל יזם שמשלם מסים מגלם אותם בתמורה: חישבנו לפי אחוז קומבינציה של כ-{pctHalf(c.combinationPct)}{' '}
+          בלבד (אחוז שקול לפי המודל הכלכלי). זה הדבר הראשון לבדוק מול היזם. חלופה: דחיית תשלום המס לפי סעיף 91א — בכפוף
+          לאישור, עם ריבית והצמדה.
+        </p>
+      )}
       <p className="verdict-desc">{STRATEGY_DESCRIPTIONS[r.strategyType]}</p>
       <div className="verdict-numbers">
         <div className="big-num">

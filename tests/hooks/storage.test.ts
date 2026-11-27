@@ -40,4 +40,11 @@ describe('saved answers and the offer’s tax arrangement', () => {
     withStorage({ ...saved, taxArrangement: 'sometimes' });
     expect(loadInputs()).toBeNull();
   });
+  it('older saves get empty offer terms and no other-property limit', () => {
+    withStorage(saved);
+    const l = loadInputs()!;
+    expect(l.levyCapText).toBe('');
+    expect(l.developerPaysInterest).toBe(false);
+    expect(l.otherPropertyLimitText).toBe('');
+  });
 });

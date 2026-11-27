@@ -51,6 +51,10 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const [soleHome, setSoleHome] = useState<'unknown' | 'yes' | 'no'>(saved?.soleHome ?? 'unknown');
   // What the offer at the combination % includes — the headline arrangement; the others are derived from it.
   const [taxArrangement, setTaxArrangement] = useState<TaxArrangement>(saved?.taxArrangement ?? c.taxArrangement);
+  // Optional actual-offer terms and borrowing on another property.
+  const [levyCapText, setLevyCapText] = useState(saved?.levyCapText ?? '');
+  const [developerPaysInterest, setDeveloperPaysInterest] = useState(saved?.developerPaysInterest ?? false);
+  const [otherPropertyLimitText, setOtherPropertyLimitText] = useState(saved?.otherPropertyLimitText ?? '');
 
   const area = useMemo((): { value: number | null; error: string | null } => {
     if (areaMode === 'fraction') {
@@ -69,12 +73,16 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const capital = parseAmount(capitalText);
   const repaymentAmount = parseAmount(repaymentText);
   const basis = parseAmount(basisText);
+  const levyCap = parseAmount(levyCapText);
+  const otherPropertyLimit = parseAmount(otherPropertyLimitText);
 
   const errors = {
     area: area.error,
     capital: Number.isNaN(capital) ? 'סכום לא תקין.' : null,
     repayment: repaymentMode === 'amount' && Number.isNaN(repaymentAmount) ? 'סכום לא תקין.' : null,
     basis: Number.isNaN(basis) ? 'סכום לא תקין.' : null,
+    levyCap: Number.isNaN(levyCap) ? 'סכום לא תקין.' : null,
+    otherPropertyLimit: Number.isNaN(otherPropertyLimit) ? 'סכום לא תקין.' : null,
   };
 
   const maxMonthlyRepayment =
@@ -92,22 +100,32 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
           acquisitionBasis: basis === null || Number.isNaN(basis) ? null : basis,
           liquidityDeadlineYears: deadlineYears,
           soleHome: soleHome === 'unknown' ? null : soleHome === 'yes',
+          otherPropertyBorrowingLimit: otherPropertyLimit === null || Number.isNaN(otherPropertyLimit) ? null : otherPropertyLimit,
         };
 
   const terms: CommercialTerms = { combinationPct, developerMarkup };
 
   const profileKey = JSON.stringify(profile);
   const result: DecisionResult | null = useMemo(
-    () => (profile ? analyzeProfile(profile, terms, withArrangement(PROJECT_CONFIG, taxArrangement)) : null),
-    // profileKey captures every profile field; terms and the arrangement are primitives.
+    () => {
+      if (!profile) return null;
+      const base = withArrangement(PROJECT_CONFIG, taxArrangement);
+      const offer = {
+        levyCap: levyCap === null || Number.isNaN(levyCap) ? null : levyCap,
+        developerPaysTaxLoanInterest: developerPaysInterest,
+      };
+      return analyzeProfile(profile, terms, { ...base, commercial: { ...base.commercial, offer } });
+    },
+    // profileKey captures every profile field; terms, the arrangement and the offer are primitives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profileKey, combinationPct, developerMarkup, taxArrangement],
+    [profileKey, combinationPct, developerMarkup, taxArrangement, levyCap, developerPaysInterest],
   );
 
   const values: SavedInputs = {
     version: 1,
     areaMode, areaText, fractionText, lotId, capitalText, repaymentMode, repaymentText,
     goal, combinationPct, developerMarkup, basisText, deadlineYears, soleHome, taxArrangement,
+    levyCapText, developerPaysInterest, otherPropertyLimitText,
   };
 
   return {
@@ -118,6 +136,8 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
       repaymentText, setRepaymentText, goal, setGoal, combinationPct, setCombinationPct,
       developerMarkup, setDeveloperMarkup, basisText, setBasisText, deadlineYears, setDeadlineYears,
       soleHome, setSoleHome, taxArrangement, setTaxArrangement,
+      levyCapText, setLevyCapText, developerPaysInterest, setDeveloperPaysInterest,
+      otherPropertyLimitText, setOtherPropertyLimitText,
     },
     landArea: area.value,
     errors,

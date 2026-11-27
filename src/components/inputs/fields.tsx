@@ -323,7 +323,7 @@ function equivalenceHint(engine: DecisionEngine): string | null {
   const others = (engine.result?.arrangements ?? []).filter((a) => a.arrangement !== engine.inputs.taxArrangement && a.combinationPct !== null);
   if (!others.length) return null;
   const list = others.map((a) => `כ-${pct(Math.round(a.combinationPct! * 200) / 200)} ב${ARRANGEMENT_SHORT[a.arrangement]}`).join(' או ');
-  return `יזם שלוקח על עצמו יותר מסים מציע אחוז נמוך יותר: ההצעה הזו שקולה ל${list}.`;
+  return `יזם שלוקח על עצמו יותר מסים מציע אחוז נמוך יותר. לפי המודל הכלכלי (אותו רווח ליזם) ההצעה הזו שקולה ל${list}.`;
 }
 
 export function TermsFields({ engine }: { engine: DecisionEngine }) {
@@ -390,6 +390,39 @@ export function BasisField({ engine, open = false }: { engine: DecisionEngine; o
         <MoneyInput id={id} value={i.basisText} onChange={i.setBasisText} placeholder="ריק = לא ידוע" invalid={!!errors.basis} />
       </div>
       <p className="field-hint">בלי הנתון הזה מס השבח מחושב בהנחה השמרנית (עלות רכישה אפס).</p>
+    </details>
+  );
+}
+
+/**
+ * Optional: terms of an actual developer offer and borrowing on another property. Nothing here is assumed when empty —
+ * without a stated limit, a loan on another property is only a conditional route.
+ */
+export function OfferFields({ engine }: { engine: DecisionEngine }) {
+  const { inputs: i, errors } = engine;
+  const capId = useId();
+  const limitId = useId();
+  return (
+    <details className="optional-inputs">
+      <summary>יש לכם הצעה בפועל או נכס נוסף? (לא חובה)</summary>
+      <div className="field">
+        <label htmlFor={capId}>תקרת השתתפות היזם בהיטל ההשבחה (₪, אם ההצעה מגבילה אותה)</label>
+        <MoneyInput id={capId} value={i.levyCapText} onChange={i.setLevyCapText} placeholder="ריק = בלי תקרה" invalid={!!errors.levyCap} />
+      </div>
+      <p className="field-hint">כמו בעסקאות מדווחות: היזם משלם את ההיטל עד סכום מסוים, והיתרה עליכם.</p>
+      <label className="ack">
+        <input type="checkbox" checked={i.developerPaysInterest} onChange={(e) => i.setDeveloperPaysInterest(e.target.checked)} />
+        היזם נושא בריבית של הלוואת המסים (אתם מחזירים רק את הקרן)
+      </label>
+      {i.soleHome === 'no' && (
+        <>
+          <div className="field">
+            <label htmlFor={limitId}>כמה תוכלו ללוות על הנכס הנוסף כדי לשלם מסים (₪)?</label>
+            <MoneyInput id={limitId} value={i.otherPropertyLimitText} onChange={i.setOtherPropertyLimitText} placeholder="ריק = לא ידוע" invalid={!!errors.otherPropertyLimit} />
+          </div>
+          <p className="field-hint">רק אם תזינו סכום נניח שההלוואה זמינה (עד הסכום). בלי סכום — היא מוצגת כאפשרות לבדיקה בלבד.</p>
+        </>
+      )}
     </details>
   );
 }

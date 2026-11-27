@@ -4,7 +4,7 @@
  * assumes a requested apartment size. Everything else lives in advanced mode.
  */
 import type { DecisionResult, Goal, TaxArrangement } from '../../domain/types';
-import { FAMILY_LABELS, PAYMENT_METHOD, priorityRoutes, type RouteOption } from '../../optimizer/families';
+import { FAMILY_LABELS, PAYMENT_METHOD, priorityRoutes, type RouteCondition, type RouteOption } from '../../optimizer/families';
 import {
   AFFORDABILITY_LABELS,
   debtLabel,
@@ -17,7 +17,7 @@ import {
 import { formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
 
 const formatPct = (x: number) => `${formatNumber(Math.round(x * 200) / 2, 1)}%`;
-import { KNOB_LABELS, thresholdBound } from '../comparisons/thresholds';
+import { formatRate, KNOB_LABELS, thresholdBound } from '../comparisons/thresholds';
 
 const CONDITION_FOR: Record<TaxArrangement, string> = {
   gross: '',
@@ -25,14 +25,23 @@ const CONDITION_FOR: Record<TaxArrangement, string> = {
   net: 'בתנאי שהיזם נושא בכל המסים — היטל, מס שבח ומע״מ (עסקת נטו)',
 };
 
-/** The condition, plus the lower % a developer is expected to offer for taking on the taxes. */
-function conditionText(arr: TaxArrangement, combinationPct: number | undefined): string | null {
-  const base = CONDITION_FOR[arr];
+/**
+ * The condition a direction depends on: financing to obtain (a tax loan is a loan, not a payment), or other tax terms
+ * at the lower % that is equivalent for them under the economic model.
+ */
+export function conditionText(c: RouteCondition): string | null {
+  if (c.kind === 'funding') {
+    return c.method === 'other_property'
+      ? 'בתנאי שתוכלו ללוות על הנכס האחר שלכם כדי לשלם את המסים — לפי היכולת והשווי שלו.'
+      : 'בתנאי שתקבלו הלוואת מסים מהיזם או מהבנק המלווה — הלוואה, לא תשלום: הקרן והריבית עליכם.';
+  }
+  const base = CONDITION_FOR[c.arrangement];
   if (!base) return null;
-  return combinationPct === undefined
-    ? base
-    : `${base}. יזם שלוקח על עצמו את המסים צפוי להציע אחוז נמוך יותר — חישבנו לפי כ-${formatPct(combinationPct)}.`;
+  return `${base}. יזם שלוקח על עצמו את המסים מגלם אותם באחוז נמוך יותר — חישבנו לפי כ-${formatPct(c.combinationPct)} (אחוז שקול לפי המודל הכלכלי).`;
 }
+
+/** A whole apartment of another size depends on the project's inventory and allocation. */
+const SIZE_NOTE = 'לבדיקה מול היזם — תלוי במלאי הדירות ובהקצאה.';
 
 const AFF_CLASS = { fits: 'estimated_feasible', fits_with_financing: 'conditional', does_not_fit: 'infeasible', unknown: 'unknown' } as const;
 const RISK_CLASS = { low: 'estimated_feasible', medium: 'fragile', high: 'infeasible' } as const;
@@ -52,7 +61,7 @@ function pocketNote(r: DecisionResult['results'][number]): string | null {
   const paid = parts.length ? `מה משלמים: ${parts.join(' · ')}` : null;
   const loanNote =
     loan > 1
-      ? `הלוואת מסים מהיזם/מהבנק כ-${formatCompactCurrency(loan)}, ריבית עד המסירה כ-${formatCompactCurrency(r.simulation.taxLoanInterest)} — הלוואה, לא מתנה: נפרעת במסירה`
+      ? `הלוואת מסים כ-${formatCompactCurrency(loan)}, ריבית עד המסירה כ-${formatCompactCurrency(r.simulation.taxLoanInterest)} — לפירעון במסירה כ-${formatCompactCurrency(r.simulation.taxLoanAtMaturity)}`
       : null;
   return [paid, loanNote].filter(Boolean).join('. ') || null;
 }
@@ -86,6 +95,7 @@ function Variants({ main, variants }: { main: RouteOption; variants: RouteOption
             <li key={r.id}>
               <strong>{PAYMENT_METHOD[r.strategyType] ?? strategyTitle(r)}</strong>
               {status && <span className="priority-note-inline"> · {status}</span>}
+              {r.strategyType === 'S13' && <span className="priority-note-inline"> · {SIZE_NOTE}</span>}
               <span className="sub">
                 {r.mortgageRequired > 1 ? `משכנתא ${formatCompactCurrency(r.mortgageRequired)} (${formatCurrency(r.monthlyRepayment)} לחודש)` : 'בלי משכנתא'}
                 {' · '}
@@ -102,10 +112,11 @@ function Variants({ main, variants }: { main: RouteOption; variants: RouteOption
 
 const RANK_LABELS = ['עדיפות ראשונה', 'עדיפות שנייה', 'עדיפות שלישית', 'עדיפות רביעית'];
 
-function noteFor(p: RouteOption, conditionPct?: number): string | null {
+function noteFor(p: RouteOption): string | null {
+  const size = p.r.strategyType === 'S13' ? SIZE_NOTE : null;
   switch (p.kind) {
     case 'fits':
-      return p.condition ? conditionText(p.condition, conditionPct) : null;
+      return [p.condition ? conditionText(p.condition) : null, size].filter(Boolean).join(' ') || null;
     case 'price': {
       const t = p.threshold;
       if (t.direction === 'min' && t.required !== null && t.required <= 0) return t.against ? 'משתלם בכל מחיר סביר' : 'תלוי במחיר שעוד לא ידוע';
@@ -125,11 +136,97 @@ function noteFor(p: RouteOption, conditionPct?: number): string | null {
   }
 }
 
-export function TopPriorities({ result, goal, combinationPct }: { result: DecisionResult; goal: Goal; combinationPct: number }) {
+const ARRANGEMENT_IN: Record<TaxArrangement, string> = { gross: 'בעסקת ברוטו', mixed: 'בעסקה מעורבת', net: 'בעסקת נטו' };
+
+/**
+ * When the direction depends on terms the household must still obtain — a tax loan, or other tax terms — say what
+ * to ask the developer for, with the household's own numbers and what is still unknown.
+ */
+function AskDeveloper({ result, availableCapital }: { result: DecisionResult; availableCapital: number | null }) {
+  const c = result.conditionalRecommendation;
+  if (!c) return null;
+  const r = c.result;
+  // The combination taxes on the owner under the offer (levy, capital gains on the services received, services VAT) —
+  // not a later tax on selling the fraction.
+  const ownerTaxes = r.ledger.filter((e) => e.payer === 'owner' && e.taxLoanEligible).reduce((s, e) => s + e.amount, 0);
+  const loan = c.kind === 'funding' && c.method === 'developer_loan' ? result.fundingAlternatives.find((f) => f.method === 'developer_loan') : undefined;
+  // A smaller whole apartment instead of selling the fraction — only when the direction leaves no whole apartment.
+  const smaller =
+    r.metrics.wholeApartments === 0
+      ? result.results.find((x) => x.strategyType === 'S13' && x.metrics.wholeApartments === 1 && x.plan.apartmentRooms.includes(3))
+      : undefined;
+  const completion = smaller?.ledger.filter((e) => e.category === 'completion_payment').reduce((s, e) => s + e.amount, 0) ?? 0;
+  return (
+    <section className="card ask-developer" aria-labelledby="ask-developer-title">
+      <h2 id="ask-developer-title">מה כדאי לכם לבקש מהיזם?</h2>
+      <p className="priority-desc">
+        {c.kind === 'funding' ? (
+          <>
+            <strong>קומבינציה עם הסדר מימון מסים.</strong> בדקו הלוואת מסים מהיזם או מהבנק המלווה — הריבית, הבטוחות ומועד
+            הפירעון — ובקשו שהיזם יישא בריבית ושהקרן תיפרע מתוך התמורה שתקבלו.
+          </>
+        ) : (
+          <>
+            <strong>{conditionText(c)}</strong>
+          </>
+        )}
+      </p>
+      <dl className="priority-numbers">
+        <div>
+          <dt>היטל השבחה משוער</dt>
+          <dd>{formatCompactCurrency(r.levy.total)}</dd>
+        </div>
+        <div>
+          <dt>מסים עליכם {ARRANGEMENT_IN[c.arrangement]}</dt>
+          <dd>{formatCompactCurrency(ownerTaxes)}</dd>
+        </div>
+        <div>
+          <dt>הון עצמי זמין</dt>
+          <dd>{availableCapital === null ? 'לא ידוע' : formatCompactCurrency(availableCapital)}</dd>
+        </div>
+        {loan && (
+          <div>
+            <dt>הלוואת מסים נדרשת</dt>
+            <dd>
+              {formatCompactCurrency(loan.loan)}
+              <span className="sub">
+                {formatRate(loan.annualRate)} בשנה · לפירעון במסירה {formatCompactCurrency(loan.atMaturity)}
+              </span>
+            </dd>
+          </div>
+        )}
+      </dl>
+      {loan && loan.savingIfDeveloperPaysInterest > 1 && (
+        <p className="priority-risk">אם היזם יישא בריבית — תחסכו כ-{formatCompactCurrency(loan.savingIfDeveloperPaysInterest)}.</p>
+      )}
+      {smaller && completion > 1 && (
+        <p className="priority-risk">
+          כדאי לבדוק גם דירת 3 חדרים: השלמה של כ-{formatCompactCurrency(completion)} במקום למכור את החלק. {SIZE_NOTE}
+        </p>
+      )}
+      <p className="field-hint">
+        מה עדיין לא ידוע: הצעת הקומבינציה בפועל, שומת ההיטל, זמינות הלוואת המסים ותנאיה, ומנגנון חלוקת הדירות.
+      </p>
+    </section>
+  );
+}
+
+export function TopPriorities({
+  result,
+  goal,
+  combinationPct,
+  availableCapital = null,
+}: {
+  result: DecisionResult;
+  goal: Goal;
+  combinationPct: number;
+  availableCapital?: number | null;
+}) {
   const items = priorityRoutes(result, goal);
   const R = result.rights.apartmentEquivalents;
   return (
     <section className="priorities" aria-live="polite" aria-labelledby="priorities-title">
+      <AskDeveloper result={result} availableCapital={availableCapital} />
       <h2 id="priorities-title" className="section-title">
         סוגי העסקאות לפי סדר התאמה · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
       </h2>
@@ -140,7 +237,7 @@ export function TopPriorities({ result, goal, combinationPct }: { result: Decisi
         {items.map((p, i) => {
           const r = p.r;
           const debt = r.mortgageRequired > 1;
-          const note = noteFor(p, result.conditionalRecommendation?.combinationPct);
+          const note = noteFor(p);
           const risk = riskLevel(r);
           return (
             <li key={p.family} className={`card priority-card ${i === 0 && p.kind === 'fits' ? 'priority-first' : ''}`}>
