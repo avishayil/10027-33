@@ -176,3 +176,11 @@
     not scored. The description is two or three lines with the owner's own numbers (rights sold, apartments from
     combination, what is paid for), plus one line on what the out-of-pocket money pays for. Developer-policy notes
     say why in one sentence. In the advanced view the resilience chip reads "עומד / נכשל בתרחיש שמרני".
+59. **Summary families follow what the owner decides, not the contract mechanics.** Four cards: "קומבינציה + תשלום
+    ליזם" (any route that ends with whole apartments by paying the developer — completion at market price S06,
+    construction services on land kept out of the combination S11, or selling part and paying for building
+    S03/S05/S07/S08/S10), "קומבינציה בלבד, בלי תשלום" (S02/S02C/S02P), cash (S01/S09/S01M) and revenue share (S04).
+    The ways to pay for the same apartments are shown on one card: the best as the main route, and up to two other
+    payment methods with their mortgage, risk level and how much more or less they leave at the end (omitted when
+    the comparison rests on an unverified price). Replaces the split in #57, which showed completion and construction
+    services as two different deals when, for a small holding, both are "combination + a payment to the developer".

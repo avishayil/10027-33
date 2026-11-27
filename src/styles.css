@@ -2106,3 +2106,39 @@ button {
   font-size: 0.8rem;
   color: var(--muted);
 }
+
+.priority-method {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.priority-variants {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.priority-variants-title {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+.priority-variants ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.priority-variants li {
+  font-size: 0.9rem;
+}
+.priority-variants .sub {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.priority-note-inline {
+  color: #92400e;
+  font-size: 0.85rem;
+}

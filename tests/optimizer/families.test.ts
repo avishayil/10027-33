@@ -23,6 +23,16 @@ describe('summary priorities by deal family', () => {
       expect(x.r.strategyType).not.toBe('S13');
       expect(FAMILY_OF[x.r.strategyType]).toBe(x.family);
     }
+    // Variants: other payment methods for the same apartments, only on the combination + payment card.
+    for (const x of p) {
+      if (x.family !== 'combination_paid') expect(x.variants).toEqual([]);
+      const types = new Set([x.r.strategyType, ...x.variants.map((v) => v.r.strategyType)]);
+      expect(types.size).toBe(1 + x.variants.length);
+      for (const v of x.variants) {
+        expect(v.family).toBe(x.family);
+        expect(v.r.metrics.wholeApartments).toBe(x.r.metrics.wholeApartments);
+      }
+    }
     // Every family the engine evaluated appears once.
     const evaluated = new Set(d.results.map((r) => FAMILY_OF[r.strategyType]).filter(Boolean));
     expect(new Set(families)).toEqual(evaluated);
@@ -30,4 +40,13 @@ describe('summary priorities by deal family', () => {
     const firstNonFit = p.findIndex((x) => x.kind !== 'fits');
     if (firstNonFit >= 0) expect(p.slice(firstNonFit).every((x) => x.kind !== 'fits')).toBe(true);
   });
+});
+
+it('167 m²: completion and construction services are one card, not two', () => {
+  const d = analyzeProfile(profile({ landAreaSqm: 167, availableCapital: 500_000, maxMonthlyRepayment: 4000, goal: 'balanced' }), TERMS, C);
+  const p = priorityRoutes(d, 'balanced');
+  const paid = p.filter((x) => x.family === 'combination_paid');
+  expect(paid).toHaveLength(1);
+  const types = [paid[0].r.strategyType, ...paid[0].variants.map((v) => v.r.strategyType)];
+  expect(types).toEqual(expect.arrayContaining(['S06', 'S11']));
 });
