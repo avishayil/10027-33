@@ -50,12 +50,12 @@ export const COMMERCIAL = {
     notes: 'הנחה לא מאומתת מהצעה קודמת (לפני עדכון 106(ב)).',
   },
   developerPaymentYear: {
-    value: 0.5,
-    label: 'מועד תשלום היזם על זכויות עודפות',
+    value: 2,
+    label: 'מועד תשלום היזם על זכויות שנמכרו לו',
     sourceType: 'planning_assumption',
     retrievedAt: RETRIEVED_AT,
     verification: 'assumed',
-    notes: 'חצי שנה מהחתימה. המערכת מחשבת גם את המועד המאוחר ביותר שעדיין מתאים לכם.',
+    notes: 'הסכם מותנה באישור התכנית: התשלום, ההיטל ומס השבח — במועד האישור (כשנתיים). המערכת מחשבת גם את המועד המאוחר ביותר שעדיין מתאים לכם.',
   },
   completionPriceFactor: {
     value: 1,
@@ -83,6 +83,14 @@ export const COMMERCIAL = {
     verification: 'assumed',
     notes: 'עם מקומות מוגבלים, כל בעל זכויות יקבל לכל היותר דירה אחת בשירותי בנייה — בדרך כלל הדירה שלו.',
   },
+  workInProgressRecognition: {
+    value: 0.8,
+    label: 'הכרת הבנק בסכומים ששולמו לבנייה כבטוחה (לפני מסירה)',
+    sourceType: 'planning_assumption',
+    retrievedAt: RETRIEVED_AT,
+    verification: 'assumed',
+    notes: 'סכומים ששולמו אינם שווי שמאי אוטומטי; מניחים הכרה חלקית. בפועל לפי שמאות הבנק ושלב הבנייה.',
+  },
   noServicesWhenCombinationYieldsWhole: {
     value: 1,
     label: 'אין שירותי בנייה למי שהקומבינציה כבר נותנת לו דירה שלמה',
@@ -91,16 +99,39 @@ export const COMMERCIAL = {
     verification: 'assumed',
     notes: 'זכויות × אחוז קומבינציה ≥ 1 (כ-2.86 זכויות ב-35%, כ-3 זכויות לבעלים של כ-220 מ״ר) → צפויה קומבינציה מלאה.',
   },
-  combinationTaxBorneByDeveloper: {
-    value: 1,
-    label: 'עסקת קומבינציה ״נטו״: היזם נושא במס השבח של הבעלים (כולל גילום)',
+  taxArrangementHeadline: {
+    value: 'mixed',
+    label: 'הסדר המסים בקומבינציה שעליו מבוססת ההמלצה הראשית',
     sourceType: 'secondary_market',
-    sourceName: 'מדריכי מיסוי של משרדי עו״ד (TASA, גבאי עמיאל, יוני לוי ואחרים)',
-    sourceUrl: 'https://tasalaw.co.il/%D7%9E%D7%99%D7%A1%D7%95%D7%99-%D7%A2%D7%A1%D7%A7%D7%AA-%D7%A7%D7%95%D7%9E%D7%91%D7%99%D7%A0%D7%A6%D7%99%D7%94-%D7%94%D7%9E%D7%93%D7%A8%D7%99%D7%9A/',
+    sourceName: 'מדריכי מיסוי של משרדי עו״ד; סקר משרד הבינוי',
+    sourceUrl: 'https://www.gov.il/BlobFolder/reports/r1060_moch/he/r1060.pdf',
     retrievedAt: '2026-11-27',
     verification: 'reported',
     notes:
-      'לפי הדין החבות במס השבח היא של בעלי הקרקע, אבל בפרקטיקה עסקאות קומבינציה רבות מוגדרות ״נטו״ — היזם מתחייב בחוזה לשלם את מס השבח (בגילום) ולרוב גם את היטל ההשבחה. לא אחיד: יש עסקאות שבהן המסים מתחלקים. החבות כלפי רשות המסים נשארת אצלכם — דרשו ביטחונות בחוזה.',
+      'שלושה הסדרים קיימים: ברוטו (הבעלים משלמים היטל ומס שבח), מעורב (היזם משלם את ההיטל), נטו (היזם משלם את שניהם, בגילום). אין מקור שמראה שנטו הוא הנוהג הגובר; ״מעורב״ נבחר כבסיס כי נשיאת היזם בהיטל מדווחת כנפוצה. המערכת מחשבת את שלושתם ומציגה מה משתנה בכל אחד.',
+  },
+  contractorProfitRate: {
+    value: 0.175,
+    label: 'רווח קבלני רגיל בשווי שירותי הבנייה לצורכי מס',
+    sourceType: 'court_ruling',
+    sourceName: 'ע״א 6672/19 יקותיאלי (2021); הוראת ביצוע 23/98',
+    sourceUrl: 'https://www.gov.il/BlobFolder/legalinfo/law6672-19/he/LegalInformation_kesher_6672-19.pdf',
+    retrievedAt: '2026-11-27',
+    range: { low: 0.15, high: 0.2 },
+    verification: 'reported',
+    notes:
+      'העליון קבע שאין לכלול רווח יזמי (ממכירת הדירות) בשווי המכירה; הוראת ביצוע 23/98 כוללת רווח קבלני מקובל של 15%–20% בעלויות הבנייה. נפרד מהסליידר (המחיר המסחרי) ומרווחיות הפרויקט. דורש אימות של יועץ מס.',
+  },
+  combinationSaleDate: {
+    value: 'approval',
+    label: 'יום המכירה לצורכי מס בקומבינציה לפני אישור התכנית',
+    sourceType: 'official_rule',
+    sourceName: 'סעיף 19(3א) לחוק מיסוי מקרקעין; עמדה מקצועית 06/26 (26.7.2026)',
+    sourceUrl: 'https://www.gov.il/he/pages/procedures-260726-1',
+    retrievedAt: '2026-11-27',
+    verification: 'reported',
+    notes:
+      'בעסקה שנחתמת לפני אישור התכנית ועומדת בתנאי הסעיף, יום המכירה הוא יום אישור התכנית — ומועדי ההצהרה והתשלום נדחים איתו. לפי עמדה 06/26 (כפי שדווחה במקורות משניים) הדבר חל גם כשהיזם נושא במסי הבעלים. מותנה; הנוסח המלא לא אומת.',
   },
   approvalYears: {
     value: 2,
@@ -142,7 +173,7 @@ export const COMMERCIAL = {
     verification: 'assumed',
     notes: 'שונה מ״רווח יזמי על הבנייה״ (הסליידר): זה הרווח על הפרויקט כולו.',
   },
-} satisfies Record<string, DataPoint<number>>;
+} satisfies Record<string, DataPoint<number | string>>;
 
 /** Illustrative construction payment schedule (planning placeholder, not contract terms). */
 export const PAYMENT_SCHEDULE: PaymentMilestone[] = [

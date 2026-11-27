@@ -24,19 +24,24 @@ export function combinationYieldsWhole(R: number, combinationPct: number): boole
   return R * combinationPct >= 1 - EPS;
 }
 
-/** Why the developer is not expected to offer this candidate, or null if it is within policy. */
-export function policyBlock(candidate: Candidate, R: number, combinationPct: number, config: ProjectConfig): ReasonCode | null {
+/**
+ * Why the candidate falls outside the EXPECTED policy, or null if it is within it. The eligibility test uses the
+ * project-wide reference combination rate, not the individual slider (lowering a hypothetical slider must not
+ * unlock a real slot). Outside the expected policy ≠ refused: it is "negotiable" unless the policy is confirmed.
+ */
+export function policyBlock(candidate: Candidate, R: number, config: ProjectConfig): ReasonCode | null {
   const slots = serviceApartments(candidate);
   if (slots === 0) return null;
   const p = config.developerPolicy;
-  if (p.noServicesWhenCombinationYieldsWhole && combinationYieldsWhole(R, combinationPct)) {
+  if (p.noServicesWhenCombinationYieldsWhole && combinationYieldsWhole(R, p.referenceCombinationPct)) {
     return 'DEVELOPER_POLICY_WHOLE_FROM_COMBINATION';
   }
   if (slots > p.maxServiceApartmentsPerOwner) return 'DEVELOPER_POLICY_PER_OWNER_CAP';
   return null;
 }
 
-export function lotPolicy(info: RightsInfo, config: ProjectConfig, combinationPct: number): LotPolicy {
+export function lotPolicy(info: RightsInfo, config: ProjectConfig): LotPolicy {
+  const combinationPct = config.developerPolicy.referenceCombinationPct;
   const lot = getLot(config.rights.tableVersion, info.lotId);
   const p = config.developerPolicy;
   // Parcel area that maps into this lot, divided into typical 167 m² holdings.
@@ -47,7 +52,13 @@ export function lotPolicy(info: RightsInfo, config: ProjectConfig, combinationPc
     lotId: lot.id,
     lotUnits: lot.units,
     capShare: p.servicesCapShareOfLot,
-    capUnits: lot.units * p.servicesCapShareOfLot,
+    // Integer slots (rounded down): a quota of 25% of 102 units is 25 apartments, not 25.5.
+    capUnits: Math.floor(lot.units * p.servicesCapShareOfLot),
+    capUnitsRange: {
+      restrictive: Math.floor(lot.units * p.capShareRange.restrictive),
+      flexible: Math.floor(lot.units * p.capShareRange.flexible),
+    },
+    confirmed: p.confirmed,
     estimatedDemand: typicalWants ? lotParcelArea / config.rights.originalAreaSqm : 0,
     wholeFromCombinationThreshold: combinationPct > 0 ? 1 / combinationPct : Infinity,
     maxServiceApartmentsPerOwner: p.maxServiceApartmentsPerOwner,

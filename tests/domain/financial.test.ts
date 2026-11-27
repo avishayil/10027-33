@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PROJECT_CONFIG as C } from '../../src/data/config';
-import { constructionInstallments, constructionQuotePerApartment } from '../../src/domain/construction';
+import { constructionQuotePerApartment, constructionSchedule } from '../../src/domain/construction';
 import { simulateCashflow } from '../../src/domain/cashflow';
 import { mortgageCapacity, monthlyPayment, remainingBalance } from '../../src/domain/mortgage';
 import { apartmentEquivalents, calculateRights } from '../../src/domain/rights';
@@ -46,14 +46,19 @@ describe('construction services', () => {
     expect(constructionQuotePerApartment(C, markup)).toBeCloseTo(expected, 6);
   });
 
-  it('schedule shares sum to 100% and contingency/overrun are not stacked', () => {
+  it('schedule shares sum to 100%; the contingency is a released reserve, never stacked on an overrun', () => {
     expect(C.construction.schedule.reduce((s, m) => s + m.share, 0)).toBeCloseTo(1, 12);
     const flat = { ...C, construction: { ...C.construction, annualIndexation: 0 } };
-    const base = constructionInstallments(flat, 0.175, 1).reduce((s, i) => s + i.amount, 0);
-    expect(base).toBeCloseTo(1525150 * 1.1, 4);
-    const over = { ...flat, construction: { ...flat.construction, costOverrun: 0.15 } };
-    const adverse = constructionInstallments(over, 0.175, 1).reduce((s, i) => s + i.amount, 0);
-    expect(adverse).toBeCloseTo(1525150 * 1.15, 4);
+    const base = constructionSchedule(flat, 0.175, 1);
+    const paid = (x: typeof base) => x.installments.reduce((s, i) => s + i.amount, 0);
+    expect(paid(base)).toBeCloseTo(1525150, 4); // base case: actual spend = quote
+    expect(base.reserveHeld).toBeCloseTo(152515, 4);
+    expect(base.reserveReleased).toBeCloseTo(152515, 4);
+    const over = constructionSchedule({ ...flat, construction: { ...flat.construction, costOverrun: 0.15 } }, 0.175, 1);
+    // 15% overrun: the 10% reserve is consumed, 5% more is paid in cash, nothing released → total 115%.
+    expect(over.actualSpend).toBeCloseTo(1525150 * 1.15, 4);
+    expect(over.reserveReleased).toBeCloseTo(0, 6);
+    expect(paid(over) + over.reserveHeld - over.reserveReleased).toBeCloseTo(1525150 * 1.15, 4);
   });
 });
 
@@ -104,7 +109,7 @@ describe('transactions', () => {
     expect(proceeds).toBeCloseTo(167 * 6900 * (1.25 / 2.25), 6);
   });
 
-  it('developer-paid levy is never an owner expense', () => {
+  it('developer-paid levy (mixed/net deals) is never an owner expense', () => {
     const p = plan('S02');
     const owner = p.ledger.filter((e) => e.category === 'betterment_levy' && e.payer === 'owner');
     expect(owner).toHaveLength(0);
@@ -137,7 +142,7 @@ describe('transactions', () => {
 
   it('a late developer payment creates an interim funding gap', () => {
     const ctx = { info, profile: profile({ availableCapital: 600000 }), terms: TERMS };
-    const early = evaluateCandidate(cand('S05-1'), ctx, { ...C, commercial: { ...C.commercial, developerPaymentYear: 0 } });
+    const early = evaluateCandidate(cand('S05-1'), ctx, { ...C, commercial: { ...C.commercial, developerPaymentYear: 2 } });
     const late = evaluateCandidate(cand('S05-1'), ctx, { ...C, commercial: { ...C.commercial, developerPaymentYear: 4 } });
     expect(late.sim.peakDebt).toBeGreaterThan(early.sim.peakDebt + 1000);
   });
@@ -148,9 +153,8 @@ describe('transactions', () => {
     expect(hybrid.preCompletionLandCollateral).toBeCloseTo(1 * landPerRight, 4);
     const comb = plan('S02');
     expect(comb.preCompletionLandCollateral).toBeCloseTo(2.25 * 0.35 * landPerRight, 4);
-    const ev = evaluateCandidate(cand('S02'), { info, profile: MODERATE, terms: TERMS }, C);
-    // In a net combination nothing is paid from cash and nothing is received in cash.
-    expect(ev.sim.cashAtHorizon).toBeCloseTo(300000 * Math.pow(1.04, 10), 0);
+    // The land retained in a combination never shows up as cash.
+    expect(comb.events.some((e) => e.amount > 0)).toBe(false);
   });
 
   it('rent never funds construction-stage payments', () => {

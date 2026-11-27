@@ -15,7 +15,11 @@ export type SourceType =
   | 'secondary_market'
   | 'developer_offer'
   | 'user_assumption'
-  | 'planning_assumption';
+  | 'planning_assumption'
+  | 'official_rule'
+  | 'court_ruling'
+  | 'offer_confirmed'
+  | 'unknown';
 
 export type Verification = 'verified' | 'reported' | 'assumed' | 'unknown';
 
@@ -56,7 +60,12 @@ export interface UserProfile {
   /** Total historical acquisition cost of the whole holding (₪). null/undefined = unknown. */
   acquisitionBasis?: number | null;
   liquidityDeadlineYears?: number;
+  /** Would a completed apartment be the household's only home? null/undefined = unknown (adaptive follow-up). */
+  soleHome?: boolean | null;
 }
+
+/** Who carries the taxes in a combination (and revenue-sharing) deal. */
+export type TaxArrangement = 'gross' | 'mixed' | 'net';
 
 /** The two commercial sliders. Fractions. */
 export interface CommercialTerms {
@@ -108,8 +117,15 @@ export interface ProjectConfig {
     approvalYears: number;
     /** Price at which a developer settles a fractional entitlement in cash, as a share of market value. */
     fractionCashSettlementFactor: number;
-    /** "Net" combination (עסקת נטו): the developer pays the owner's capital-gains tax, grossed up. */
-    combinationTaxBorneByDeveloper: boolean;
+    /**
+     * Tax arrangement in combination deals: gross (owner pays levy and capital-gains tax), mixed (developer pays
+     * the levy), net (developer pays both, the tax grossed up). The engine evaluates all three; this is the headline.
+     */
+    taxArrangement: TaxArrangement;
+    /** Statutory sale date for a pre-approval combination: plan approval under §19(3א) (conditional) or signing. */
+    combinationSaleDate: 'approval' | 'signing';
+    /** Ordinary contractor profit inside the taxable market value of construction services (instruction 23/98). */
+    contractorProfitRate: number;
   };
   /** Expected developer policy for construction services (שירותי בנייה) inside a lot. Planning assumption. */
   developerPolicy: {
@@ -119,6 +135,12 @@ export interface ProjectConfig {
     maxServiceApartmentsPerOwner: number;
     /** No construction services for owners whose full combination already yields a whole apartment. */
     noServicesWhenCombinationYieldsWhole: boolean;
+    /** Project-wide reference combination rate used for the eligibility test (not the individual slider). */
+    referenceCombinationPct: number;
+    /** Lot-share scenarios for the services quota: restrictive / expected / flexible. */
+    capShareRange: { restrictive: number; flexible: number };
+    /** True only if the project has confirmed the policy in writing — then out-of-policy routes are unavailable. */
+    confirmed: boolean;
   };
   developer: {
     /** Developer's own direct construction cost per m² (no markup). */
@@ -151,6 +173,8 @@ export interface ProjectConfig {
     indicativeCapitalGainsRate: number;
     landPurchaseTaxRate: number;
     rentalTaxReserve: number;
+    /** Purchase tax on buying the missing part of an apartment: range by the buyer's property status. */
+    completionPurchaseTax: { soleHome: number; additionalHome: number };
     saleTransactionCostRate: number;
     /** Capital-gains tax on revenue-sharing deals is assessed at signing (conservative). */
     revenueShareTaxAtSigning: boolean;
@@ -163,6 +187,8 @@ export interface ProjectConfig {
     alternativeNetAnnualReturn: number;
     maxLtv: number;
     comfortableLtv: number;
+    /** Share of amounts already paid into construction that a lender might recognise as security before completion. */
+    workInProgressRecognition: number;
   };
   analysis: {
     horizonYears: number;
@@ -202,6 +228,7 @@ export type StrategyType =
   | 'S01M' // sell now on the open market (reference only)
   | 'S02' // full combination (fraction kept as an unresolved share)
   | 'S02C' // full combination, fraction settled in cash
+  | 'S02P' // full combination, fraction pooled into a balancing unit (יחידת סל)
   | 'S03' // construction services for all whole apartments, sell the fraction
   | 'S04' // revenue sharing
   | 'S05' // sell surplus rights, build fewer whole apartments
@@ -221,6 +248,8 @@ export type Leg =
   | { kind: 'build'; apartments: number; ownRightsUsed: number; purchasedRightsUsed: number }
   /** The developer buys out a fractional combination entitlement for cash at completion. */
   | { kind: 'settle_fraction_cash' }
+  /** The fraction joins a project balancing pool (יחידת סל) sold at completion; net proceeds distributed. */
+  | { kind: 'balancing_pool' }
   | { kind: 'revenue_share'; rights: number }
   | { kind: 'sell_apartments'; apartments: number }
   | { kind: 'hold_land'; rights: number }
@@ -245,7 +274,9 @@ export type LedgerCategory =
   | 'transaction_costs'
   | 'rights_purchase'
   | 'completion_payment'
-  | 'fraction_settlement';
+  | 'fraction_settlement'
+  | 'contingency_reserve'
+  | 'contingency_release';
 
 export type Payer = 'owner' | 'developer' | 'buyer' | 'seller';
 
@@ -291,6 +322,10 @@ export interface TransactionPlan {
   /** Land rights the owner still holds before completion (built share, combination-retained share, purchased). */
   retainedLandRights: number;
   apartmentsBuilt: number;
+  /** Completed apartments the owner sells at completion (S07). */
+  apartmentsSoldByOwner: number;
+  /** A fractional entitlement settled at completion (developer cash buy-back or balancing pool). */
+  fractionSettled: { mode: 'cash' | 'pool'; share: number } | null;
   completionMonth: number;
   rentCountsForRepayment: boolean;
   /** Value of held land at the horizon, before deferred liabilities. */
@@ -324,8 +359,9 @@ export interface SimulationResult {
   personalCapitalUsed: number;
   /** Borrowing by financing stage. */
   drawsByStage: Record<FinancingStage, number>;
-  /** Obligations no lender finances (taxes, levy, costs) that cash could not cover. */
+  /** Obligations no lender finances (taxes, levy, costs) that cash could not cover. Not a loan — no interest. */
   unfunded: number;
+  unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
   yearly: { year: number; cash: number; debt: number }[];
@@ -336,7 +372,7 @@ export type Affordability = 'fits' | 'fits_with_financing' | 'does_not_fit' | 'u
 /** Does it survive the adverse scenario? */
 export type Resilience = 'robust' | 'fragile';
 /** Have the commercial terms it relies on been confirmed, and are they plausible for a developer? */
-export type CommercialCertainty = 'not_required' | 'unverified' | 'questionable' | 'not_offered';
+export type CommercialCertainty = 'not_required' | 'unverified' | 'questionable' | 'negotiable';
 
 export interface Assessment {
   affordability: Affordability;
@@ -381,7 +417,11 @@ export type ConditionCode =
   | 'MIXED_STRUCTURE'
   | 'FRACTION_SETTLEMENT'
   | 'PLANNING_APPROVAL'
-  | 'SERVICES_CAPACITY';
+  | 'SERVICES_CAPACITY'
+  | 'SALE_DATE_DEFERRAL'
+  | 'COMPLETION_CLASSIFICATION'
+  | 'NET_TAX_TERMS'
+  | 'LEVY_TERMS';
 
 export interface ScenarioAssessment {
   fails: ReasonCode[];
@@ -413,6 +453,8 @@ export interface Metrics {
   simplicity: number;
   sustainableMonthlyIncome: number;
   peakDebt: number;
+  /** 1 = no developer dependency, 0.6 = unverified, 0.2 = questionable (negative modelled developer margin). */
+  commercialScore: number;
 }
 
 export interface StrategyResult {
@@ -448,8 +490,9 @@ export interface StrategyResult {
 
   feasibility: Feasibility;
   assessment: Assessment;
-  /** Indicative developer margin on revenue for the deal this strategy relies on (null = no developer deal). */
+  /** Indicative developer margin on revenue for this candidate's own deal (null = no developer involved). */
   developerMargin: number | null;
+  developerPnL: DeveloperPnL | null;
   reasonCodes: ReasonCode[];
   /** Financing and commercial conditions together. */
   requiredConditions: ConditionCode[];
@@ -474,7 +517,8 @@ export type NegotiationCode =
   | 'IMMEDIATE_SALE_MIN_PRICE'
   | 'MAX_COMBINATION_AT_TARGET_MARGIN'
   | 'DEVELOPER_RESIDUAL_LAND_PRICE'
-  | 'COMBINATION_CONSISTENT_PRICE';
+  | 'COMBINATION_CONSISTENT_PRICE'
+  | 'NEGOTIATION_RANGE';
 
 export interface NegotiationTarget {
   code: NegotiationCode;
@@ -484,6 +528,10 @@ export interface NegotiationTarget {
   unit: 'ils' | 'ils_per_sqm' | 'pct' | 'months';
   /** The current assumption, for comparison. */
   current?: number;
+  /** For NEGOTIATION_RANGE: the developer's maximum (value is the owner's minimum). */
+  upper?: number | null;
+  /** For NEGOTIATION_RANGE: whether the owner's minimum is at or below the developer's maximum. */
+  overlap?: boolean;
   /** What the threshold answers: affordability, economic break-even, conservative recommendation, developer side. */
   kind?: 'financing' | 'breakeven' | 'conservative' | 'developer' | 'general';
   note?: string;
@@ -514,6 +562,21 @@ export interface DecisionResult {
   mortgageCapacity: number | null;
   developer: DeveloperEconomics;
   lotPolicy: LotPolicy;
+  /** Recommendation under each tax arrangement (the headline uses config.commercial.taxArrangement). */
+  arrangements: ArrangementOutcome[];
+  /** What to do if the headline's unconfirmed conditions fail. */
+  fallback: StrategyResult | null;
+  /** Strategies outside the expected developer policy — negotiation-only, not recommended. */
+  negotiationOnly: StrategyResult[];
+}
+
+export interface ArrangementOutcome {
+  arrangement: TaxArrangement;
+  recommendationId: string | null;
+  wholeApartments: number;
+  feasibility: Feasibility | null;
+  cashAtSigning: number;
+  mortgageRequired: number;
 }
 
 /** How scarce construction-services slots are expected to be in the user's lot. */
@@ -521,15 +584,28 @@ export interface LotPolicy {
   lotId: string;
   lotUnits: number;
   capShare: number;
-  /** Units the developer is expected to release for construction services in the lot. */
+  /** Units the developer is expected to release for construction services in the lot (integer, rounded down). */
   capUnits: number;
-  /** Rough number of owners in the lot who would want one slot (assumes typical 167 m² holdings). */
+  capUnitsRange: { restrictive: number; flexible: number };
+  /** Whether the policy is confirmed by the project (only then is out-of-policy "unavailable"). */
+  confirmed: boolean;
+  /** HYPOTHETICAL count of owners who would want a slot if every holding were 167 m² — not actual demand. */
   estimatedDemand: number;
   /** Rights at or above which full combination already yields a whole apartment (1 / c). */
   wholeFromCombinationThreshold: number;
   maxServiceApartmentsPerOwner: number;
   /** Whether this owner is expected to be offered construction services at all. */
   servicesOffered: boolean;
+}
+
+/** Indicative per-candidate developer P&L (standalone, today's prices, before financing and timing). */
+export interface DeveloperPnL {
+  revenue: number;
+  costs: number;
+  profit: number;
+  marginOnRevenue: number;
+  marginOnCost: number;
+  lines: { label: string; amount: number }[];
 }
 
 export interface DeveloperEconomics {

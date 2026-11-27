@@ -20,7 +20,7 @@ import { Tooltip } from '../Tooltip';
 
 const AFF_CLASS = { fits: 'estimated_feasible', fits_with_financing: 'conditional', does_not_fit: 'infeasible', unknown: 'unknown' } as const;
 const RES_CLASS = { robust: 'estimated_feasible', fragile: 'fragile' } as const;
-const COM_CLASS = { not_required: 'estimated_feasible', unverified: 'unknown', questionable: 'fragile', not_offered: 'infeasible' } as const;
+const COM_CLASS = { not_required: 'estimated_feasible', unverified: 'unknown', questionable: 'fragile', negotiable: 'infeasible' } as const;
 
 /** Three independent answers: can I fund it, does it survive bad scenarios, is the deal confirmed/plausible. */
 export function AssessmentChips({ r, compact = false }: { r: StrategyResult; compact?: boolean }) {

@@ -8,7 +8,7 @@ import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-27.2';
+export const CONFIG_VERSION = '2026-11-27.3';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,
@@ -38,12 +38,17 @@ export const PROJECT_CONFIG: ProjectConfig = {
     completionPriceFactor: COMMERCIAL.completionPriceFactor.value,
     approvalYears: COMMERCIAL.approvalYears.value,
     fractionCashSettlementFactor: COMMERCIAL.fractionCashSettlementFactor.value,
-    combinationTaxBorneByDeveloper: COMMERCIAL.combinationTaxBorneByDeveloper.value === 1,
+    taxArrangement: 'mixed',
+    combinationSaleDate: 'approval',
+    contractorProfitRate: COMMERCIAL.contractorProfitRate.value,
   },
   developerPolicy: {
     servicesCapShareOfLot: COMMERCIAL.servicesCapShareOfLot.value,
     maxServiceApartmentsPerOwner: COMMERCIAL.maxServiceApartmentsPerOwner.value,
     noServicesWhenCombinationYieldsWhole: COMMERCIAL.noServicesWhenCombinationYieldsWhole.value === 1,
+    referenceCombinationPct: 0.35,
+    capShareRange: { restrictive: 0.2, flexible: 0.3 },
+    confirmed: false,
   },
   developer: {
     directCostPerSqm: COMMERCIAL.developerDirectCostPerSqm.value,
@@ -71,6 +76,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     indicativeCapitalGainsRate: REGULATION.indicativeCapitalGainsRate.value,
     landPurchaseTaxRate: REGULATION.landPurchaseTaxRate.value,
     rentalTaxReserve: REGULATION.rentalTaxReserve.value,
+    completionPurchaseTax: { soleHome: 0, additionalHome: REGULATION.completionPurchaseTaxAdditional.value },
     saleTransactionCostRate: REGULATION.saleTransactionCostRate.value,
     revenueShareTaxAtSigning: true,
   },
@@ -82,6 +88,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     alternativeNetAnnualReturn: FINANCING.alternativeNetAnnualReturn.value,
     maxLtv: FINANCING.maxLtv.value,
     comfortableLtv: FINANCING.comfortableLtv.value,
+    workInProgressRecognition: COMMERCIAL.workInProgressRecognition.value,
   },
   analysis: {
     horizonYears: PROJECT.horizonYears.value,

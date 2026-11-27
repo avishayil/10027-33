@@ -30,8 +30,8 @@ const monthLabel = (m: number) => (m === 0 ? 'בחתימה' : m % 12 === 0 ? `ש
 export function WhyFits({ result, goal }: { result: DecisionResult; goal: Goal }) {
   const rec = result.recommendation;
   if (!rec) return null;
-  const rejected = result.results.filter((r) => r.feasibility === 'infeasible' && r.assessment.commercial !== 'not_offered');
-  const notOffered = result.results.filter((r) => r.assessment.commercial === 'not_offered');
+  const rejected = result.results.filter((r) => r.feasibility === 'infeasible' && r.assessment.commercial !== 'negotiable');
+  const notOffered = result.results.filter((r) => r.assessment.commercial === 'negotiable');
   return (
     <Section title="למה זה מתאים לי?" sub="הנימוקים, ומה נפסל ולמה">
       <ul>

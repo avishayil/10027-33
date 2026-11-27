@@ -10,6 +10,7 @@ export const SIMPLICITY: Record<StrategyType, number> = {
   S01M: 0.9,
   S02: 0.8,
   S02C: 0.75,
+  S02P: 0.65,
   S11: 0.4,
   S04: 0.7,
   S03: 0.5,
@@ -21,16 +22,18 @@ export const SIMPLICITY: Record<StrategyType, number> = {
 };
 
 export const BALANCED_WEIGHTS = {
-  valueCreated: 0.4,
-  resilience: 0.3,
+  valueCreated: 0.35,
+  resilience: 0.25,
   wholeApartments: 0.15,
   liquidity: 0.1,
   simplicity: 0.05,
+  /** Commercial risk: unconfirmed or questionable developer terms rank lower (ordinal, not a probability). */
+  commercial: 0.1,
 };
 
 /** Higher is better for every dimension used in dominance. */
 function dims(m: Metrics): number[] {
-  return [m.valueCreated, m.resilience, m.wholeApartments, m.liquidity, m.simplicity, m.sustainableMonthlyIncome, -m.peakDebt];
+  return [m.valueCreated, m.resilience, m.wholeApartments, m.liquidity, m.simplicity, m.sustainableMonthlyIncome, -m.peakDebt, m.commercialScore];
 }
 
 function dominates(a: Metrics, b: Metrics): boolean {
@@ -47,7 +50,7 @@ function dominates(a: Metrics, b: Metrics): boolean {
 export function isEligible(r: StrategyResult, goal: Goal): boolean {
   if (r.feasibility === 'infeasible' || r.feasibility === 'unknown') return false;
   // The developer is not expected to offer it (lot policy for construction services).
-  if (r.assessment.commercial === 'not_offered') return false;
+  if (r.assessment.commercial === 'negotiable') return false;
   if (goal === 'minimize_risk' && r.feasibility === 'fragile') return false;
   return true;
 }
@@ -106,7 +109,8 @@ export function goalScore(m: Metrics, goal: Goal, s: Scales): number {
     BALANCED_WEIGHTS.resilience * n.R +
     BALANCED_WEIGHTS.wholeApartments * n.A +
     BALANCED_WEIGHTS.liquidity * n.L +
-    BALANCED_WEIGHTS.simplicity * n.S;
+    BALANCED_WEIGHTS.simplicity * n.S +
+    BALANCED_WEIGHTS.commercial * m.commercialScore;
   switch (goal) {
     case 'maximize_apartments':
       // Whole apartments dominate; balanced score breaks ties.
@@ -116,7 +120,7 @@ export function goalScore(m: Metrics, goal: Goal, s: Scales): number {
     case 'immediate_cash':
       return 0.6 * n.L + 0.4 * balanced;
     case 'minimize_risk':
-      return 0.4 * n.R + 0.3 * n.D + 0.2 * n.S + 0.1 * n.W;
+      return 0.35 * n.R + 0.25 * n.D + 0.15 * n.S + 0.1 * n.W + 0.15 * m.commercialScore;
     default:
       return balanced;
   }
@@ -154,7 +158,7 @@ export function rankStrategies(results: StrategyResult[], goal: Goal, s: Scales)
 
 /** Best candidate under the goal if financial constraints are ignored (to detect a blocked preference). */
 export function unconstrainedPreference(results: StrategyResult[], goal: Goal, s: Scales): StrategyResult | null {
-  const pool = results.filter((r) => r.strategyType !== 'S01M' && r.assessment.commercial !== 'not_offered');
+  const pool = results.filter((r) => r.strategyType !== 'S01M' && r.assessment.commercial !== 'negotiable');
   const scores = goalScores(pool, goal, s);
   let best: StrategyResult | null = null;
   for (const r of pool) if (!best || (scores.get(r.id) ?? 0) > (scores.get(best.id) ?? 0)) best = r;

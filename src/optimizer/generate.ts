@@ -30,6 +30,7 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, _co
   add('S02', 'S02', [{ kind: 'combination', rights: R }], whole);
   if (fraction > 0.01) {
     add('S02C', 'S02C', [{ kind: 'combination', rights: R }, { kind: 'settle_fraction_cash' }], whole);
+    add('S02P', 'S02P', [{ kind: 'combination', rights: R }, { kind: 'balancing_pool' }], whole);
     const target = whole + 1;
     add(`S06-${target}`, 'S06', [
       { kind: 'combination', rights: R },

@@ -4,17 +4,20 @@
  */
 import { PROJECT_CONFIG } from '../data/config';
 import { applyScenario, applyScenarioParams, PARAM_LABELS, scenarioParams, SCENARIO_IDS, type ScenarioParamKey } from '../data/scenarios';
-import { developerEconomics } from '../domain/developer';
+import { candidatePnL, developerEconomics } from '../domain/developer';
 import { lotPolicy, policyBlock } from '../domain/policy';
 import { mortgageCapacity } from '../domain/mortgage';
 import { calculateRights } from '../domain/rights';
 import { netMonthlyRentPerApartment } from '../domain/taxation';
 import type {
   Candidate,
+  ArrangementOutcome,
+  CommercialCertainty,
   CommercialTerms,
   DecisionResult,
   DeveloperEconomics,
   LedgerEntry,
+  TaxArrangement,
   NegotiationTarget,
   ProjectConfig,
   ScenarioId,
@@ -41,20 +44,19 @@ import { evaluateScenarios, type ScenarioEvaluations } from './scenarios';
 const sum = (entries: LedgerEntry[], pred: (e: LedgerEntry) => boolean) =>
   entries.filter(pred).reduce((s, e) => s + e.amount, 0);
 
-const COMBINATION_FAMILY: StrategyType[] = ['S02', 'S02C', 'S06', 'S11'];
-const DEVELOPER_SALE: StrategyType[] = ['S01', 'S03', 'S05', 'S07', 'S08'];
+const COMBINATION_FAMILY: StrategyType[] = ['S02', 'S02C', 'S02P', 'S06', 'S11'];
+
+/** Commercial risk as a ranking dimension: no fake probabilities, just an ordinal score. */
+export const COMMERCIAL_SCORE: Record<CommercialCertainty, number> = {
+  not_required: 1,
+  unverified: 0.6,
+  questionable: 0.2,
+  negotiable: 0,
+};
 
 function resilienceOf(base: Evaluation, adverseFeasible: boolean, adverse: Evaluation): number {
   if (!adverseFeasible || base.valueCreated <= 0) return 0;
   return Math.max(0, Math.min(1, adverse.valueCreated / base.valueCreated));
-}
-
-/** Indicative developer margin for the deal a strategy relies on (null when no developer deal). */
-export function developerMarginFor(type: StrategyType, dev: DeveloperEconomics): number | null {
-  if (COMBINATION_FAMILY.includes(type)) return dev.combinationMargin;
-  if (DEVELOPER_SALE.includes(type)) return dev.landPurchaseMargin;
-  if (type === 'S04') return dev.revenueShareMargin;
-  return null;
 }
 
 export function buildScales(ctx: EngineContext, config: ProjectConfig): Scales {
@@ -73,7 +75,6 @@ export function buildResult(
   evals: ScenarioEvaluations,
   ctx: EngineContext,
   config: ProjectConfig,
-  dev: DeveloperEconomics,
 ): StrategyResult {
   const R = ctx.info.apartmentEquivalents;
   const base = evals.base;
@@ -84,8 +85,9 @@ export function buildResult(
     adverse: assessEvaluation(candidate, evals.adverse, ctx.profile, applyScenario(config, 'adverse'), R),
   };
   const feasibility = classify(assessments.base, assessments.adverse);
-  const developerMargin = developerMarginFor(candidate.type, dev);
-  const blocked = policyBlock(candidate, R, ctx.terms.combinationPct, config);
+  const developerPnL = candidatePnL(candidate, plan, ctx.info, config, ctx.terms);
+  const developerMargin = developerPnL ? developerPnL.marginOnRevenue : null;
+  const blocked = policyBlock(candidate, R, config);
   const reasonCodes = [
     ...assessments.base.fails,
     ...assessments.base.missing,
@@ -111,7 +113,10 @@ export function buildResult(
     simplicity: SIMPLICITY[candidate.type],
     sustainableMonthlyIncome: base.sustainableMonthlyIncome,
     peakDebt: sim.peakDebt,
+    commercialScore: 0,
   };
+  const assessment = assess(assessments.base, assessments.adverse, developerMargin, blocked !== null);
+  metrics.commercialScore = COMMERCIAL_SCORE[assessment.commercial];
 
   return {
     id: candidate.id,
@@ -139,8 +144,9 @@ export function buildResult(
     netPresentValue: base.valueCreated / Math.pow(1 + alt, config.analysis.horizonYears),
     futureNetWealth: base.futureNetWealth,
     feasibility,
-    assessment: assess(assessments.base, assessments.adverse, developerMargin, blocked !== null),
+    assessment,
     developerMargin,
+    developerPnL,
     reasonCodes: [...new Set(reasonCodes)],
     requiredConditions: [...assessments.base.conditions, ...assessments.base.commercial],
     scenarioResults: SCENARIO_IDS.map((id) => ({
@@ -172,9 +178,9 @@ export interface CoreAnalysis {
 export function coreAnalysis(profile: UserProfile, terms: CommercialTerms, config: ProjectConfig): CoreAnalysis {
   const info = calculateRights(profile.landAreaSqm, config, profile.lotId);
   const ctx: EngineContext = { info, profile, terms };
-  const dev = developerEconomics(info, config, terms.combinationPct);
+  const dev = developerEconomics(info, config, terms.combinationPct, profile);
   const scales = buildScales(ctx, config);
-  const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config, dev));
+  const results = generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
   const { ranked, frontierIds } = rankStrategies(results, profile.goal, scales);
   return { ctx, scales, dev, results, ranked, frontierIds };
 }
@@ -190,12 +196,18 @@ function topUnder(core: CoreAnalysis, config: ProjectConfig): string | null {
     const ev = evaluateCandidate(r.candidate, ctx, config);
     const a = assessEvaluation(r.candidate, ev, ctx.profile, config, R);
     const feasibility = a.fails.length ? 'infeasible' : a.missing.length ? 'unknown' : r.feasibility === 'fragile' ? 'fragile' : 'conditional';
+    // Commercial plausibility is re-evaluated under the stressed configuration, not reused from the base.
+    const pnl = candidatePnL(r.candidate, ev.plan, ctx.info, config, ctx.terms);
+    const commercial: CommercialCertainty =
+      r.assessment.commercial === 'negotiable' ? 'negotiable' : pnl && pnl.marginOnRevenue < 0 ? 'questionable' : r.assessment.commercial === 'not_required' ? 'not_required' : 'unverified';
     return {
       ...r,
       feasibility,
+      assessment: { ...r.assessment, commercial },
       mortgageRequired: ev.sim.peakDebt,
       metrics: {
         ...r.metrics,
+        commercialScore: COMMERCIAL_SCORE[commercial],
         valueCreated: ev.valueCreated,
         liquidity: ev.liquidity,
         sustainableMonthlyIncome: ev.sustainableMonthlyIncome,
@@ -231,7 +243,7 @@ export function analyzeProfile(
     focus.set(preferred.id, true);
   }
   for (const r of results) {
-    if (r.feasibility === 'infeasible' && r.assessment.commercial !== 'not_offered' && r.plan.apartmentsBuilt >= 1 && focus.size < 4 && !focus.has(r.id)) {
+    if (r.feasibility === 'infeasible' && r.assessment.commercial !== 'negotiable' && r.plan.apartmentsBuilt >= 1 && focus.size < 4 && !focus.has(r.id)) {
       if (!results.some((o) => focus.has(o.id) && o.plan.wholeApartmentsRetained === r.plan.wholeApartmentsRetained)) focus.set(r.id, true);
     }
   }
@@ -247,7 +259,7 @@ export function analyzeProfile(
   if (benchmark) {
     const seenTargets = new Set<number>();
     for (const r of results) {
-      if (!['S05', 'S03'].includes(r.strategyType) || r.rightsSold <= 1e-6 || r.assessment.commercial === 'not_offered') continue;
+      if (!['S05', 'S03'].includes(r.strategyType) || r.rightsSold <= 1e-6 || r.assessment.commercial === 'negotiable') continue;
       if (seenTargets.has(r.plan.wholeApartmentsRetained)) continue;
       seenTargets.add(r.plan.wholeApartmentsRetained);
       negotiationTargets.push(breakevenSurplusPrice(r.candidate, benchmark.candidate, ctx, config));
@@ -257,6 +269,45 @@ export function analyzeProfile(
   const sale = results.find((r) => r.strategyType === 'S01M');
   const bestOther = bestBy(results, (r) => r.strategyType !== 'S01M' && eligibleForBenchmark(r));
   if (sale && bestOther) negotiationTargets.push(immediateSaleMinPrice(sale.candidate, bestOther.candidate, ctx, config));
+
+  // Owner's acceptable price vs the developer's plausible price for surplus rights: overlap or not.
+  for (const t of [...negotiationTargets]) {
+    if (t.code !== 'BREAKEVEN_SURPLUS_PRICE') continue;
+    const devMax = dev.residualLandValuePerSqm;
+    negotiationTargets.push({
+      code: 'NEGOTIATION_RANGE',
+      kind: 'developer',
+      strategyId: t.strategyId,
+      value: t.value,
+      upper: devMax,
+      overlap: t.value !== null && t.value <= devMax,
+      unit: 'ils_per_sqm',
+      current: config.market.developerRightsSaleScenario.pricePerOriginalSqm,
+    });
+  }
+
+  // --- Tax arrangements: the same household under gross / mixed / net combination terms --------------------
+  const arrangements: ArrangementOutcome[] = (['gross', 'mixed', 'net'] as TaxArrangement[]).map((arrangement) => {
+    const c2 = arrangement === config.commercial.taxArrangement ? core : coreAnalysis(profile, terms, withArrangement(config, arrangement));
+    const top = c2.ranked[0] ?? null;
+    return {
+      arrangement,
+      recommendationId: top?.id ?? null,
+      wholeApartments: top?.metrics.wholeApartments ?? 0,
+      feasibility: top?.feasibility ?? null,
+      cashAtSigning: top ? cashAtSigning(top) : 0,
+      mortgageRequired: top?.mortgageRequired ?? 0,
+    };
+  });
+  // Fallback if the headline's unconfirmed terms fail: the gross-deal winner if different, otherwise the best
+  // alternative that is not commercially questionable.
+  const grossTop = arrangements.find((x) => x.arrangement === 'gross')?.recommendationId ?? null;
+  const grossFallback = grossTop && grossTop !== recommendation?.id ? results.find((r) => r.id === grossTop) : undefined;
+  const fallback =
+    grossFallback ??
+    ranked.find((r) => r !== recommendation && r.strategyType !== recommendation?.strategyType && r.assessment.commercial !== 'questionable') ??
+    null;
+  const negotiationOnly = results.filter((r) => r.assessment.commercial === 'negotiable');
 
   // --- Sensitivity -------------------------------------------------------------
   const mainTop = recommendation?.id ?? null;
@@ -290,6 +341,20 @@ export function analyzeProfile(
         ? null
         : mortgageCapacity(profile.maxMonthlyRepayment, config.financing.nominalAnnualInterest, config.financing.durationYears),
     developer: dev,
-    lotPolicy: lotPolicy(ctx.info, config, terms.combinationPct),
+    lotPolicy: lotPolicy(ctx.info, config),
+    arrangements,
+    fallback,
+    negotiationOnly,
   };
+}
+
+export function withArrangement(config: ProjectConfig, taxArrangement: TaxArrangement): ProjectConfig {
+  return { ...config, commercial: { ...config.commercial, taxArrangement } };
+}
+
+/** Owner cash obligations at signing (month 0), excluding the contingency reserve. */
+export function cashAtSigning(r: StrategyResult): number {
+  return r.ledger
+    .filter((e) => e.payer === 'owner' && e.direction === 'out' && e.month === 0 && !e.deferred && e.category !== 'contingency_reserve')
+    .reduce((s, e) => s + e.amount, 0);
 }
