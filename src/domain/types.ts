@@ -1,5 +1,5 @@
 /**
- * Domain contracts for the מימוש חכם decision engine.
+ * Domain contracts for the deal-simulation decision engine.
  * All amounts are nominal ₪. All rates are fractions (0.35, not 35).
  * Time is measured in whole months from contract signing (month 0).
  */

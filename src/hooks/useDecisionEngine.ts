@@ -1,5 +1,5 @@
 /**
- * UI state for מימוש חכם. Personal inputs live only in memory — nothing is persisted,
+ * UI state for the deal simulation. Personal inputs live only in memory — nothing is persisted,
  * nothing is put in the URL and nothing is sent over the network.
  */
 import { useMemo, useState } from 'react';

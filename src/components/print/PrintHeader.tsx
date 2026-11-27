@@ -8,7 +8,7 @@ export function PrintHeader({ profile, terms }: { profile: UserProfile; terms: C
   const fmt = (v: number | null, zero: string) => (v === null ? 'לא הוזן' : v === 0 ? zero : formatCurrency(v));
   return (
     <section className="print-only print-header">
-      <h2>סיכום לפגישה — מימוש חכם, מתחם 13 חדרה</h2>
+      <h2>סיכום לפגישה — מתחם 13 – סימולציית עסקאות, חדרה</h2>
       <p>
         קרקע: {formatNumber(profile.landAreaSqm, 2)} מ״ר · הון פנוי: {fmt(profile.availableCapital, '0')} · החזר
         חודשי: {fmt(profile.maxMonthlyRepayment, 'ללא משכנתא')} · מטרה: {GOAL_LABELS[profile.goal]} · קומבינציה{' '}
