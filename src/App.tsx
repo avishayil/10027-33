@@ -136,7 +136,7 @@ export default function App() {
         ) : (
           <main className="main-view">
             {profile && <PrintHeader profile={profile} terms={terms} />}
-            {result && <TopPriorities result={result} />}
+            {result && profile && <TopPriorities result={result} goal={profile.goal} />}
             <AnswersBar engine={engine} saved={remember} onEdit={edit} onForget={forget} />
             <label className="advanced-toggle no-print">
               <input type="checkbox" role="switch" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} />

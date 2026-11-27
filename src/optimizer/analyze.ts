@@ -364,6 +364,19 @@ export function analyzeProfile(
     nearMiss.sort((a, b) => (a.additionalCapital ?? Infinity) - (b.additionalCapital ?? Infinity));
   }
 
+  // Extra capital each evidence-based route type would need — for the one-per-deal-family summary.
+  const capitalGaps: DecisionResult['capitalGaps'] = [];
+  if (profile.availableCapital !== null) {
+    const seenGap = new Set<StrategyType>();
+    const known = new Map(nearMiss.map((n) => [n.result.id, n.additionalCapital]));
+    for (const r of results) {
+      if (r.priceDependency !== null || r.assessment.commercial === 'negotiable' || r.feasibility !== 'infeasible') continue;
+      if (seenGap.has(r.strategyType)) continue;
+      seenGap.add(r.strategyType);
+      capitalGaps.push({ result: r, additionalCapital: known.has(r.id) ? known.get(r.id)! : requiredAdditionalCapital(r.candidate, ctx, config).value });
+    }
+  }
+
   let projection: DecisionResult['projection'] = null;
   if (recommendation) {
     const pcfg: ProjectConfig = {
@@ -507,6 +520,7 @@ export function analyzeProfile(
     levyRangeAcrossLots: { min: Math.min(...levies), max: Math.max(...levies) },
     projection,
     nearMiss,
+    capitalGaps,
     conditionalRecommendation,
   };
 }
