@@ -6,7 +6,6 @@ import type { Goal } from '../../domain/types';
 import type { DecisionEngine } from '../../hooks/useDecisionEngine';
 import { GOAL_LABELS } from '../../optimizer/explain';
 import { formatCurrency, formatNumber } from '../../utils/format';
-import { SegmentedToggle } from '../SegmentedToggle';
 
 /**
  * The three questions a landowner actually asks: what pays best, do I end up with an apartment, can I avoid debt.
@@ -79,45 +78,19 @@ export function LandFields({ engine }: { engine: DecisionEngine }) {
   const rights = result?.rights.apartmentEquivalents ?? 0;
   return (
     <div className="fields">
-      <SegmentedToggle
-        options={[
-          { value: 'sqm', label: 'לפי מ״ר' },
-          { value: 'fraction', label: 'לפי שבר בטאבו' },
-        ]}
-        value={i.areaMode}
-        onChange={i.setAreaMode}
-        label="אופן הזנת הזכויות"
-      />
       <div className="rights-row">
         <div className="field">
-          <label htmlFor={ids.area}>
-            {i.areaMode === 'sqm' ? 'כמה מ״ר קרקע בבעלותכם בחלקה המקורית?' : 'השבר שלכם בחלקה (מהנסח או מהטבלה)'}
-          </label>
-          {i.areaMode === 'sqm' ? (
-            <input
-              id={ids.area}
-              className="input-large"
-              inputMode="decimal"
-              autoComplete="off"
-              value={i.areaText}
-              onChange={(e) => i.setAreaText(e.target.value)}
-              aria-invalid={!!errors.area || undefined}
-              aria-describedby={errors.area ? ids.err : undefined}
-            />
-          ) : (
-            <input
-              id={ids.area}
-              className="input-large"
-              dir="ltr"
-              autoComplete="off"
-              value={i.fractionText}
-              onChange={(e) => i.setFractionText(e.target.value)}
-              placeholder="167/21258"
-              aria-invalid={!!errors.area || undefined}
-              aria-describedby={errors.area ? ids.err : undefined}
-            />
-          )}
-        {i.areaMode === 'sqm' && (
+          <label htmlFor={ids.area}>כמה מ״ר קרקע בבעלותכם בחלקה המקורית?</label>
+          <input
+            id={ids.area}
+            className="input-large"
+            inputMode="decimal"
+            autoComplete="off"
+            value={i.areaText}
+            onChange={(e) => i.setAreaText(e.target.value)}
+            aria-invalid={!!errors.area || undefined}
+            aria-describedby={errors.area ? ids.err : undefined}
+          />
           <div className="chip-row" role="group" aria-label="שטחים נפוצים">
             {AREA_PRESETS.map((v) => (
               <button
@@ -131,7 +104,6 @@ export function LandFields({ engine }: { engine: DecisionEngine }) {
               </button>
             ))}
           </div>
-        )}
         </div>
         <div className="rights-badge" aria-live="polite">
           <span>זכויות משוערות לדירה</span>

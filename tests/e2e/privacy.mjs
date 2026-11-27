@@ -75,8 +75,14 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   await page.getByLabel(/לשמור את התשובות/).check();
   await shot('w6-summary');
   await next();
-  await page.waitForSelector('.verdict, .verdict-empty');
+  // Simple view: only the three priorities; the details appear behind the advanced toggle.
+  await page.waitForSelector('.priorities');
+  if ((await page.locator('.priority-card').count()) === 0) failures.push(`${viewport.width}px: no priorities shown`);
+  if (await page.locator('.verdict, .verdict-empty').count()) failures.push(`${viewport.width}px: details visible in simple view`);
   await shot('main');
+  await page.getByRole('switch', { name: /תצוגה מתקדמת/ }).check();
+  await page.waitForSelector('.verdict, .verdict-empty');
+  await shot('main-advanced');
 
   const unnamed = await page.evaluate(() =>
     [...document.querySelectorAll('input, select, button')]
@@ -117,7 +123,8 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   await page.evaluate(() => localStorage.setItem('mimush-chacham:answers:v1', JSON.stringify({ version: 1, areaMode: 'sqm', areaText: '167', fractionText: '167/21258', lotId: '', capitalText: '0', repaymentMode: 'none', repaymentText: '', goal: 'balanced', combinationPct: 0.35, developerMarkup: 0.175, basisText: '', deadlineYears: 2 })));
   await page.reload();
   await page.waitForSelector('.answers-bar');
-  await page.getByRole('radio', { name: 'מחשבון מתקדם' }).click();
+  await page.getByRole('switch', { name: /תצוגה מתקדמת/ }).check();
+  await page.getByRole('radio', { name: 'מחשבון ידני' }).click();
   await page.waitForSelector('.legacy-intro');
   if (errors.length) failures.push(`${viewport.width}px: errors on advanced tab: ${errors.join(' | ')}`);
   await page.close();

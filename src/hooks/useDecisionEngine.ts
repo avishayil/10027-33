@@ -25,8 +25,18 @@ const clampTo = (x: number, r: { min: number; max: number; default: number }) =>
 
 export function useDecisionEngine(saved: SavedInputs | null = null) {
   const c = PROJECT_CONFIG.commercial;
-  const [areaMode, setAreaMode] = useState<AreaMode>(saved?.areaMode ?? 'sqm');
-  const [areaText, setAreaText] = useState(saved?.areaText ?? '167');
+  // The wizard asks for square metres only; an answer saved as a registry fraction is converted once.
+  const [areaMode, setAreaMode] = useState<AreaMode>('sqm');
+  const [areaText, setAreaText] = useState(() => {
+    if (saved?.areaMode === 'fraction') {
+      try {
+        return String(Math.round(parseParcelFraction(saved.fractionText) * 100) / 100);
+      } catch {
+        return '167';
+      }
+    }
+    return saved?.areaText ?? '167';
+  });
   const [fractionText, setFractionText] = useState(saved?.fractionText ?? '167/21258');
   const [lotId, setLotId] = useState<string>(saved?.lotId ?? '');
   const [capitalText, setCapitalText] = useState(saved?.capitalText ?? '');

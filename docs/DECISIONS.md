@@ -144,3 +144,9 @@
     or no loan) and monthly ₪2,500 / ₪4,000 / ₪6,000 (₪2,500 is below the ~₪3,250 a whole apartment needs with no
     cash; ₪4,000 covers it; ₪6,000 leaves headroom or suits 334 m²). Extended on request with ₪750K / ₪1M and
     ₪8,000 / ₪10,000 for larger holdings and households. Free entry remains.
+54. **Simple view by default: three ranked priorities.** The result screen shows first, second and third priority
+    (recommendation or conditional recommendation, then alternatives, fallback and near-misses — distinct route
+    types), each with whole apartments, own cash and mortgage. Everything else (full verdict, levy, taxes,
+    arrangements, comparisons, financing, scenarios, developer, assumptions, the manual calculator) appears only when
+    "תצוגה מתקדמת" is switched on; that display preference is remembered in the browser. The wizard asks for square
+    metres only (with 167 / 334 / 500 presets); answers saved as a registry fraction are converted to m² on load.
