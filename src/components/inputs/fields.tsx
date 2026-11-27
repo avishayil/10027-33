@@ -26,8 +26,8 @@ export const GOAL_HINTS: Record<Goal, string> = {
 };
 
 /** Presets chosen from the engine's own thresholds for 167 m² (2.25 rights) — see DECISIONS #53. */
-export const CAPITAL_PRESETS = [0, 250_000, 500_000];
-export const REPAYMENT_PRESETS = [2_500, 4_000, 6_000];
+export const CAPITAL_PRESETS = [0, 250_000, 500_000, 750_000, 1_000_000];
+export const REPAYMENT_PRESETS = [2_500, 4_000, 6_000, 8_000, 10_000];
 
 const pct = (x: number) => `${formatNumber(x * 100, (x * 100) % 1 === 0 ? 0 : 1)}%`;
 

@@ -142,4 +142,5 @@
     maximize_apartments and immediate_cash → minimize_risk. Presets come from an engine sweep at 167 m²: free cash
     ₪0 / ₪250K / ₪500K (₪0 → combination only; ₪250K → whole 3-room apartment with ~₪306K loan; ₪500K → small
     or no loan) and monthly ₪2,500 / ₪4,000 / ₪6,000 (₪2,500 is below the ~₪3,250 a whole apartment needs with no
-    cash; ₪4,000 covers it; ₪6,000 leaves headroom or suits 334 m²). Free entry remains.
+    cash; ₪4,000 covers it; ₪6,000 leaves headroom or suits 334 m²). Extended on request with ₪750K / ₪1M and
+    ₪8,000 / ₪10,000 for larger holdings and households. Free entry remains.
