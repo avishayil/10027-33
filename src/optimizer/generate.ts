@@ -46,6 +46,33 @@ export function generateStrategies(info: RightsInfo, terms: CommercialTerms, con
     }
   }
 
+  // Apartment mixes (iteration 7): the whole entitlement as several apartments of the available types, within one
+  // standard apartment of its value. Mixes that are one standard apartment(s) + one other type duplicate S13 above;
+  // all-standard mixes are S02/S06.
+  if (finished >= 1 - EPS) {
+    const types = config.market.apartmentTypes.map((t) => t.rooms).sort((a, b) => a - b);
+    const value = (rooms: number[]) => rooms.reduce((s, r) => s + (config.market.apartmentTypes.find((t) => t.rooms === r)?.relativeValue ?? 0), 0);
+    const counts = new Set([Math.max(1, whole), whole + 1]);
+    for (const n of counts) {
+      if (n < 2 || n > MAX_APARTMENTS) continue;
+      const mixes: number[][] = [];
+      const build = (start: number, acc: number[]) => {
+        if (acc.length === n) {
+          mixes.push([...acc]);
+          return;
+        }
+        for (let i = start; i < types.length; i += 1) build(i, [...acc, types[i]]);
+      };
+      build(0, []);
+      for (const mix of mixes) {
+        const nonStandard = mix.filter((r) => r !== 4).length;
+        if (nonStandard <= 1) continue; // all standard (S02/S06) or one other type (S13 single tier)
+        if (Math.abs(value(mix) - finished) > 1 + EPS) continue;
+        add(`S13-${mix.map((r) => `${r}r`).join('+')}`, 'S13', [{ kind: 'combination', rights: R }, { kind: 'apartment_mix', rooms: mix }], n);
+      }
+    }
+  }
+
   add('S04', 'S04', [{ kind: 'revenue_share', rights: R }], 0);
 
   // S11: combination on part of the rights, construction services on the rest, for each whole target N.

@@ -324,6 +324,8 @@ export type Leg =
    * value gap if the apartment is worth more, receive the excess (settlement factor) if it is worth less.
    */
   | { kind: 'tier_apartment'; rooms: number }
+  /** Replace the whole entitlement by this mix of apartment types (by rooms); the value gap is paid or received. */
+  | { kind: 'apartment_mix'; rooms: number[] }
   | { kind: 'revenue_share'; rights: number }
   | { kind: 'sell_apartments'; apartments: number }
   | { kind: 'hold_land'; rights: number }

@@ -44,7 +44,9 @@ export function strategyTitle(r: StrategyResult): string {
     S02: 'קומבינציה מלאה',
     S02C: 'קומבינציה מלאה ופיצוי כספי על חלק הדירה',
     S02P: 'קומבינציה מלאה וצירוף חלק הדירה ליחידת סל',
-    S13: `קומבינציה ודירת ${r.plan.apartmentRooms[r.plan.apartmentRooms.length - 1] ?? ''} חדרים שלמה`,
+    S13: r.candidate.legs.some((l) => l.kind === 'apartment_mix')
+      ? `קומבינציה ו-${r.plan.apartmentRooms.length} דירות שלמות (${r.plan.apartmentRooms.map((x) => `${x} חד׳`).join(' + ')})`
+      : `קומבינציה ודירת ${r.plan.apartmentRooms[r.plan.apartmentRooms.length - 1] ?? ''} חדרים שלמה`,
     S11: `קומבינציה על חלק מהזכויות ושירותי בנייה על השאר — ${k === 1 ? 'דירה שלמה' : `${k} דירות שלמות`}`,
     S03: `שירותי בנייה ל-${built} דירות ומכירת היתרה`,
     S04: 'עסקת תמורות (חלק מהכנסות המכירה)',

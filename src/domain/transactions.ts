@@ -78,6 +78,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   let settleFraction: 'cash' | 'pool' | null = null;
   let fractionSettled: TransactionPlan['fractionSettled'] = null;
   let tierRooms: number | null = null;
+  let mixRooms: number[] | null = null;
   // Asset-level basis of apartment entitlement received in combination: the taxable services value (already the
   // consideration for the land sold) + the original land basis of the retained share.
   let combinationReceived = 0;
@@ -307,6 +308,9 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
       case 'tier_apartment':
         tierRooms = leg.rooms;
         break;
+      case 'apartment_mix':
+        mixRooms = leg.rooms;
+        break;
       case 'rent_for_repayment':
         rentCountsForRepayment = true;
         break;
@@ -344,6 +348,44 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   const apartmentRooms: number[] = new Array(wholeApartmentsRetained).fill(4);
   const values: number[] = new Array(wholeApartmentsRetained).fill(1);
   const tier = tierRooms !== null ? config.market.apartmentTypes.find((t) => t.rooms === tierRooms) : undefined;
+
+  if (mixRooms && mixRooms.length > 0) {
+    // Value-based allocation of the whole entitlement into a mix of apartment types (appraisal comparables). The owner
+    // pays the gap as a completion payment, or the developer pays out the excess. Not confirmed inventory.
+    const types = mixRooms.map((r) => config.market.apartmentTypes.find((t) => t.rooms === r)!);
+    const mixValue = types.reduce((sum, t) => sum + t.relativeValue, 0);
+    const gap = mixValue - retainedEq;
+    if (gap > 1e-9) {
+      const price = gap * aptToday * config.commercial.completionPriceFactor;
+      out(permit, price / 2, `תשלום השלמה לתמהיל הדירות (50%)`, 'completion_payment');
+      out(completion, price / 2, `תשלום השלמה לתמהיל הדירות (יתרה)`, 'completion_payment');
+      const pt = config.taxation.completionPurchaseTax;
+      // With more than one apartment the completed share is an additional home whatever the household owns today.
+      const rate = profile.soleHome === true && types.length === 1 ? pt.soleHome : pt.additionalHome;
+      out(permit, price * rate, 'מס רכישה על החלק שאתם קונים מהיזם (לא על הקרקע שלכם)', 'purchase_tax', 'owner', {
+        range: { low: price * pt.soleHome, high: price * pt.additionalHome },
+      });
+    } else if (gap < -1e-9) {
+      const amount = -gap * aptAtCompletion * config.commercial.fractionCashSettlementFactor;
+      inflow(completion + settlementDelay, amount, 'איזון כספי על ההפרש לתמהיל הדירות', 'fraction_settlement');
+      const tax = disposalTax(amount, -gap);
+      cgRange.low += tax;
+      cgRange.high += tax;
+      out(completion + settlementDelay, tax, 'מס שבח על האיזון (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
+      fractionSettled = { mode: 'cash', share: -gap };
+    }
+    retainedEq = mixValue;
+    wholeApartmentsRetained = types.length;
+    fractionalShare = 0;
+    apartmentSizes.length = 0;
+    apartmentRooms.length = 0;
+    values.length = 0;
+    for (const t of types) {
+      apartmentSizes.push(t.sizeSqm);
+      apartmentRooms.push(t.rooms);
+      values.push(t.relativeValue);
+    }
+  }
 
   if (tier && fractionalShare > 0) {
     // Value-based allocation: the fraction becomes one whole apartment of this type. Its value relative to the
