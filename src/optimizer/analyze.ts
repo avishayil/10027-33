@@ -166,7 +166,6 @@ export function buildResult(
   const saleDeductions = sum(ledger, (e) => owner(e) && !!e.saleRelated);
   const P = ctx.profile.maxMonthlyRepayment;
   const capacity = P === null ? null : mortgageCapacity(P, config.financing.nominalAnnualInterest, config.financing.durationYears);
-  const alt = config.financing.alternativeNetAnnualReturn;
   const ownerOut = (e: LedgerEntry) => owner(e) && !e.deferred && e.category !== 'contingency_reserve';
   // Position at delivery (today's prices) — the basis of the ranking value (deliveryOf, evaluate.ts).
   const delivery = base.delivery;
@@ -223,7 +222,7 @@ export function buildResult(
     completedPropertyValue:
       (plan.wholeApartmentValueEq + plan.fractionalShare * (1 - config.market.fractionIlliquidityDiscount)) * apartmentValueAt(config, plan.completionMonth),
     estimatedNetMonthlyRentalCashflow: sim.monthlyNetRent - sim.postCompletionMonthly,
-    netPresentValue: base.valueCreated / Math.pow(1 + alt, base.horizonMonth / 12),
+    transactionValue: base.transactionValue,
     futureNetWealth: base.futureNetWealth,
     cashAtSigning: 0,
     delivery,

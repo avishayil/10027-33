@@ -36,9 +36,11 @@ export interface Evaluation {
   valueCreated: number;
   /** Position at delivery (today's prices) — what the owner holds and paid, after financing to delivery. */
   delivery: Delivery;
+  /** The deal before personal financing (transactionValueOf). */
+  transactionValue: number;
   /**
-   * The value the ranking compares (iteration 7): present value at signing at a real discount rate, today's prices —
-   * timing and the cost of committed capital count, appreciation is not assumed.
+   * The value the ranking compares (iteration 8, "value to you"): transaction value plus the owner's financing flows —
+   * loan proceeds, debt service and the debt left at the horizon — at a real discount rate, today's prices.
    */
   comparisonValue: number;
   horizonMonth: number;
@@ -97,25 +99,30 @@ export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config:
   };
 }
 
+/** Ledger categories that are nominal amounts (indexed construction payments and their reserve). */
+const NOMINAL: ReadonlySet<string> = new Set(['construction', 'contingency_reserve', 'contingency_release']);
+
 /**
- * Present value at signing (real, today's prices) — the value the ranking compares: every owner ledger flow at its
- * own month, the apartments (and any held land) at delivery, less the present value of all interest paid. Principal
- * is counted when the payment it funds is made.
+ * Transaction value at signing (real, today's prices): every owner ledger flow at its own month — nominal ones
+ * deflated by inflation — and the apartments (and any held land) at delivery, before personal financing.
  */
-export function presentValueOf(plan: TransactionPlan, sim: SimulationResult, config: ProjectConfig): number {
+export function transactionValueOf(plan: TransactionPlan, config: ProjectConfig): number {
   const d = config.analysis.discountRate;
-  const df = (m: number) => Math.pow(1 + d, -m / 12);
+  const i = config.analysis.inflation;
+  const df = (m: number, nominal: boolean) => Math.pow((1 + d) * (nominal ? 1 + i : 1), -m / 12);
   let pv = 0;
   for (const e of plan.ledger) {
     if (e.deferred) continue;
-    if (e.direction === 'in') pv += e.amount * df(e.month);
-    else if (e.payer === 'owner') pv -= e.amount * df(e.month);
+    const nominal = NOMINAL.has(e.category);
+    if (e.direction === 'in') pv += e.amount * df(e.month, nominal);
+    else if (e.payer === 'owner') pv -= e.amount * df(e.month, nominal);
   }
+  const df0 = (m: number) => df(m, false);
   const aptToday = apartmentValueToday(config);
   const assets = plan.wholeApartmentValueEq * aptToday + plan.fractionalShare * aptToday * (1 - config.market.fractionIlliquidityDiscount);
-  pv += assets * df(plan.completionMonth);
-  pv += (plan.heldLandValueAtHorizon - plan.deferredLiabilities) * df(config.analysis.horizonYears * 12);
-  return pv - sim.pvInterest;
+  pv += assets * df0(plan.completionMonth);
+  pv += (plan.heldLandValueAtHorizon - plan.deferredLiabilities) * df0(config.analysis.horizonYears * 12);
+  return pv;
 }
 
 export function liquidityYears(profile: UserProfile, config: ProjectConfig): number {
@@ -149,6 +156,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     workInProgressRecognition: config.financing.workInProgressRecognition,
     discountRate: config.analysis.discountRate,
     approvalMonth: approvalMonthOf(config),
+    inflation: config.analysis.inflation,
     // Only when the household said it owns another property and has not ruled out borrowing.
     // A loan on another property only up to the limit the household stated (or in the conditional funding run);
     // never when the household ruled out borrowing.
@@ -198,7 +206,8 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     futureNetWealth,
     valueCreated: futureNetWealth - referenceWealth,
     delivery,
-    comparisonValue: presentValueOf(plan, sim, config),
+    transactionValue: transactionValueOf(plan, config),
+    comparisonValue: transactionValueOf(plan, config) + sim.pvFinancing,
     horizonMonth,
     referenceWealth,
     assetsAtHorizon,

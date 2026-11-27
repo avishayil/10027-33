@@ -133,6 +133,17 @@ export const FINANCING = {
     verification: 'assumed',
     notes: 'במחירי היום (בלי עליית ערך) — עדיין דירה בעוד 8 שנים שווה פחות מדירה בעוד 4. 3% ריאלי: בערך ריבית משכנתא פחות אינפלציה. בחירת הבעלים (איטרציה 7).',
   },
+  inflation: {
+    value: 0.02,
+    label: 'אינפלציה שנתית (לניכוי תזרימים נומינליים)',
+    sourceType: 'official_market',
+    sourceName: 'בנק ישראל — יעד האינפלציה 1%–3%',
+    sourceUrl: 'https://www.boi.org.il/roles/monetary-policy/',
+    retrievedAt: '2026-11-27',
+    range: { low: 0.01, high: 0.03 },
+    verification: 'reported',
+    notes: 'תשלומי בנייה צמודים והלוואות הם סכומים נומינליים; מנכים אותם באינפלציה כדי להשוות במחירי היום עם היוון ריאלי.',
+  },
   taxLoanMaxShareOfEntitlement: {
     value: 0.5,
     label: 'תקרת הלוואת מסים — עד חלק משווי הדירות שתקבלו',

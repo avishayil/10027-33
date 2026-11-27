@@ -260,6 +260,8 @@ export interface ProjectConfig {
     liquidityDeadlineYears: number;
     /** Real annual rate for the present value the ranking compares (today's prices; iteration 7). */
     discountRate: number;
+    /** Inflation used to deflate nominal flows (indexed construction payments, loans) to today's prices. */
+    inflation: number;
   };
   /** Illustrative long-term projection only (never used for the primary verdict). */
   projection: { apartmentValueAnnualGrowth: number; alternativeNetAnnualReturn: number };
@@ -479,6 +481,8 @@ export interface SimulationResult {
   pvInterest: number;
   /** Interest paid up to plan approval (what financing would have cost if the plan is then cancelled). */
   interestToApproval: number;
+  /** PV of the owner's financing flows: + loan proceeds, − debt service (interest + principal), − debt left at the end. */
+  pvFinancing: number;
   unfundedItems: { month: number; category: LedgerCategory; label: string; amount: number }[];
   peakPreCompletionLtv: number;
   peakPostCompletionLtv: number;
@@ -625,7 +629,8 @@ export interface StrategyResult {
 
   completedPropertyValue: number;
   estimatedNetMonthlyRentalCashflow: number;
-  netPresentValue: number;
+  /** The deal before personal financing: ledger flows and the apartments, discounted (real, today's prices). */
+  transactionValue: number;
   futureNetWealth: number;
   /** Owner cash obligations at signing (excluding the contingency reserve). */
   cashAtSigning: number;

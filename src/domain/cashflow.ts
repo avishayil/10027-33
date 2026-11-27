@@ -75,6 +75,8 @@ export interface SimulationInput {
   discountRate?: number;
   /** Plan approval month: interest paid up to it is what a cancellation would cost in financing. */
   approvalMonth?: number;
+  /** Inflation to deflate the (nominal) financing flows in pvFinancing (default 0). */
+  inflation?: number;
 }
 
 const EPS = 0.5;
@@ -131,6 +133,15 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let taxLoanSubsidy = 0;
   let pvInterest = 0;
   let interestToApproval = 0;
+  // Financing flows in nominal terms, deflated and discounted to today: + proceeds, − debt service, − debt at the end.
+  let pvFinancing = 0;
+  const dfNominal = (m: number) => Math.pow((1 + (input.inflation ?? 0)) * (1 + (input.discountRate ?? 0)), -m / 12);
+  const draw = (m: number, x: number) => {
+    pvFinancing += x * dfNominal(m);
+  };
+  const service = (m: number, x: number) => {
+    pvFinancing -= x * dfNominal(m);
+  };
   const dfMonth = (m: number) => Math.pow(1 + (input.discountRate ?? 0), -m / 12);
   const subsidyMonthly = input.taxLoan?.subsidyRate ? input.taxLoan.subsidyRate / 12 : 0;
   let taxLoanRefinanced = 0;
@@ -187,25 +198,27 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       let short = need - fromCash;
       if (short > EPS && input.taxesFinanceableBySecuredLoan) {
         // A loan secured on the household's other property, up to the limit the household stated.
-        const draw = Math.min(short, Math.max(0, securedLimit - taxesFinanced));
-        debt += draw;
-        totalDrawn += draw;
-        drawsByStage[stage] += draw;
-        taxesFinanced += draw;
-        short -= draw;
+        const x = Math.min(short, Math.max(0, securedLimit - taxesFinanced));
+        debt += x;
+        totalDrawn += x;
+        drawsByStage[stage] += x;
+        taxesFinanced += x;
+        draw(m, x);
+        short -= x;
       }
       if (short > EPS && input.taxLoan && e.taxLoanEligible) {
         // A developer/bank tax loan for combination taxes, up to the facility cap.
-        const draw = Math.min(short, Math.max(0, taxLoanLimit - taxLoanDrawn));
-        totalDrawn += draw;
-        taxLoanDrawn += draw;
+        const x = Math.min(short, Math.max(0, taxLoanLimit - taxLoanDrawn));
+        totalDrawn += x;
+        taxLoanDrawn += x;
         if (m >= input.completionMonth) {
-          debt += draw;
-          drawsByStage.mortgage += draw;
+          debt += x;
+          drawsByStage.mortgage += x;
         } else {
-          taxLoanBalance += draw;
+          taxLoanBalance += x;
         }
-        short -= draw;
+        draw(m, x);
+        short -= x;
       }
       if (short > EPS) {
         unfunded += short;
@@ -220,11 +233,12 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const available = Math.max(0, cash - reserveAfter[m]);
       const fromCash = Math.min(available, need);
       cash -= fromCash;
-      const draw = need - fromCash;
-      if (draw > 0) {
-        debt += draw;
-        totalDrawn += draw;
-        drawsByStage[stage] += draw;
+      const x = need - fromCash;
+      if (x > 0) {
+        debt += x;
+        totalDrawn += x;
+        drawsByStage[stage] += x;
+        draw(m, x);
       }
     }
 
@@ -245,6 +259,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       debt -= repay;
       principalRepaid += repay;
       cash -= repay;
+      service(m, repay);
       // The tax-loan balance converted this month that cash did not repay has to be refinanced as a mortgage.
       if (m === input.completionMonth && taxLoanAtMaturity > 0) taxLoanRefinanced = Math.max(0, Math.min(taxLoanAtMaturity, debt));
     }
@@ -252,6 +267,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const repay = Math.min(taxLoanBalance, Math.max(0, cash - reserveAfter[m]));
       taxLoanBalance -= repay;
       cash -= repay;
+      service(m, repay);
     }
 
     peakDebt = Math.max(peakDebt, debt + taxLoanBalance);
@@ -294,6 +310,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       }
     }
     paymentsFV += payment;
+    service(m, payment);
 
     const rent = afterCompletion ? input.monthlyNetRent : 0;
     cash += rent;
@@ -309,6 +326,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if ((m + 1) % 12 === 0) yearly.push({ year: (m + 1) / 12, cash, debt });
   }
   if (input.liquidityMonth >= H) cashAtLiquidity = cash;
+  // Debt left at the end is still owed.
+  service(H, debt + taxLoanBalance);
 
   cash *= growth;
   paymentsFV *= growth;
@@ -341,6 +360,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanSubsidy,
     pvInterest,
     interestToApproval,
+    pvFinancing,
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,
     yearly,
