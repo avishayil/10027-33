@@ -314,3 +314,22 @@ minApartmentPricePerSqm}, atDeveloperMax {%, extraCapital, route}}.
   value) and the uncoordinated view (slots demanded, pool shares, problems).
 * `contingentPlan(result, profile, terms, config)` → rows {route, option route, no-approval exposure, value financed,
   value without financing, fell back?, regret per state, max regret}.
+
+## Iteration 10 changes (review of c689d0b)
+
+- **Entitlement**: apartment equivalents from the official allocation share (residential area share ÷ 100 m²). The owner's
+  credited value equals the developer's forgone value; the consideration ledger lists every claim (owner, pool,
+  unallocated) with physical area and value separately.
+- **Cash flow**: project-loan draws reported apart from a tax loan refinanced into the mortgage; overdue tax-loan balance
+  in the debt at delivery, its later accrual outside "interest to delivery"; refinance ceiling = min(any-purpose share ×
+  collateral, status limit × collateral − project debt), both in nominal shekels at maturity. Delivery, no-approval and
+  failure views deflate nominal events and interest on their dates.
+- **Contract snapshot**: one evaluation per (contract terms, funding, route) feeds both the owner's view and the lot P&L
+  with that route; all bilateral tools read it (ARCHITECTURE "Contract snapshots").
+- **Balancing pool in a group**: ⌊S⌋ units sold at the completion price less sale costs; owner i receives
+  sᵢ × ⌊S⌋/S of a unit's net proceeds and keeps sᵢ × (1 − ⌊S⌋/S) as an illiquid fractional share (valued with the
+  fraction illiquidity discount, flagged FRACTIONAL_UNIT); capital-gains tax on the part actually sold.
+- **Option contracts**: switched plan = the fallback's events before the exercise month E ∪ the target's events from E,
+  the target's earlier events moved to E (identical events paid once). Regret over financed / no financing / no approval.
+- **Concessions**: owner gain = Δ ranking value (real 3%); developer cost = Δ Σ equity flowₘ × 1.03^(−m/12) on the lot,
+  attributed by the holding's lot share for lot-wide terms. Efficiency = gain ÷ cost.

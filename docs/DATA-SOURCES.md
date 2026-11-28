@@ -110,3 +110,16 @@ infrastructure connections. Development levies and permit fees are not modelled.
 See `src/data/evidence.ts` and `docs/validation/market-evidence-2026-11-27.md`. The developer price (₪6,900),
 post-approval land value (₪7,100), sale-today reference (₪1,916), revenue share (45%) and buy-back (80%) are now
 **hypothetical scenario values only**: they never decide the verdict; the engine reports the price each route needs.
+
+## Iteration 10 — entitlement basis and typed evidence (2026-11-28)
+
+| Value | Base | Status | Source |
+|---|---|---|---|
+| Owner entitlement | the holding's share of the lot's residential area ÷ 100 m² (167 m²: 2.64 / 2.48 / 2.61 in lots 149 / 150 / 153) | official (allocation table, 106(ב)) | `parcel33.js` (`sharePer167` × door-to-door area); owner decision (DECISIONS #122) |
+| Simulation basis (fixtures only) | 2.25 per 167 m² | assumption | kept as `rights.entitlementBasis: 'simulation'` for legacy and golden tests |
+| Combination slider step | 0.5 point | UI fact | `commercial.combination.step` (the bilateral search tests at least this resolution) |
+
+`config.evidence` types every price-dependent term: developer price, post-approval price, revenue share and the
+complementary price are **hypothetical**, the immediate sale price **unknown**, the buy-back factor **assumed**. Changing a
+term to `confirmed_offer` (with its source) is the only way it is evaluated as fact. No market values changed in this
+iteration; `CONFIG_VERSION` 2026-11-28.14 records the entitlement basis and the slider step.

@@ -345,3 +345,61 @@ illustrative four owners and two slots, a pool-dependent owner's 0.79 share is c
 the pool would not form). `tests/optimizer/contingent.test.ts`: fallback is the full combination; regret is zero for the
 best choice per state and never negative; option rows take the target's value when financed and the combination's
 otherwise; ordering by largest regret. Main recommendation and household matrix unchanged.
+
+## Iteration 10 — review of c689d0b (2026-11-28)
+
+Brief: `iteration-9-comprehensive-review.md`. Owner decisions: entitlement = official allocation share; deliver to `main`.
+Commits: I1 entitlement + consideration ledger · I2 accounting (§D) · I3 contract snapshot + bilateral search · I4 group
+planner · I5 contracts with an option · I6 concessions and explanations · I7 validation, CI, e2e, benchmarks, docs.
+
+**Acceptance tests** (expected values typed independently, not read from the engine):
+
+| ID | Test | Result |
+|---|---|---|
+| J1 | `tests/optimizer/jointSearch.test.ts` — A 1.5M / 14%, B 1.4M / 15.5%, hurdle 15% → only B; each pair's margin = that route's lot margin; stable contract ids | pass |
+| J2 | same — a 30.2–30.8% band is missed at a 2-point step (complete: false), found at the 0.5-point slider step; refinement where the result changes; endpoints included | pass |
+| J3 | same — step 0, NaN, negative, ∞ and min > max throw; the search validates its step | pass |
+| J4 | same — five goals, each on its own metric; tier/mix routes and the rentals derived from them never count for the owner | pass |
+| J5 | same — the price lever, re-evaluated, restores the developer's hurdle and reports whether the owner still accepts | pass |
+| G1 | `tests/optimizer/collective.test.ts` — 2 × 0.7875 at ₪2.5M, 2% → one unit, ₪2.45M in all, ₪1,225,000 each, 0.575 residual (₪1,437,500 gross, no cash); integration: each owner's pool inflow = 0.5 of one unit's net, 0.2875 kept | pass |
+| G2 | same — eight 1,000 m² holdings in lot 149 (> 7,097 m²) rejected; > 8 members, NaN / negative inputs rejected | pass |
+| G3 | same — lots 150 and 153 evaluated on their own rights, never lot 149 | pass |
+| G4 | same — every option is a snapshot of the group's contract; one lot P&L for the group; a one-owner group equals that route's lot P&L | pass |
+| G5 | same — slots above the quota, 1.5, −1, NaN rejected; no policy-blocked option; slots = whole service apartments | pass |
+| G6 | same — outside-option and no-reservation statuses; no fairness claim unless it holds for all; bounds reported | pass |
+| C1 | `tests/optimizer/contingent.test.ts` — no implicit fallback; option rows name S02, the exercise date, the condition, fee unknown | pass |
+| C2 | same — ₪100K at signing in the target moves to month 24, PV ⌊94,259⌋; the fallback's prefix kept, identical events paid once | pass |
+| C3 | same — a conditional deal keeps its arrangement, % and funding; no-financing disables all facilities; unknown capital executable only where no capital is needed; unique contract ids | pass |
+| C4 | same — A (100, 100, −100) → 100, B (95, 95, 0) → 5; approved-only would give 0 / 5 | pass |
+| F1–F3, F6, F7, D4, D5, D7 | `tests/domain/accounting10.test.ts` — facility rows, overdue tax loan, nominal ceiling ₪1,380,101, today's-price delivery, equivalence roots, direct-cost stress, typed evidence, interval solver | pass |
+| F4, F5 | `tests/domain/consideration.test.ts` — ₪1,968,750 vs ₪2,307,793 kept apart on the simulation basis (residual ₪339,043 flagged), equal on the official basis; two 81 m² units = 2 apartments, 162 m² | pass |
+| UX1 | `tests/e2e/privacy.mjs` — after the joint search, changing the markup hides the result ("הנתונים השתנו") | pass |
+| PRIV1 | same — joint search and group planner trigger no requests; no group inputs in localStorage; served under `/10027-33/` | pass |
+
+Also: `tests/optimizer/concessions.test.ts` (efficiency 30K / 20K = 1.5; +1 point re-evaluated on both sides; lot-wide
+cost attributed by the lot share; frontier executable and non-dominated; explanations separate financing from the
+developer's hurdle), `tests/domain/validation.test.ts` (new checks), `tests/release/publicAssets.test.ts`.
+
+**Before / after** (`docs/validation/before-c689d0b.md` → `docs/validation/after-iteration10.md`). Changes come from the
+official entitlement (167 m² ≈ 2.64 apartment equivalents instead of 2.25), as decided:
+- 2.25-right household with ₪800K: S13-3r → S06-1-rent. The whole apartment now needs only a small completion (its
+  S06 mortgage ₪292,590 → ₪0); for the ₪300K household the S06 mortgage falls ₪569,628 → ₪206,092.
+- 4 rights / ₪3M: two → three 3-room apartments (conditional: a ₪822,939 mortgage).
+- Households without a fitting route keep the same conditional direction; developer lot margin 4.1% → 3.9–4.0%.
+
+**Test expectations changed on purpose**: legacy numeric fixtures pinned to the 2.25 simulation basis (`C_SIM`); the
+solver's maximum is the end of the last feasible interval; cancellation, delivery interest and failure debt are in
+today's prices; the facility list gains a refinance transfer row; the iteration-9 joint, group and contingent tests were
+replaced — they asserted the defects the review found (baseline developer margin, `units + leftover = shares`, the
+implicit fallback and approved-only regret).
+
+**Benchmarks** (`tests/perf/benchmark.test.ts`, laptop, Node): group of 8 — 37–84 ms; joint search — 389 ms (2
+fundings, 142 contracts), 499 ms (3 fundings, 213), 1,950 ms for a whole-lot holding (246); contingent plan 2 ms;
+concession frontier 21 ms; one analysis of a whole-lot holding 134 ms. No Web Worker (DECISIONS #134).
+
+**Limits**: searches are bounded (grid resolution, at most 5 options + the reservation per owner, single concessions);
+the outside options and the developer's real hurdle are unknown, so nothing is "terms_confirmed"; pool inventory and
+option terms need the developer's agreement. Professional review by an appraiser, a tax adviser and a lawyer remains a
+release gate.
+
+Commands: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, `E2E_BASE=/10027-33/ npm run test:e2e`.

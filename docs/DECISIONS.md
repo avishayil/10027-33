@@ -419,3 +419,82 @@ point: a developer that takes on the owner's taxes prices them into a lower comb
      X after approval if financed" takes X's value when financed and the combination's otherwise. Regret per state =
      best available − this choice; rows ordered by largest regret. No probabilities; the option's price and the
      developer's agreement are not assumed.
+
+## Iteration 10 — review of c689d0b: one executable contract for both sides (2026-11-28)
+
+Review brief: `iteration-9-comprehensive-review.md` (§A–§H, acceptance J1–J5, G1–G6, C1–C4, F1–F7, UX1, PRIV1).
+Owner decisions this iteration: the entitlement is the official allocation share; deliver straight to `main`.
+
+122. **Owner entitlement = the official allocation share** (owner decision; amends the 2.25/167 basis). Apartment
+     equivalents = the holding's share of the lot's residential (door-to-door) area ÷ 100 m²: 167 m² ≈ 2.64 (lot 149),
+     2.48 (150), 2.61 (153). `rights.entitlementBasis: 'simulation'` keeps 2.25/167 for the legacy and golden fixtures
+     (`C_SIM`). On the official basis what the owner is credited equals what the developer gives up (₪2,307,793 at 35%);
+     the simulation basis keeps its ₪339,043 residual as an explicit, material "unallocated" claim.
+123. **Consideration ledger**: per-asset claims (recipient owner / pool / unallocated, quantity, physical area, value,
+     price basis, valuation source); physical apartments and area kept apart from value; a residual above
+     max(₪10K, 1%) is flagged material.
+124. **Accounting (§D)**: the facility report counts external project draws only, with a separate transfer row for a tax
+     loan refinanced into the mortgage; an overdue tax loan is part of the debt at delivery and its accrual after delivery
+     is not "interest to delivery"; the refinance ceiling is in nominal shekels at maturity and limited by what the
+     status mortgage limit leaves after the project mortgage; delivery, no-approval and failure views are in today's
+     prices (nominal events and interest deflated on their dates).
+125. **Developer stresses and equivalence**: the cost stress also scales a direct-cost override; services volume,
+     presales, owners' tax basis and an escort-loan cap added; headroom labelled static. The equivalence % uses the
+     selected markup, and a diagnostic reports every root with unique / multiple / unbracketed.
+126. **Typed evidence**: each price-dependent term has a status (observed, appraisal, confirmed offer, assumed,
+     hypothetical, unknown). Only a confirmed offer or an observation is evaluated as fact; a scenario never becomes one.
+127. **Interval solver**: thresholds are read from the feasible set on a grid with refined edges (disconnected sets
+     handled: [2,3] ∪ [7,8] → max 8); solvers report their resolution and are never called complete.
+128. **Contract snapshot** (`optimizer/contract.ts`): a contract = arrangement, %, markup, offer terms and the funding the
+     household relies on. Every route is evaluated once under it and both sides read the same snapshot (stable id, input
+     fingerprint, lot). Owner acceptance = fundable (unknown capital is not), no unverified price, no unconfirmed
+     apartment inventory (by legs — tiers, mixes and rentals derived from them — not by strategy id), not
+     policy-blocked, and the goal (whole apartments: the most any fundable route reaches on these terms; no risk: no
+     borrowing; cash soon: cash before the deadline; income: positive net income). Developer acceptance = the lot margin
+     *with this route* ≥ the hurdle. Status: infeasible / modeled_conditional / terms_confirmed — never confirmed while
+     the outside options (no current land price; the hurdle is an assumption) are unknown.
+129. **Bilateral search, second version** (amends #119). Pairs (contract, route), feasible only when both sides accept the
+     same snapshot — the household's best route is never set against a baseline developer. Funding variants: none, the
+     developer's tax loan, another property's loan (when relevant). Grid with both endpoints at the slider step (0.5
+     point, `commercial.combination.step`), a coarse pass every 1 point refined wherever any route's acceptance changes;
+     an invalid step throws; "not found in the tested scenarios", never "none exists". Gap = minimum distance between
+     the sides on the same route; levers (the developer's margin there, an apartment-price floor, a direct-cost
+     ceiling) re-evaluated on both sides; the capital lever examines every funding-only candidate. The frontier is
+     deduplicated (an unused tax loan is the same deal).
+130. **Group planner, second version** (amends #120). One common contract for all members (the selected arrangement and %,
+     one funding facility for all); options are contract snapshots — conditional deals under other terms are never
+     summed. The lot is the user's selected lot. Validated: aggregate area ≤ the lot, slots an integer ≤ the lot quota,
+     ≤ 8 members, every member's inputs. Pool conserved: ⌊S⌋ whole units sold, each owner credited only units ÷ S of their
+     share (`balancing_pool.soldFraction`) and re-evaluated (taxes, cash flow, financing); the rest stays an illiquid
+     fractional share. Policy-blocked routes are not options (never a free slot). One lot P&L for the group (route deltas
+     summed against one baseline); below the hurdle the plan is infeasible. Lexicographic branch-and-bound: fewest owners
+     left on the outside option (no agreement, value unknown), reservations respected, first choices, value. Statuses:
+     at/above reservation, no reservation option, outside option; "nobody is worse off" is claimed only when it holds for
+     everyone. Search bounds reported.
+131. **Contracts with an option, second version** (amends #121). No implicit fallback: a fixed contract that cannot be
+     carried out in a state is "not executable" there. Option rows state their terms — plain combination (S02) as the
+     agreed fallback, exercise at approval, financing condition, fee unknown, same arrangement and %. The switched plan
+     keeps the fallback's events before the exercise date (common prefix) and moves the target's earlier obligations to
+     that date (₪100K at signing → month 24, PV ≈ ₪94,259 at 3%); both sides recomputed on it. Financed branch: only the
+     contract's facilities; no-financing: none. Utilities relative to "keep the land, no deal": approved states use the
+     ranking value, no approval minus the maximum modelled loss; minimax regret over all three states (A = 100/100/−100 →
+     100, B = 95/95/0 → 5). Premium interval: the owner's gain if financed vs the developer's cost.
+132. **Concessions and feasibility explanations** (`optimizer/concessions.ts`). Levy, all taxes, tax-loan interest,
+     +1 point, payment timing — each the same route re-evaluated under the changed contract. Owner gain = Δ ranking value;
+     developer cost = Δ PV of its lot equity flows at the same real rate. Lot-wide terms are attributed to this owner's
+     share of the lot (the lot-wide figure kept alongside); owner-only terms are costed alone. Only executable
+     concessions on the frontier. Typical result (167 m², gross): tax concessions ≈ 0.84 per ₪ of developer cost (purchase
+     tax, gross-up and financing), the interest subsidy ≈ 2.6, deferring the owner's payments ≈ 1.06. The explanation names
+     what binds (financing gap, missing information, market evidence, developer hurdle, policy, physical, goal) and the
+     single concessions that close it, tested on both sides; bounded, not a proof.
+133. **Inputs and stale results**: `validateInputs` also checks the other-property limit, the liquidity deadline, the goal,
+     the levy cap, upper bounds on amounts and that every configuration number is finite; the joint search, group
+     planner, contingent plan and concessions validate on entry. The engine returns its result with the exact inputs it
+     used; ContingentCard and ConcessionsCard use those. JointSearch and GroupPlanner tie results to an input fingerprint,
+     drop runs started on older inputs and hide stale results. Print is disabled while a newer analysis computes.
+134. **CI and performance**: actions pinned to release commit SHAs; `permissions: {}` by default, build `contents: read`,
+     deploy `pages: write` + `id-token: write`; Playwright 1.63.0 from the lockfile; the e2e check runs on the deployed
+     build under the repository base path and covers the advanced features and localStorage; public PDFs are a reviewed
+     allow-list. Benchmarks (`tests/perf`): group of 8 ≤ 90 ms, joint search 0.4–0.5 s (≈ 2 s for a whole-lot holding).
+     No Web Worker: typical runs are well under a second and stale runs are already discarded; revisit if phones show
+     long freezes on large holdings.
