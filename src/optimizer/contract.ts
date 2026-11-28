@@ -8,8 +8,11 @@
  * exactly the same deal — never the household's best route against a generic developer baseline.
  */
 import { withArrangement } from '../domain/arrangements';
+import { simulateCashflow } from '../domain/cashflow';
 import { calculateRights } from '../domain/rights';
-import type { Candidate, CommercialTerms, ConsiderationReconciliation, Goal, ProjectConfig, StrategyResult, TaxArrangement, UserProfile } from '../domain/types';
+import type { Candidate, CommercialTerms, ConsiderationReconciliation, Goal, InventoryClaim, PriceKnob, ProjectConfig, StrategyResult, TaxArrangement, UserProfile } from '../domain/types';
+import { facilitiesOf, facilityEvents, ledgerEvents, type BilateralEvent, type FinancingFacility, type PartyId } from '../kernel/events';
+import { KERNEL_VERSION, PACK_ID, SCHEMA_VERSION } from '../kernel/version';
 import { buildResult } from './analyze';
 import type { EngineContext, PlanTransform } from './evaluate';
 import { generateStrategies } from './generate';
@@ -28,10 +31,27 @@ export interface ContractTerms {
 }
 
 export interface ContractSnapshot {
+  /** Shared economic contract versions (docs/ECONOMIC-CONTRACT.md). */
+  schemaVersion: string;
+  kernelVersion: string;
+  packId: string;
+  packVersion: string;
+  /** The scenario the projections are read from (the base; the others are in result.scenarioResults). */
+  scenarioId: 'base';
   /** Stable id of (lot, terms, funding, route) — the same id on both sides and in every branch. */
   id: string;
-  /** Fingerprint of the household inputs and configuration it was computed from. */
+  /** Fingerprint of the household inputs, the whole configuration and the contract terms it was computed from. */
   inputHash: string;
+  /** Parties that appear in the events (owner and developer always). */
+  participants: PartyId[];
+  /** Every transfer of the route (ledger) and of its financing, source → destination, liable vs payer. */
+  events: BilateralEvent[];
+  /** Financing facilities used, each reconciled to its terminal balance; all conditional on the lender. */
+  facilities: FinancingFacility[];
+  /** Physical and economic claims on the lot's inventory (owner, pool, unallocated). */
+  inventoryClaims: InventoryClaim[];
+  /** Evidence entries the route depends on (config.evidence keys and the allocation tables). */
+  evidenceIds: string[];
   lotId: string;
   contract: ContractTerms;
   routeId: string;
@@ -113,7 +133,40 @@ export function snapshotForCandidate(
 ): ContractSnapshot {
   const { config, ctx } = contractContext(profile, k, base);
   const r = buildResult(candidate, evaluateScenarios(candidate, ctx, config, transform), ctx, config);
-  return toSnapshot(r, peers, profile, k, base);
+  return toSnapshot(r, peers, profile, k, base, inputHashOf(profile, k, base));
+}
+
+/** The same simulation with its dated facility flows (re-run once from its stored input when they were not kept). */
+function withFlows(sim: StrategyResult['simulation']): StrategyResult['simulation'] {
+  return sim.input.recordFlows ? sim : simulateCashflow({ ...sim.input, recordFlows: true });
+}
+
+/** The canonical input fingerprint: household inputs, the whole configuration and the contract terms. */
+export function inputHashOf(profile: UserProfile, k: ContractTerms, base: ProjectConfig): string {
+  return fingerprint({ profile, config: configHash(base), contract: k });
+}
+
+// The configuration is large and immutable per object: hash it once per object.
+const configHashes = new WeakMap<ProjectConfig, string>();
+function configHash(c: ProjectConfig): string {
+  let h = configHashes.get(c);
+  if (h === undefined) {
+    h = fingerprint(c);
+    configHashes.set(c, h);
+  }
+  return h;
+}
+
+/** Evidence entries a route depends on: the price knobs of its legs and the official allocation tables. */
+export function evidenceIdsOf(c: Candidate): string[] {
+  const knobs = new Set<PriceKnob | 'allocation_tables_106b'>(['allocation_tables_106b']);
+  for (const l of c.legs) {
+    if (l.kind === 'sell_rights') knobs.add(l.market === 'developer' ? 'developer_price' : l.market === 'post_approval' ? 'post_approval_price' : 'immediate_price');
+    if (l.kind === 'revenue_share') knobs.add('revenue_share');
+    if (l.kind === 'buy_rights') knobs.add('complementary_price');
+    if (l.kind === 'settle_fraction_cash') knobs.add('buyback_factor');
+  }
+  return [...knobs];
 }
 
 const hardOk = (r: StrategyResult) => r.assessment.affordability === 'fits' || r.assessment.affordability === 'fits_with_financing';
@@ -144,12 +197,12 @@ export function goalReason(goal: Goal, r: StrategyResult, peers: StrategyResult[
 /** Snapshots of every route of a contract, with acceptance on both sides and the status of the result. */
 export function snapshotsFor(profile: UserProfile, k: ContractTerms, base: ProjectConfig): ContractSnapshot[] {
   const results = evaluateRoutes(profile, k, base);
-  return results.map((r) => toSnapshot(r, results, profile, k, base));
+  const inputHash = inputHashOf(profile, k, base);
+  return results.map((r) => toSnapshot(r, results, profile, k, base, inputHash));
 }
 
-function toSnapshot(r: StrategyResult, results: StrategyResult[], profile: UserProfile, k: ContractTerms, base: ProjectConfig): ContractSnapshot {
+function toSnapshot(r: StrategyResult, results: StrategyResult[], profile: UserProfile, k: ContractTerms, base: ProjectConfig, inputHash: string): ContractSnapshot {
   const lotId = profile.lotId || base.rights.defaultLotId;
-  const inputHash = fingerprint({ profile, base: base.version, lotId });
   const hurdle = base.developer.targetMarginOnRevenue;
   const baseFails = r.scenarioResults.find((s) => s.scenarioId === 'base')?.fails ?? [];
   const hard = [...new Set([...baseFails, ...r.reasonCodes.filter((c) => c === 'CAPITAL_UNKNOWN')])];
@@ -175,7 +228,28 @@ function toSnapshot(r: StrategyResult, results: StrategyResult[], profile: UserP
   ];
   const accepts = reason === null;
   const status: ContractStatus = !accepts || !developerOk ? 'infeasible' : conditions.length ? 'modeled_conditional' : 'terms_confirmed';
+  // Events, parties and facilities are derived on first use (searches build thousands of snapshots and read few).
+  let events: BilateralEvent[] | null = null;
+  let participants: PartyId[] | null = null;
+  let facilities: FinancingFacility[] | null = null;
+  const eventsOf = () => (events ??= [...ledgerEvents(r.plan, r.candidate), ...facilityEvents(withFlows(r.simulation))]);
   return {
+    schemaVersion: SCHEMA_VERSION,
+    kernelVersion: KERNEL_VERSION,
+    packId: PACK_ID,
+    packVersion: base.version,
+    scenarioId: 'base',
+    get participants() {
+      return (participants ??= [...new Set<PartyId>(['owner', 'developer', ...eventsOf().flatMap((e) => [e.source, e.destination])])]);
+    },
+    get events() {
+      return eventsOf();
+    },
+    get facilities() {
+      return (facilities ??= facilitiesOf(r.simulation, r.plan));
+    },
+    inventoryClaims: r.developerLot?.consideration.claims ?? [],
+    evidenceIds: evidenceIdsOf(r.candidate),
     id: fingerprint({ lotId, contract: k, route: r.candidate }),
     inputHash,
     lotId,

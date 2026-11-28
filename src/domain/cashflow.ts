@@ -20,7 +20,7 @@
  *  - Events after the requested horizon extend it; nothing is clamped into the final month.
  */
 import { monthlyPayment } from './mortgage';
-import type { CashEvent, FinancingStage, LedgerCategory, SimulationResult } from './types';
+import type { CashEvent, FacilityAccount, FacilityFlow, FacilityId, FinancingStage, LedgerCategory, SimulationResult } from './types';
 
 export const NON_FINANCEABLE: ReadonlySet<LedgerCategory> = new Set<LedgerCategory>([
   'capital_gains_tax',
@@ -38,6 +38,8 @@ const ASSET_BUILDING: ReadonlySet<LedgerCategory> = new Set<LedgerCategory>([
 ]);
 
 export interface SimulationInput {
+  /** Keep dated facility flows (draws, interest, repayments, transfers) — for contract events; off in the solvers. */
+  recordFlows?: boolean;
   events: CashEvent[];
   startingCash: number;
   annualRate: number;
@@ -221,6 +223,26 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   let peakPreLtv = 0;
   let peakPostLtv = 0;
   const yearly: SimulationResult['yearly'] = [];
+  // Per-facility record (V1 / MH-05): draws, interest, repayments, transfers and the terminal balance of each facility,
+  // so draws + transfers in (+ capitalised interest) − repayments − transfers out = terminal balance, facility by facility.
+  // Totals per (facility, kind) always (numeric index: facility × 5 + kind); dated series only when asked for
+  // (`recordFlows`), since the simulation runs thousands of times inside the solvers. Draws and transfers on their
+  // month; interest and repayments summed per year (on the year's last month).
+  const totals = new Float64Array(15);
+  const series: (Float64Array | undefined)[] = new Array(15);
+  const record = input.recordFlows === true;
+  const flow = (i: number, m: number, amount: number) => {
+    if (amount <= 1e-9) return;
+    totals[i] += amount;
+    if (record) (series[i] ??= new Float64Array(H + 1))[i % 5 === 1 || i % 5 === 2 ? Math.min(H, Math.floor(m / 12) * 12 + 11) : m] += amount;
+  };
+  const flowList = (): FacilityFlow[] => {
+    const ids: FacilityId[] = ['mortgage', 'secured', 'tax_loan'];
+    const kinds: FacilityFlow['kind'][] = ['draw', 'interest', 'repayment', 'transfer_in', 'transfer_out'];
+    const out: FacilityFlow[] = [];
+    series.forEach((arr, i) => arr?.forEach((amount, month) => amount > 0 && out.push({ facility: ids[Math.floor(i / 5)], kind: kinds[i % 5], month, amount })));
+    return out.sort((x, y) => x.month - y.month);
+  };
 
   for (let m = 0; m < H; m += 1) {
     if (m > 0) {
@@ -235,6 +257,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const accrued = taxLoanBalance * taxLoanMonthly;
       taxLoanBalance += accrued;
       taxLoanInterest += accrued;
+      flow(11 /* tax_loan interest */, m, accrued);
       if (m <= input.completionMonth) {
         taxLoanInterestToDelivery += accrued;
         realTaxLoanInterestToDelivery += accrued * deflateAt(m);
@@ -259,6 +282,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         totalDrawn += x;
         taxesFinanced += x;
         draw(m, x);
+        flow(5 /* secured draw */, m, x);
         short -= x;
         // An "any purpose" loan amortises from the draw: the payment is recomputed on the new balance.
         if (x > 0) securedPayment = monthlyPayment(secured, securedRate * 12, securedYears);
@@ -271,6 +295,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         // Drawn after delivery it is due at once: the maturity step below repays or refinances it, or reports a gap.
         taxLoanBalance += x;
         draw(m, x);
+        flow(10 /* tax_loan draw */, m, x);
         short -= x;
       }
       if (short > EPS) {
@@ -293,6 +318,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         drawsByStage[stage] += x;
         projectDrawn += x;
         draw(m, x);
+        flow(0 /* mortgage draw */, m, x);
       }
     }
 
@@ -316,12 +342,15 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       taxLoanBalance -= repay;
       cash -= repay;
       service(m, repay);
+      flow(12 /* tax_loan repayment */, m, repay);
       const x = Math.min(taxLoanBalance, Math.max(0, refinanceCap - taxLoanRefinanced));
       if (x > 0) {
         debt += x;
         drawsByStage.mortgage += x;
         taxLoanRefinanced += x;
         taxLoanBalance -= x;
+        flow(14 /* tax_loan transfer_out */, m, x);
+        flow(3 /* mortgage transfer_in */, m, x);
       }
       taxLoanMaturityGap = Math.max(taxLoanMaturityGap, taxLoanBalance);
     }
@@ -331,12 +360,14 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       debt -= repay;
       cash -= repay;
       service(m, repay);
+      flow(2 /* mortgage repayment */, m, repay);
     }
     if (taxLoanBalance > 0) {
       const repay = Math.min(taxLoanBalance, Math.max(0, cash - reserveAfter[m]));
       taxLoanBalance -= repay;
       cash -= repay;
       service(m, repay);
+      flow(12 /* tax_loan repayment */, m, repay);
     }
 
     peakDebt = Math.max(peakDebt, debt + taxLoanBalance + secured);
@@ -374,6 +405,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         interestToFailure += interest;
         realInterestToFailure += interest * deflateAt(m);
       }
+      flow(1 /* mortgage interest */, m, interest);
       if (!afterCompletion) {
         payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
@@ -382,6 +414,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
           amortPayment = monthlyPayment(debt, input.annualRate, input.mortgageYears);
         }
         payment = Math.min(amortPayment, debt + interest);
+        flow(2 /* mortgage repayment */, m, Math.min(debt, payment - interest));
         debt = Math.max(0, debt - (payment - interest));
         amortBase = debt;
         mortgageMonthsUsed += 1;
@@ -404,6 +437,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         realInterestToFailure += interest * deflateAt(m);
       }
       const p = Math.min(securedPayment, secured + interest);
+      flow(6 /* secured interest */, m, interest);
+      flow(7 /* secured repayment */, m, Math.min(secured, p - interest));
       secured = Math.max(0, secured - (p - interest));
       payment += p;
       if (!afterCompletion) constructionMonthly = Math.max(constructionMonthly, payment);
@@ -430,6 +465,16 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   if (input.liquidityMonth >= H) cashAtLiquidity = cash;
   // Debt left at the end is still owed.
   service(H, debt + taxLoanBalance + secured);
+  const acc = (f: number, terminal: number, interestCapitalised: boolean): FacilityAccount => ({
+    drawn: totals[f * 5],
+    interest: totals[f * 5 + 1],
+    interestCapitalised,
+    repayment: totals[f * 5 + 2],
+    transferIn: totals[f * 5 + 3],
+    transferOut: totals[f * 5 + 4],
+    terminal,
+  });
+  const fac: Record<FacilityId, FacilityAccount> = { mortgage: acc(0, debt, false), secured: acc(1, secured, false), tax_loan: acc(2, taxLoanBalance, true) };
 
   cash *= growth;
   paymentsFV *= growth;
@@ -463,6 +508,9 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanSubsidy,
     taxLoanInterestToDelivery,
     taxLoanRefinanceCap: Number.isFinite(refinanceCap) ? refinanceCap : 0,
+    facilityAccounts: fac,
+    facilityFlows: flowList(),
+    input,
     real: {
       interestToCompletion: realInterestToCompletion,
       taxLoanInterestToDelivery: realTaxLoanInterestToDelivery,

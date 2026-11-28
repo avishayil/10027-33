@@ -8,6 +8,7 @@
 // Provenance
 // ---------------------------------------------------------------------------
 
+import type { SimulationInput } from './cashflow';
 export type SourceType =
   | 'statutory'
   | 'official_planning'
@@ -472,6 +473,32 @@ export interface TransactionPlan {
 
 export type FinancingStage = 'bridge' | 'construction' | 'mortgage';
 
+/** Facility identifiers of the household's simulation (V1 / MH-05). */
+export type FacilityId = 'mortgage' | 'secured' | 'tax_loan';
+
+/**
+ * One facility's record over the horizon: drawn + transfers in (+ capitalised interest, for the tax loan) − repayments −
+ * transfers out = terminal balance. Interest on the mortgage and the secured loan is paid as it accrues.
+ */
+export interface FacilityAccount {
+  drawn: number;
+  interest: number;
+  interestCapitalised: boolean;
+  repayment: number;
+  transferIn: number;
+  transferOut: number;
+  terminal: number;
+}
+
+export interface FacilityFlow {
+  facility: FacilityId;
+  kind: 'draw' | 'interest' | 'repayment' | 'transfer_in' | 'transfer_out';
+  /** Draws and transfers on their month; interest and repayments summed per year on the year's last month. */
+  month: number;
+  /** Nominal shekels. */
+  amount: number;
+}
+
 export interface SimulationResult {
   cashAtHorizon: number;
   debtAtHorizon: number;
@@ -528,6 +555,11 @@ export interface SimulationResult {
   /** PV of the owner's financing flows: + loan proceeds, − debt service (interest + principal), − debt left at the end. */
   pvFinancing: number;
   /** Each financing facility on its own: drawn, peak balance, rate and repayment schedule. */
+  facilityAccounts: Record<FacilityId, FacilityAccount>;
+  /** Dated facility flows — only when the simulation ran with `recordFlows` (re-run from `input` when needed). */
+  facilityFlows: FacilityFlow[];
+  /** The input this result was simulated from (for re-running with dated facility flows). */
+  input: SimulationInput;
   facilities: {
     type: 'project_loan' | 'secured_other_property' | 'tax_loan' | 'tax_loan_refinance';
     drawn: number;
