@@ -9,39 +9,16 @@
  * E2E_BASE (e.g. /10027-33/) serves and tests the build under the same base path it is deployed at.
  * Usage: node tests/e2e/privacy.mjs [screenshotDir]
  */
-import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
 import { createRequire } from 'node:module';
+import { serve } from './server.mjs';
 
 // Resolved with require() so a globally installed Playwright (NODE_PATH) also works.
 const { chromium } = createRequire(import.meta.url)('playwright');
-
-// E2E_DIST lets CI test a build made for the root path while the deployed build uses the repository sub-path.
-const DIST = process.env.E2E_DIST ? new URL(`../../${process.env.E2E_DIST.replace(/\/?$/, '/')}`, import.meta.url).pathname : new URL('../../dist/', import.meta.url).pathname;
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.pdf': 'application/pdf' };
 const shotDir = process.argv[2];
-const BASE = (process.env.E2E_BASE || '/').replace(/^\/?/, '/').replace(/\/?$/, '/');
-
-const server = createServer(async (req, res) => {
-  const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (!pathname.startsWith(BASE)) {
-    res.writeHead(404);
-    return res.end();
-  }
-  const path = normalize(pathname.slice(BASE.length)).replace(/^\/+/, '');
-  const file = path === '' || path === '.' ? 'index.html' : path;
-  try {
-    const body = await readFile(join(DIST, file));
-    res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' });
-    res.end(body);
-  } catch {
-    res.writeHead(404);
-    res.end();
-  }
-});
-await new Promise((r) => server.listen(0, '127.0.0.1', r));
-const origin = `http://127.0.0.1:${server.address().port}`;
+// E2E_DIST / E2E_BASE: the build and the base path it is served from (CI tests the deployed build and path).
+const srv = await serve();
+const origin = srv.origin;
+const BASE = new URL(srv.url).pathname;
 
 const failures = [];
 const browser = await chromium.launch();
@@ -149,7 +126,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   await page.close();
 }
 await browser.close();
-server.close();
+srv.close();
 
 if (failures.length) {
   console.error('FAIL\n' + failures.join('\n'));
