@@ -440,3 +440,23 @@ reference household; recording always would have cost ≈ 35%).
 
 **Evidence changes**: canonical statuses; `analysis.valuationDate` 2026-11-28; data version 2026-11-28.15.
 **Limits**: VAT liability modelled as the payer's (adviser to confirm); per-event evidence ids are snapshot-level.
+
+## V1.0 — Milestone C: consumer experience (2026-11-28)
+
+**Acceptance**: each of the five goals gives meaningful guidance or an explicit no-fit reason for representative
+profiles — `tests/optimizer/guidance.test.ts`: 5 goals × 5 households (167 m² with 0 / ₪300K / ₪800K, 83.5 m²,
+unknown inputs): a direction or the reasons, ≤ 2 alternatives of other deal families, the goal's measure; the cash goal
+gets a sale-price threshold; passive income is net monthly income after debt service; the goal is never replaced.
+
+| Item | Tests |
+|---|---|
+| C1 offer check | `tests/optimizer/offer.test.ts` (15): empty offer = base terms with ≥ 10 missing terms and questions; tax payers → arrangement (incl. net with ₪0 levy cap); VAT mismatch flagged; licensed area × 14,269 / 11,209 on lot 149; completion factor; schedule complete and = 100%; tax loan funding, rate, cap (draws never above it); expired / other-lot flags; invalid numbers; diff on the common date with delta = offer − base; same route on both sides; Sale Law guarantee → protected loss; option fee → options rankable |
+| C3 goals | `tests/hooks/storage.test.ts` — each of the five saved goals loads unchanged |
+| C4 terms to request | `tests/optimizer/negotiation.test.ts` — coverage, labelled modelled, minimum % judged on the full combination at that % (route margin, not a baseline), within the slider range |
+
+**Before / after**: the 16-row matrix is identical to Milestone B — Milestone C adds guidance, the offer check, the
+negotiation list and presentation; it does not change the ranking.
+**Screens**: summary and advanced view checked at 390 px (no overflow; e2e green).
+**Limits**: the offer check maps taxes onto the three arrangement templates (a per-tax VAT payer is flagged, not
+modelled); completion timing in an offer is not modelled (its price is); the print report is tested in the browser
+in Milestone E.

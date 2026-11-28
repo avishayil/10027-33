@@ -531,3 +531,21 @@ Owner decisions this iteration: the entitlement is the official allocation share
 142. **Print binds to the analysed snapshot** (B5, MH-08). The printed header shows the snapshot id, time, data and
      build versions and the inputs and terms the result was computed from — never the newer inputs being analysed; a
      printout made while recalculating says so. "Forget" removes every key the app stored.
+143. **Summary: one direction and two alternatives** (C2). The simple view shows at most three cards (one per deal
+     family, so the alternatives are materially different), the goal's own measure, the signing / delivery /
+     projection distinction on the direction, and — when nothing fits — what blocks it instead of a forced winner.
+144. **Goal guidance** (C3, `optimizer/guidance.ts`): value (balanced), whole apartments, net monthly income after
+     debt service (passive income), cash by the deadline (cash soon), borrowing (no risk); cash soon and no risk also
+     get the sale price per original m² to ask for. Saved goals are kept as they are (#136).
+145. **Actual-offer check** (C1, `optimizer/offer.ts`). Optional fields; entered terms are used as written, empty ones
+     stay unknown (model scenario) and become questions. Who pays which tax maps onto the arrangement templates (levy on
+     the owner with capital gains on the developer = net with a ₪0 levy cap); a VAT payer the template does not match is
+     flagged. A licensed-area construction price is converted to door-to-door with the lot's areas. The comparison is
+     the same route on the base terms, on the common date, line by line. The offer is session-only.
+146. **Terms to request** (C4, `optimizer/negotiation.ts`): one list with value to the owner, cost to the developer and
+     plausibility from the lot margin with that route; a minimum % only within the approved 25–45% range.
+147. **Prototypes** (C5): the group planner is labelled illustrative and limited; the option card shows protections and
+     questions, and compares options only when an option fee is entered (#137).
+148. **Print report and storage warning** (C6): a print-only report from the analysed snapshot (direction, taxes by
+     payer, dependencies, offer comparison, questions, key assumptions with source dates); the save box warns about
+     shared devices and the limits of browser storage.

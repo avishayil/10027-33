@@ -46,4 +46,10 @@ describe('terms to request', () => {
       expect(tax.developerCost).not.toBeNull();
     }
   });
+  it('never asks for a % outside the approved slider range', () => {
+    for (const p of [profile({ availableCapital: 300_000, maxMonthlyRepayment: 5000 }), profile({ landAreaSqm: 83.5, availableCapital: 300_000, maxMonthlyRepayment: 5000 })]) {
+      const min = run(p).t.items.find((x) => x.id === 'min_pct');
+      if (min) expect(min.value!).toBeLessThanOrEqual(C.commercial.combination.max + 1e-9);
+    }
+  });
 });

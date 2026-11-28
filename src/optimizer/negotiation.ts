@@ -50,7 +50,8 @@ export function termsToRequest(d: DecisionResult, profile: UserProfile, terms: C
 
   // Minimum % for the next whole apartment from the combination alone — judged on that deal (the full combination,
   // S02), at that %, with its own lot margin.
-  const min = d.negotiationTargets.find((t) => t.code === 'MIN_COMBINATION_PCT' && t.value !== null);
+  // Only within the approved combination range (25–45%): beyond it the ask is not a realistic term.
+  const min = d.negotiationTargets.find((t) => t.code === 'MIN_COMBINATION_PCT' && t.value !== null && t.value <= config.commercial.combination.max + 1e-9);
   if (min && min.value !== null) {
     const id = min.strategyId ?? 'S02';
     const s = snapshotsFor(profile, { ...k0, combinationPct: min.value }, config).find((x) => x.routeId === id);

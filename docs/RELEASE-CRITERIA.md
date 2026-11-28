@@ -7,9 +7,9 @@ with evidence (a test, a measurement or a signed record). Status as of the basel
 
 | Milestone | Scope | Exit gate | Status |
 |---|---|---|---|
-| A — Baseline and scope freeze | Pin main; inventory findings; requirements; approved assumptions | Every backlog item mapped to code/test/evidence; no new mandatory questions | this document set |
-| B — Economic correctness | MH-01…09 with independent fixtures | All P0 accounting, feasibility and snapshot tests pass; unsupported advanced claims disabled or conditional | open |
-| C — Consumer experience | MH-10…13: simplified verdict, actual-offer comparison, print | Each of the five goals gives meaningful guidance or an explicit no-fit reason for representative profiles | open |
+| A — Baseline and scope freeze | Pin main; inventory findings; requirements; approved assumptions | Every backlog item mapped to code/test/evidence; no new mandatory questions | done |
+| B — Economic correctness | MH-01…09 with independent fixtures | All P0 accounting, feasibility and snapshot tests pass; unsupported advanced claims disabled or conditional | done (VALIDATION-REPORT) |
+| C — Consumer experience | MH-10…13: simplified verdict, actual-offer comparison, print | Each of the five goals gives meaningful guidance or an explicit no-fit reason for representative profiles | done (`guidance.test.ts`) |
 | D — Evidence and professional review | Area definitions, offers when available, tax and legal treatment | Signed validation record with unresolved data disclosed; no unqualified commercial recommendation | open (sign-off is external) |
 | E — Release hardening | Browser, performance, privacy, accessibility, docs | CI and production acceptance pass; V1.0 report and open limitations published | open |
 
@@ -18,10 +18,11 @@ with evidence (a test, a measurement or a signed record). Status as of the basel
 - [ ] Financial conservation and all applicable shared fixtures pass; independent reference calculations agree within
       documented precision. *(Most pass — ECONOMIC-CONTRACT §3; four partial.)*
 - [ ] No unsupported cash, inventory, tax financing or refinancing; every modelled gap and conditional dependency visible.
-- [ ] Consumer outputs explain entitlement, recommendation, capital/taxes/financing, delivery consideration, negotiation
-      and risk.
+- [x] Consumer outputs explain entitlement, recommendation, capital/taxes/financing, delivery consideration, negotiation
+      and risk. *(Milestone C: summary, guidance, terms to request, protections, print report.)*
 - [ ] Actual-offer comparison keeps the entered terms, date and missing facts; print is tied to the exact snapshot.
-- [ ] All five goals, zero/unknown values, three lots and slider extremes tested; the cash goal never silently changed.
+- [x] All five goals, zero/unknown values, three lots and slider extremes tested; the cash goal never silently changed.
+      *(`guidance.test.ts`, matrix, `storage.test.ts`.)*
 - [ ] Evidence registry traces every material assumption; no hypothetical price treated as an observed deal; allocation
       levy proxy vs legal levy clearly distinguished.
 - [ ] Appraiser, tax adviser and real-estate lawyer have reviewed representative fixtures. Until then, no claim of
