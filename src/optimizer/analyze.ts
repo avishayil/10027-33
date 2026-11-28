@@ -23,6 +23,7 @@ import { validateInputs } from '../domain/validation';
 import { approvalMonthOf } from '../domain/transactions';
 import { levyPerRight, netMonthlyRentPerApartment, taxLoanRate } from '../domain/taxation';
 import type {
+  EvidenceScope,
   Candidate,
   ArrangementOutcome,
   CommercialCertainty,
@@ -79,14 +80,33 @@ function resilienceOf(base: Evaluation, adverseFeasible: boolean, adverse: Evalu
   return Math.max(0, Math.min(1, adverse.comparisonValue / base.comparisonValue));
 }
 
+/** Whether a confirmed term applies to this lot on this date (no scope = everywhere, always). */
+export function inScope(scope: EvidenceScope | undefined, lotId: string | undefined, date: string): boolean {
+  if (!scope) return true;
+  if (scope.lotIds?.length && (!lotId || !scope.lotIds.includes(lotId))) return false;
+  if (scope.validFrom && date < scope.validFrom) return false;
+  if (scope.validUntil && date > scope.validUntil) return false;
+  return true;
+}
+
 /**
  * Which unverified price or term a candidate's outcome hinges on. Such candidates never decide the main verdict
  * (no current market valuation, developer offer, post-approval price, revenue-share % or buy-back price is known);
  * instead the engine reports the price they would need.
  */
-export function priceDependencyOf(candidate: Candidate, plan: { fractionSettled: { mode: string } | null }, config?: ProjectConfig): PriceKnob | null {
-  // A term backed by a confirmed offer or an observation is evaluated as a fact; anything else stays conditional.
-  const known = (k: PriceKnob) => !!config && (config.evidence[k].status === 'confirmed_offer' || config.evidence[k].status === 'observed');
+export function priceDependencyOf(
+  candidate: Candidate,
+  plan: { fractionSettled: { mode: string } | null },
+  config?: ProjectConfig,
+  lotId?: string,
+): PriceKnob | null {
+  // A term backed by a confirmed offer or a verified fact is evaluated as a fact — but only within its scope (the lots
+  // it was offered for, valid on the comparison date); anything else stays conditional.
+  const known = (k: PriceKnob) => {
+    if (!config) return false;
+    const e = config.evidence[k];
+    return (e.status === 'confirmed_offer' || e.status === 'verified_fact') && inScope(e.scope, lotId, config.analysis.valuationDate);
+  };
   for (const leg of candidate.legs) {
     let k: PriceKnob | null = null;
     if (leg.kind === 'sell_rights' && leg.market === 'developer') k = 'developer_price';
@@ -242,7 +262,7 @@ export function buildResult(
     comparisonValue: base.comparisonValue,
     developerLot,
     levy,
-    priceDependency: priceDependencyOf(candidate, plan, config),
+    priceDependency: priceDependencyOf(candidate, plan, config, ctx.info.lotId),
     netCashAtDelivery: sim.cashAtCompletion - sim.referenceAtCompletion,
     feasibility,
     assessment,

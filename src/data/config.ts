@@ -9,7 +9,9 @@ import { FINANCING, MARKET } from './market';
 import { DEFAULT_LOT_ID, PLANNING_VERSION, PROJECT, TARGET_LOT_IDS } from './project';
 import { REGULATION } from './regulation';
 
-export const CONFIG_VERSION = '2026-11-28.14';
+export const CONFIG_VERSION = '2026-11-28.15';
+/** The common comparison date: prices are today's prices as of this date; offers are checked for validity on it. */
+export const VALUATION_DATE = '2026-11-28';
 
 export const PROJECT_CONFIG: ProjectConfig = {
   version: CONFIG_VERSION,
@@ -31,12 +33,12 @@ export const PROJECT_CONFIG: ProjectConfig = {
     schedule: PAYMENT_SCHEDULE,
   },
   evidence: {
-    developer_price: { status: 'hypothetical', source: 'תרחיש ₪6,900 למ״ר — אין הצעה' },
-    post_approval_price: { status: 'hypothetical', source: 'אין עסקה אחרי אישור' },
+    developer_price: { status: 'scenario', source: 'תרחיש ₪6,900 למ״ר — אין הצעה' },
+    post_approval_price: { status: 'scenario', source: 'אין עסקה אחרי אישור' },
     immediate_price: { status: 'unknown', source: 'אין שומה עדכנית לחלקה' },
-    revenue_share: { status: 'hypothetical', source: 'אין הצעת תמורות' },
-    buyback_factor: { status: 'assumed', source: 'הנחה: 80% משווי שוק' },
-    complementary_price: { status: 'hypothetical', source: 'אין מחיר מוסכם בין בעלים' },
+    revenue_share: { status: 'scenario', source: 'אין הצעת תמורות' },
+    buyback_factor: { status: 'assumption', source: 'הנחה: 80% משווי שוק' },
+    complementary_price: { status: 'scenario', source: 'אין מחיר מוסכם בין בעלים' },
   },
   timeline: {
     approvalMonths: COMMERCIAL.approvalMonths.value,
@@ -136,6 +138,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     liquidityDeadlineYears: 2,
     discountRate: FINANCING.realDiscountRate.value,
     inflation: FINANCING.inflation.value,
+    valuationDate: VALUATION_DATE,
   },
   projection: { apartmentValueAnnualGrowth: 0.02, alternativeNetAnnualReturn: 0.04 },
   publicConstruction: {

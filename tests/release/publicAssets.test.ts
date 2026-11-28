@@ -8,6 +8,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { validIsraeliId } from '../fixtures/privacy';
 
 const REVIEWED: Record<string, string> = {
   'maps/proposed-1.pdf': 'fceff21d22ad625360682e1ee71f31e2f69efb340741598f02e873261c2c0ab1',
@@ -16,16 +17,6 @@ const REVIEWED: Record<string, string> = {
 const ROOT = new URL('../../public/', import.meta.url).pathname;
 const walk = (dir: string): string[] => readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : [join(dir, f)]));
 const files = walk(ROOT).map((f) => f.slice(ROOT.length));
-
-/** Israeli ID check digit (Luhn variant). */
-export function validIsraeliId(s: string): boolean {
-  let t = 0;
-  for (let i = 0; i < 9; i += 1) {
-    const d = Number(s[i]) * (i % 2 === 0 ? 1 : 2);
-    t += d > 9 ? d - 9 : d;
-  }
-  return t % 10 === 0;
-}
 
 describe('public assets', () => {
   it('the ID check digit is computed correctly', () => {

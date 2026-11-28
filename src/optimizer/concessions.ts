@@ -221,7 +221,7 @@ export function explainFeasibility(profile: UserProfile, k0: ContractTerms, base
     'OUTSIDE_OPTION_UNKNOWN',
     'DEVELOPER_HURDLE_ASSUMED',
     ...Object.entries(base.evidence)
-      .filter(([, v]) => v.status === 'hypothetical' || v.status === 'unknown')
+      .filter(([, v]) => v.status === 'scenario' || v.status === 'unknown')
       .map(([k]) => k),
   ];
   return {

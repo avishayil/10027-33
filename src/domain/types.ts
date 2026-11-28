@@ -281,6 +281,8 @@ export interface ProjectConfig {
     discountRate: number;
     /** Inflation used to deflate nominal flows (indexed construction payments, loans) to today's prices. */
     inflation: number;
+    /** The common comparison date (ISO): "today" of the prices, and the date an offer's validity is checked on. */
+    valuationDate: string;
   };
   /** Illustrative long-term projection only (never used for the primary verdict). */
   projection: { apartmentValueAnnualGrowth: number; alternativeNetAnnualReturn: number };
@@ -1058,10 +1060,18 @@ export interface DeveloperPnL {
 }
 
 /** How a price or term is known (iteration 10 / review D7): only a confirmed offer or an observation is evaluated as fact. */
-export type EvidenceStatus = 'observed' | 'appraisal' | 'confirmed_offer' | 'assumed' | 'hypothetical' | 'unknown';
+export type EvidenceStatus = 'verified_fact' | 'reported' | 'appraisal_reference' | 'confirmed_offer' | 'assumption' | 'scenario' | 'unknown';
+/** Where a confirmed term applies (MH-09): the lots it was offered for and its validity window (ISO dates). */
+export interface EvidenceScope {
+  lotIds?: string[];
+  validFrom?: string;
+  validUntil?: string;
+}
 export interface EvidenceRef {
   status: EvidenceStatus;
   source: string;
+  /** Only for confirmed terms: where and when they apply. Outside it the term is unverified again. */
+  scope?: EvidenceScope;
 }
 
 export type PriceKnob =
