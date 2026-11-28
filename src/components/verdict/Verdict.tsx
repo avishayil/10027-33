@@ -14,6 +14,7 @@ import {
   formatRights,
   strategyTitle,
 } from '../../optimizer/explain';
+import { DeliveryBridge, GoalCompare, RightsFlow, TaxesByPayer } from '../charts/outputs';
 import { formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
 
 const pctHalf = (x: number) => `${formatNumber(Math.round(x * 200) / 2, 1)}%`;
@@ -160,6 +161,22 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
             </ul>
           </div>
         )}
+        {(result.conditionalRecommendation?.result ?? result.nearMiss[0]?.result) && (
+          <div className="verdict-visuals">
+            <RightsFlow r={(result.conditionalRecommendation?.result ?? result.nearMiss[0]?.result)!} entitlement={R} />
+            <DeliveryBridge r={(result.conditionalRecommendation?.result ?? result.nearMiss[0]?.result)!} />
+            <TaxesByPayer r={(result.conditionalRecommendation?.result ?? result.nearMiss[0]?.result)!} />
+          </div>
+        )}
+        {result.nearMiss.length > 1 && (
+          <GoalCompare
+            label="הון עצמי נוסף שחסר (פחות = קרוב יותר)"
+            lowerIsBetter
+            items={result.nearMiss
+              .filter((n) => n.additionalCapital !== null)
+              .map((n, i) => ({ id: n.result.id, title: strategyTitle(n.result), value: n.additionalCapital!, text: formatCompactCurrency(n.additionalCapital!), first: i === 0 }))}
+          />
+        )}
         <LevyCard result={result} r={result.conditionalRecommendation?.result ?? null} />
         <ArrangementTree result={result} />
         <p className="verdict-note">מכירה ומסלולים שתלויים במחיר שעוד לא ידוע — ראו ״מסלולים שתלויים במחיר״ למטה.</p>
@@ -299,6 +316,12 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
         )}
       </dl>
 
+      <div className="verdict-visuals">
+        <RightsFlow r={rec} entitlement={result.rights.apartmentEquivalents} />
+        <DeliveryBridge r={rec} />
+        <TaxesByPayer r={rec} />
+      </div>
+
       <div className="verdict-cols">
         <div>
           <h3>למה כדאי לבדוק את המסלול?</h3>
@@ -351,6 +374,15 @@ export function Alternatives({ result }: { result: DecisionResult }) {
   return (
     <section className="alternatives">
       <h2 className="section-title">חלופות שכדאי להכיר</h2>
+      {result.recommendation && (
+        <div className="card">
+          <GoalCompare
+            label="מצב נטו במסירה (מחירי היום)"
+            sub="ההמלצה מודגשת — הדירוג שוקל גם סיכון, מימון ומה שחשוב לכם, לא רק את המספר הזה"
+            items={[result.recommendation, ...result.alternatives].map((r, i) => ({ id: r.id, title: strategyTitle(r), value: r.delivery.netPosition, text: formatCompactCurrency(r.delivery.netPosition), first: i === 0 }))}
+          />
+        </div>
+      )}
       <div className="alt-grid">
         {result.alternatives.map((r) => (
           <article key={r.id} className="card alt-card">
@@ -371,6 +403,7 @@ export function Alternatives({ result }: { result: DecisionResult }) {
                 <dd>{formatCurrency(r.delivery.netPosition)}</dd>
               </div>
             </dl>
+            <RightsFlow r={r} entitlement={result.rights.apartmentEquivalents} tall={false} title="לאן הולכות הזכויות" />
             {r.reasonCodes.includes('FRACTIONAL_UNIT') && <p className="muted">{REASON_TEXT.FRACTIONAL_UNIT}</p>}
           </article>
         ))}

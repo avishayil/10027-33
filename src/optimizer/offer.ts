@@ -11,7 +11,7 @@
 import { getLot } from '../data/parcel33';
 import { ARRANGEMENT_PAYERS } from '../domain/arrangements';
 import type { CommercialTerms, LedgerEntry, PaymentMilestone, ProjectConfig, TaxArrangement, UserProfile } from '../domain/types';
-import { contractConfig, snapshotsFor, type ContractFunding, type ContractSnapshot, type ContractTerms } from './contract';
+import { contractConfig, needsInventory, snapshotsFor, type ContractFunding, type ContractSnapshot, type ContractTerms } from './contract';
 
 export type Side = 'owner' | 'developer';
 
@@ -302,7 +302,11 @@ export function checkOffer(profile: UserProfile, base: ProjectConfig, current: C
     funding: terms.k.funding,
   };
   const baseSnaps = snapshotsFor(profile, kBase, base);
-  const pick = (xs: ContractSnapshot[]) => [...xs].filter((s) => s.owner.accepts).sort((a, b) => b.owner.value - a.owner.value)[0] ?? [...xs].sort((a, b) => b.owner.value - a.owner.value)[0] ?? null;
+  // The owner's best acceptable route; if none, the best route that needs no unknown price and no unconfirmed
+  // inventory (a scenario price must never pick "the offer's route"); only then any route.
+  const byValue = (xs: ContractSnapshot[]) => [...xs].sort((a, b) => b.owner.value - a.owner.value)[0] ?? null;
+  const pick = (xs: ContractSnapshot[]) =>
+    byValue(xs.filter((s) => s.owner.accepts)) ?? byValue(xs.filter((s) => !s.result.priceDependency && !needsInventory(s.route))) ?? byValue(xs);
   const offerRoute = pick(offerSnaps);
   const baseRoute = offerRoute ? (baseSnaps.find((s) => s.routeId === offerRoute.routeId) ?? null) : null;
   const failure = (s: ContractSnapshot | null, guaranteed: boolean) => (s ? (guaranteed ? s.result.developerFailure.protected : s.result.developerFailure.unprotected) : null);

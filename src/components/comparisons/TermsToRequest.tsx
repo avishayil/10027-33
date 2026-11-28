@@ -4,6 +4,7 @@ import type { CommercialTerms, DecisionResult, ProjectConfig, UserProfile } from
 import { strategyTitle } from '../../optimizer/explain';
 import { termsToRequest, requestRoute } from '../../optimizer/negotiation';
 import { formatCompactCurrency } from '../../utils/format';
+import { GainVsCost, requestRows } from '../charts/outputs';
 
 const PLAUSIBLE: Record<string, { label: string; cls: string }> = {
   plausible: { label: 'סביר ליזם לפי המודל', cls: 'status-estimated_feasible' },
@@ -19,6 +20,7 @@ export function TermsToRequestCard({ result, profile, terms, config }: { result:
     <section className="card detail-section" aria-labelledby="ask-title">
       <h2 id="ask-title">מה לבקש — ומה זה עולה ליזם</h2>
       <p className="card-sub">למסלול {strategyTitle(route)}. {t.note}</p>
+      <GainVsCost rows={requestRows(t.items)} />
       <div className="table-scroll">
         <table className="compare-table">
           <thead>

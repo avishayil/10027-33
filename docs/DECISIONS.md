@@ -560,3 +560,16 @@ Owner decisions this iteration: the entitlement is the official allocation share
      wizard, summary and advanced view (the dimmed, aria-busy recalculating state is transient); the muted text colour
      darkened for 4.5:1. Timings at 4× CPU slowdown are checked against budgets (fail only beyond 3×, so CI noise does
      not block); no Web Worker needed.
+152. **Every output is visual** (rc.2). A small chart kit (`src/components/charts`) — no library, inline SVG/HTML, CSP
+     unchanged — following the data-viz rules: thin marks, one baseline, fixed label/value columns so bars share one
+     scale, hairline axes, a legend for ≥ 2 series, text never in the series colour, tooltips on hover and keyboard
+     focus that only enhance (each chart sits beside the table with the same numbers), right-to-left bars, time left
+     to right. Colours: the validated reference categorical order (owner blue, developer orange, third aqua; ≥ 4.5:1
+     inside-label ink chosen by contrast); green / red only for better / worse, always with ▲/▼ and a word.
+153. **All land rights accounted for on every route** (`domain/rightsAllocation.ts`): entitlement + rights bought =
+     combination + sold to the developer + sold on the open market (now / after approval) + built + revenue share +
+     kept as land, exactly (tested on fixed holdings on both bases and by a property test). Shown on every route card,
+     the recommendation, the alternatives, every row of the route table, the offer check and the printout. Selling
+     rights to other owners in the lot is not modelled as a route (only buying from them) — an open product question.
+154. **The offer's route** (offer check): the owner's best acceptable route; if none, the best route that needs no
+     unknown price and no unconfirmed inventory — never a price-dependent route because its scenario value is highest.

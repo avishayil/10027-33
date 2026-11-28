@@ -9,6 +9,8 @@ import type { CommercialTerms, ProjectConfig, UserProfile } from '../../domain/t
 import { strategyTitle } from '../../optimizer/explain';
 import { checkOffer, type ActualOffer, type Side } from '../../optimizer/offer';
 import { formatCurrency, formatNumber } from '../../utils/format';
+import { OfferDelta, RightsFlow } from '../charts/outputs';
+import { calculateRights } from '../../domain/rights';
 
 type Props = { offer: ActualOffer; onChange: (o: ActualOffer) => void; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig };
 
@@ -167,6 +169,8 @@ export function OfferCheck({ offer: o, onChange, profile, terms, config }: Props
               ))}
             </ul>
           )}
+          <OfferDelta diff={res.diff} />
+          <RightsFlow r={res.offerRoute.result} entitlement={calculateRights(profile.landAreaSqm, res.terms.config, profile.lotId).apartmentEquivalents} title="לאן הולכות הזכויות לפי ההצעה" />
           <div className="table-scroll">
             <table className="compare-table">
               <thead>

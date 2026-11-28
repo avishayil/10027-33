@@ -8,6 +8,7 @@ import { concessionFrontier, explainFeasibility, type BindingKind } from '../../
 import type { ContractTerms } from '../../optimizer/contract';
 import { strategyTitle } from '../../optimizer/explain';
 import { formatCompactCurrency, formatNumber } from '../../utils/format';
+import { concessionRows, GainVsCost } from '../charts/outputs';
 
 const BINDING: Record<BindingKind, string> = {
   financing_gap: 'פער מימון — אין מספיק כסף או יכולת החזר לתשלומים שבמסלול',
@@ -50,6 +51,7 @@ export function ConcessionsCard({ route, profile, terms, config }: { route: Stra
         למסלול {strategyTitle(route)}: כל ויתור מחושב מחדש לשני הצדדים על אותו מסלול — הרווח לכם (ערך נוכחי, מחירי היום) מול
         העלות ליזם (ערך נוכחי של תזרים ההון שלו במגרש, באותה ריבית היוון). ״יעילות״ = כמה אתם מרוויחים על כל שקל שזה עולה ליזם.
       </p>
+      <GainVsCost rows={concessionRows(f.rows)} />
       <div className="table-scroll">
         <table className="compare-table">
           <thead>

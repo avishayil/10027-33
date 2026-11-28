@@ -14,6 +14,7 @@ import { goalGuidance } from '../../optimizer/guidance';
 import { termsToRequest } from '../../optimizer/negotiation';
 import { checkOffer, type ActualOffer } from '../../optimizer/offer';
 import { formatCompactCurrency, formatCurrency } from '../../utils/format';
+import { DeliveryBridge, RightsFlow } from '../charts/outputs';
 
 const TAXES: [string, string][] = [
   ['betterment_levy', 'היטל השבחה'],
@@ -62,6 +63,8 @@ export function PrintReport({ analysis, offer }: { analysis: AnalysisSnapshot; o
       {g.saleThreshold !== null && <p>מכירה: לבקש לפחות {formatCurrency(g.saleThreshold)} למ״ר קרקע (שווי מכירה עדכני לא ידוע).</p>}
       {r && (
         <>
+          <RightsFlow r={r} entitlement={result.rights.apartmentEquivalents} />
+          <DeliveryBridge r={r} />
           <h3>מסים ומי משלם ({strategyTitle(r)})</h3>
           <table className="kv-table">
             <tbody>

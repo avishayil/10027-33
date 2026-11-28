@@ -33,6 +33,7 @@ UserProfile + CommercialTerms ─▶ analyzeProfile()  (src/optimizer/analyze.ts
 | `src/hooks/useDecisionEngine.ts` | UI state (optionally hydrated from saved answers); runs `analyzeProfile` on a debounced, deferred render and returns the result together with the exact inputs it was computed from (`analysis`), so cards that re-run parts of it never mix old results with new inputs. |
 | `src/hooks/storage.ts` | Validated, consent-based localStorage persistence of the answers. |
 | `src/components/inputs/` | `Wizard.tsx` (first-run onboarding, also used to edit), `fields.tsx` (shared inputs), `AnswersBar.tsx` (answers summary + live developer-terms card). |
+| `src/components/charts/` | V1 chart kit (`Charts.tsx`: figure + shared tooltip, bars, segmented bar, meter, waterfall, paired bars, range axis, dot range, line) and the per-output visuals (`outputs.tsx`). |
 | `src/components/` | `inputs/`, `verdict/`, `comparisons/` (incl. the on-demand JointSearch, GroupPlanner, ContingentCard, ConcessionsCard), `assumptions/`, `print/`. The original four-track simulator was removed (DECISIONS #118). |
 | `src/utils/simulationMath.js` | Table-rights math (`computeTableRights`) and the legacy calculator kept only as a regression fixture. |
 

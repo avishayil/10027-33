@@ -3,6 +3,9 @@ import { PROJECT_CONFIG } from '../../data/config';
 import { getLot } from '../../data/parcel33';
 import { SCENARIO_LABELS } from '../../data/scenarios';
 import type { DecisionResult, Goal, LedgerEntry, NegotiationTarget, StrategyResult } from '../../domain/types';
+import { DESTINATION_LABELS, rightsAllocation, type RightsDestination } from '../../domain/rightsAllocation';
+import { SegmentedBar } from '../charts/Charts';
+import { CashDebtLine, DEST_COLORS, DeveloperBridge, EntitlementBars, LandBars, MoneySources, PriceNeeded, ProjectionBridge, RightsFlow, ScenarioDots, TaxesByPayer } from '../charts/outputs';
 import {
   CONDITION_TEXT,
   NEGOTIATION_LABELS,
@@ -86,6 +89,7 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
   const rows = [...result.results].sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
   return (
     <Section title="השוואת מסלולים" sub={`${result.results.length} מסלולים נבדקו אוטומטית`}>
+      <RightsLegend results={result.results} entitlement={result.rights.apartmentEquivalents} />
       <div className="table-scroll">
         <table className="compare-table strategy-table stack-on-mobile">
           <thead>
@@ -93,7 +97,7 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
               <th>מסלול</th>
               <th>יכולת · עמידות · יזם</th>
               <th>דירות שלמות</th>
-              <th>זכויות שנמכרות</th>
+              <th>לאן הולכות הזכויות</th>
               <th>משכנתא</th>
               <th>החזר חודשי</th>
               <th>כסף נטו תוך שנתיים</th>
@@ -113,7 +117,9 @@ export function StrategyComparison({ result }: { result: DecisionResult }) {
                   <AssessmentChips r={r} compact />
                 </td>
                 <td data-label="דירות שלמות">{r.metrics.wholeApartments}</td>
-                <td data-label="זכויות שנמכרות">{formatRights(r.rightsSold)}</td>
+                <td data-label="לאן הולכות הזכויות">
+                  <RightsCell r={r} entitlement={result.rights.apartmentEquivalents} />
+                </td>
                 <td data-label="משכנתא">{r.mortgageRequired > 1 ? formatCurrency(r.mortgageRequired) : '—'}</td>
                 <td data-label="החזר חודשי">{r.monthlyRepayment > 1 ? formatCurrency(r.monthlyRepayment) : '—'}</td>
                 <td data-label="כסף נטו תוך שנתיים">{formatCurrency(r.metrics.liquidity)}</td>
@@ -192,6 +198,7 @@ export function AllocationTable({ result }: { result: DecisionResult }) {
           ))}
         </tbody>
       </table>
+      <EntitlementBars official={info.apartmentEquivalents} simulated={simulated} />
       <p className="field-hint">
         החישוב משתמש בחלקכם הרשמי בשטח המגורים ({formatNumber(info.apartmentEquivalents, 2)} שוות-ערך לדירת 100 מ״ר). בסימולציה המקובלת (
         {formatNumber(PROJECT_CONFIG.rights.apartmentEquivalents, 2)} לכל {PROJECT_CONFIG.rights.originalAreaSqm} מ״ר) יוצא {formatNumber(simulated, 2)} — הפרש של{' '}
@@ -225,6 +232,8 @@ export function CostLedger({ result, initial }: { result: DecisionResult; initia
           ))}
         </select>
       </div>
+      <RightsFlow r={r} entitlement={result.rights.apartmentEquivalents} />
+      <TaxesByPayer r={r} />
       <div className="table-scroll">
         <table className="kv-table ledger-table">
           <tbody>
@@ -262,6 +271,8 @@ export function Financing({ result, r }: { result: DecisionResult; r: StrategyRe
   const s = r.simulation;
   return (
     <Section title="מימון ומשכנתא" sub="מקורות, החזרים ותזרים לאורך הזמן">
+      <MoneySources r={r} />
+      <CashDebtLine r={r} />
       <table className="kv-table">
         <tbody>
           <tr>
@@ -388,6 +399,14 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
   };
   return (
     <Section title="מה אם המחירים ישתנו?" sub="שלושה תרחישים קבועים מראש">
+      <ScenarioDots
+        rows={rows.map((r) => ({
+          id: r.id,
+          title: strategyTitle(r),
+          emphasis: r.id === result.recommendation?.id,
+          values: (['favorable', 'base', 'adverse'] as const).map((sid) => r.scenarioResults.find((x) => x.scenarioId === sid)?.comparisonValue ?? null),
+        }))}
+      />
       <ul className="scenario-recs">
         {(['favorable', 'base', 'adverse'] as const).map((id) => (
           <li key={id}>
@@ -581,6 +600,7 @@ export function DeveloperPanel({ result, combinationPct }: { result: DecisionRes
   const R = result.rights.apartmentEquivalents;
   return (
     <Section title="היתכנות העסקה מול היזם" sub="מדיניות שירותי בנייה במגרש, והאם התנאים הגיוניים מבחינת היזם">
+      {(result.recommendation ?? result.ranked[0]) && <DeveloperBridge r={(result.recommendation ?? result.ranked[0])!} />}
       <h3>שירותי בנייה במגרש {lp.lotId}</h3>
       <div className={`callout ${lp.servicesOffered ? '' : 'callout-strong'}`}>
         {lp.servicesOffered ? (
@@ -961,6 +981,16 @@ export function PriceConditionalRoutes({ result }: { result: DecisionResult }) {
         למה שתמכרו, המקסימלי למה שתקנו)
         {against ? <> שבו המסלול מתאים ליכולת שלכם ושווה לפחות כמו <strong>{against}</strong>.</> : ' שבו המסלול מתאים ליכולת שלכם (אין מסלול מבוסס-ראיות להשוות אליו).'}
       </p>
+      <PriceNeeded
+        rows={result.priceConditional.map(({ result: r, threshold: t }) => ({
+          id: r.id,
+          label: strategyTitle(r),
+          required: t.required,
+          scenario: t.scenarioValue,
+          perSqm: t.knob === 'developer_price' || t.knob === 'post_approval_price' || t.knob === 'immediate_price' || t.knob === 'complementary_price',
+          direction: t.direction,
+        }))}
+      />
       <div className="table-scroll">
         <table className="kv-table">
           <tbody>
@@ -996,6 +1026,7 @@ const LEVEL_LABELS = { observedTransaction: 'עסקה מדווחת', planningApp
 export function LandReferences({ result }: { result: DecisionResult }) {
   return (
     <Section title="השוואת שווי הקרקע" sub={`${formatArea(result.rights.landAreaSqm)} מ״ר בחלקה 33 — מה ידוע ומה לא`}>
+      <LandBars result={result} />
       <div className="table-scroll">
         <table className="kv-table">
           <tbody>
@@ -1036,6 +1067,7 @@ export function ProjectionSection({ result }: { result: DecisionResult }) {
   ];
   return (
     <Section title="תחזית כלכלית ארוכת טווח" sub={`המחשה בלבד — ${p.years} שנים, ${formatNumber(p.apartmentGrowth * 100, 0)}% עליית ערך, ${formatNumber(p.alternativeReturn * 100, 0)}% תשואה, בשקלים של שנת היעד`}>
+      <ProjectionBridge result={result} />
       <p className="field-hint">
         זו לא תחזית ולא סכום שתקבלו. ההנחות (עליית ערך דירות, תשואה על כסף) הן תרחיש. הדירות מוערכות לפי שווי שוק
         ולא לפי מכירה בפועל (בלי מס ועלויות מכירה).
@@ -1072,4 +1104,41 @@ function noApprovalParts(n: StrategyResult['noApproval']): string[] {
     part(n.assetsKept, 'זכויות שנקנו — נשארות שלכם, שווי מכירה לא ידוע'),
     part(n.reserves, 'רזרבה שהפרשתם — נשארת אצלכם'),
   ].filter((x): x is string => x !== null);
+}
+
+/** One thin bar per route row: where its rights go (the table's legend is shown once above it). */
+function RightsCell({ r, entitlement }: { r: StrategyResult; entitlement: number }) {
+  const a = rightsAllocation(r, entitlement);
+  return (
+    <span className="rights-cell">
+      <SegmentedBar legend={false} parts={a.parts.map((p) => ({ key: p.kind, label: p.label, value: p.rights, color: DEST_COLORS[p.kind], text: `${formatNumber(p.rights, 2)} זכויות` }))} />
+      <span className="sub">{a.parts.map((p) => `${SHORT_DEST[p.kind]} ${formatNumber(p.rights, 2)}`).join(' · ')}</span>
+    </span>
+  );
+}
+
+const SHORT_DEST: Record<RightsDestination, string> = {
+  combination: 'קומבינציה',
+  sold_developer: 'מכירה ליזם',
+  sold_open_market: 'מכירה בשוק',
+  sold_after_approval: 'מכירה אחרי אישור',
+  built: 'שירותי בנייה',
+  revenue_share: 'תמורות',
+  held: 'נשאר קרקע',
+};
+
+function RightsLegend({ results, entitlement }: { results: StrategyResult[]; entitlement: number }) {
+  const used = new Set(results.flatMap((r) => rightsAllocation(r, entitlement).parts.map((p) => p.kind)));
+  return (
+    <ul className="viz-legend" aria-label="מקרא: לאן הולכות הזכויות">
+      {(Object.keys(DEST_COLORS) as RightsDestination[])
+        .filter((k) => used.has(k))
+        .map((k) => (
+          <li key={k}>
+            <span className="viz-key" style={{ background: DEST_COLORS[k] }} aria-hidden="true" />
+            {DESTINATION_LABELS[k]}
+          </li>
+        ))}
+    </ul>
+  );
 }

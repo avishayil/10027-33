@@ -89,6 +89,10 @@ const badNumbers = async (where) => {
   if (bad.length) failures.push(`numbers (${where}): ${[...new Set(bad)].slice(0, 5).join(' | ')}`);
 };
 await badNumbers('summary');
+// Every route card shows where all its rights go.
+const cards = await page.locator('.priority-card').count();
+const withRights = await page.locator('.priority-card figure.viz[aria-label="לאן הולכות הזכויות"]').count();
+if (cards === 0 || withRights !== cards) failures.push(`rights chart on ${withRights} of ${cards} route cards`);
 
 // Advanced view, offer check: nothing sent, nothing stored.
 await page.getByRole('switch', { name: /תצוגה מתקדמת/ }).check();
@@ -97,10 +101,14 @@ await page.waitForFunction(() => !document.querySelector('.results-updating'), n
 await axe('advanced view');
 await page.evaluate(() => document.querySelectorAll('details').forEach((d) => (d.open = true)));
 await badNumbers('advanced view');
+const figures = await page.locator('figure.viz').count();
+if (figures < 15) failures.push(`advanced view shows only ${figures} charts`);
+const overflowing = await page.evaluate(() => [...document.querySelectorAll('figure.viz')].filter((f) => f.scrollWidth - f.clientWidth > 1).map((f) => f.getAttribute('aria-label')));
+if (overflowing.length) failures.push(`charts overflow: ${overflowing.join(', ')}`);
 const before = requests.length;
 const offer = page.locator('section[aria-labelledby="offer-title"]');
 await offer.getByLabel('אחוז קומבינציה (%)').fill('41.5');
-await offer.getByText('לפי ההצעה').waitFor({ timeout: 15_000 });
+await offer.getByRole('columnheader', { name: 'לפי ההצעה' }).waitFor({ timeout: 15_000 });
 await page.waitForTimeout(300);
 if (requests.length > before) failures.push(`offer check triggered requests: ${requests.slice(before).join(', ')}`);
 const stored = await page.evaluate(() => Object.keys(localStorage).map((k) => `${k}=${localStorage.getItem(k)}`).join('\n'));
@@ -150,7 +158,7 @@ timings.jointSearchMs = Date.now() - t1;
 const t2 = Date.now();
 await offer.getByLabel('אחוז קומבינציה (%)').fill('42');
 await page.waitForTimeout(50);
-await offer.getByText('לפי ההצעה').waitFor({ timeout: 30_000 });
+await offer.getByRole('columnheader', { name: 'לפי ההצעה' }).waitFor({ timeout: 30_000 });
 timings.offerCheckMs = Date.now() - t2;
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 const BUDGET = { inputPaintMs: 100, recalculationMs: 1250, jointSearchMs: 3000, offerCheckMs: 1000 };
@@ -173,4 +181,4 @@ if (failures.length) {
   console.error('FAIL\n' + failures.join('\n'));
   process.exit(1);
 }
-console.log('release/e2e: OK — keyboard, RTL, accessibility, print, stale print, offer privacy, reset, performance');
+console.log('release/e2e: OK — keyboard, RTL, accessibility, charts, print, stale print, offer privacy, reset, performance');

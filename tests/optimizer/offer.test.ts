@@ -103,4 +103,12 @@ describe('offer check', () => {
     expect(checkOffer(P, C, TERMS, EMPTY_OFFER).optionTermsKnown).toBe(false);
     expect(checkOffer(P, C, TERMS, offer({ option: { exerciseAtApproval: true, fee: 20_000 } })).optionTermsKnown).toBe(true);
   });
+  it('when no route is acceptable, the offer’s route is never one that hinges on an unknown price', () => {
+    for (const p of [profile({ availableCapital: 0, maxMonthlyRepayment: 0 }), profile({ availableCapital: 800_000, maxMonthlyRepayment: 8000 })]) {
+      // Gross terms at 40%: nothing is fundable for these households, so the fallback choice is exercised.
+      const c = checkOffer(p, { ...C, commercial: { ...C.commercial, taxArrangement: 'gross' } }, TERMS, offer({ combinationPct: 0.4 }));
+      if (!c.offerRoute) continue;
+      if (!c.offerRoute.owner.accepts && c.offerSnapshots.some((s) => !s.result.priceDependency)) expect(c.offerRoute.result.priceDependency).toBeNull();
+    }
+  });
 });

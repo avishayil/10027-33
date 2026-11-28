@@ -10,6 +10,7 @@ import type { CommercialTerms, TaxArrangement, UserProfile } from '../../domain/
 import { fingerprint, type ContractFunding } from '../../optimizer/contract';
 import { jointSearch, type JointPair, type JointResult } from '../../optimizer/joint/search';
 import { formatCompactCurrency, formatCurrency, formatNumber } from '../../utils/format';
+import { JointRanges } from '../charts/outputs';
 
 const ARR_LABELS: Record<TaxArrangement, string> = {
   gross: 'עסקת ברוטו (אתם משלמים מס שבח והיטל)',
@@ -98,6 +99,7 @@ export function JointSearch({ profile, terms, offer }: { profile: UserProfile; t
               <strong>לא נמצאו בבדיקה תנאים שמתאימים לשניכם.</strong> מה היה צריך להשתנות — לכל הסדר מס:
             </div>
           )}
+          <JointRanges res={res} labels={ARR_LABELS} current={terms.combinationPct} />
           <div className="table-scroll">
             <table className="compare-table">
               <thead>

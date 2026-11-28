@@ -11,6 +11,7 @@ import { GOAL_LABELS, strategyTitle } from '../../optimizer/explain';
 import { fingerprint } from '../../optimizer/contract';
 import { MAX_MEMBERS, planGroup, type GroupMember, type GroupResult, type MemberStatus } from '../../optimizer/group/collective';
 import { formatCompactCurrency, formatNumber } from '../../utils/format';
+import { GroupVisuals } from '../charts/outputs';
 
 
 type Props = { result: DecisionResult; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig };
@@ -291,6 +292,7 @@ function GroupOutcome({ res }: { res: GroupResult }) {
   const p = res.pool;
   return (
     <>
+      <GroupVisuals used={res.slotsUsed} available={res.slotsAvailable} pool={p} />
       <div className="table-scroll">
         <table className="compare-table">
           <thead>

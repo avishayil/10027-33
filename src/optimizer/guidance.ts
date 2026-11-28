@@ -26,7 +26,7 @@ export interface GoalGuidance {
   reasons: string[];
 }
 
-const MEASURES: Record<Goal, { label: string; of: (r: StrategyResult) => number; text: (v: number) => string }> = {
+export const MEASURES: Record<Goal, { label: string; of: (r: StrategyResult) => number; text: (v: number) => string }> = {
   balanced: { label: 'ערך עבורכם (ערך נוכחי, מחירי היום)', of: (r) => r.comparisonValue, text: (v) => formatCompactCurrency(v) },
   maximize_apartments: { label: 'דירות שלמות בסוף', of: (r) => r.metrics.wholeApartments, text: (v) => String(v) },
   passive_income: {
@@ -48,6 +48,9 @@ const reasonsOf = (p: PriorityRoute): string[] => {
   const codes = p.r.reasonCodes.filter((c) => REASON_TEXT[c]).slice(0, 3);
   return codes.length ? codes.map((c) => REASON_TEXT[c]) : ['לא מתאים לנתונים שהזנתם'];
 };
+
+/** Lower is better for this goal's measure (borrowing for no risk). */
+export const LOWER_IS_BETTER: Partial<Record<Goal, true>> = { minimize_risk: true };
 
 export function goalGuidance(result: DecisionResult, goal: Goal): GoalGuidance {
   const items = priorityRoutes(result, goal);

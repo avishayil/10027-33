@@ -5,7 +5,8 @@
  */
 import type { DecisionResult, Goal, TaxArrangement } from '../../domain/types';
 import { FAMILY_LABELS, PAYMENT_METHOD, priorityRoutes, type RouteCondition, type RouteOption } from '../../optimizer/families';
-import { goalGuidance } from '../../optimizer/guidance';
+import { goalGuidance, LOWER_IS_BETTER, MEASURES } from '../../optimizer/guidance';
+import { GoalCompare, MoneySources, RightsFlow } from '../charts/outputs';
 import {
   AFFORDABILITY_LABELS,
   GOAL_LABELS,
@@ -272,6 +273,14 @@ export function TopPriorities({
         לפי מה שחשוב לכם — {GOAL_LABELS[goal]}: {guide.measure.label}
         {guide.kind === 'no_fit' ? ' (במסלול הקרוב ביותר)' : guide.kind === 'conditional' ? ' (בכיוון המותנה)' : ''}: <strong>{guide.measure.text}</strong>
       </p>
+      <GoalCompare
+        label={guide.measure.label}
+        lowerIsBetter={!!LOWER_IS_BETTER[goal]}
+        items={items.map((p, i) => {
+          const v = MEASURES[goal].of(p.r);
+          return { id: p.family, title: `${RANK_LABELS[i]} · ${FAMILY_LABELS[p.family]}`, value: v, text: MEASURES[goal].text(v), first: i === 0 && p.kind === 'fits' };
+        })}
+      />
       {guide.kind === 'no_fit' && (
         <div className="card callout callout-strong" role="note">
           <strong>אף מסלול לא מתאים עכשיו לנתונים שהזנתם.</strong> מה חוסם:
@@ -338,6 +347,8 @@ export function TopPriorities({
                   </dd>
                 </div>
               </dl>
+              <RightsFlow r={r} entitlement={R} tall={false} title="לאן הולכות הזכויות" />
+              <MoneySources r={r} />
               <Variants main={p} variants={p.variants} />
             </li>
           );
