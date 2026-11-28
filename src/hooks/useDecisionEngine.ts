@@ -7,6 +7,8 @@ import { withArrangement } from '../domain/arrangements';
 import { PROJECT_CONFIG } from '../data/config';
 import type { CommercialTerms, DecisionResult, Goal, ProjectConfig, TaxArrangement, UserProfile } from '../domain/types';
 import { analyzeProfile } from '../optimizer/analyze';
+import { fingerprint } from '../optimizer/contract';
+import { KERNEL_VERSION } from '../kernel/version';
 import { parseParcelFraction } from '../utils/simulationMath';
 import { PARCEL } from '../data/parcel33';
 import { MAX_AMOUNT, MAX_MONTHLY, maxAreaInLot, validateInputs } from '../domain/validation';
@@ -35,6 +37,46 @@ function useDebounced<T>(value: T, ms: number): T {
     return () => clearTimeout(t);
   }, [value, settled, ms]);
   return settled;
+}
+
+/** One immutable calculation snapshot: the result, the inputs and configuration it used, its id and when it ran. */
+export interface AnalysisSnapshot {
+  result: DecisionResult;
+  profile: UserProfile;
+  terms: CommercialTerms;
+  config: ProjectConfig;
+  /** The serialised inputs it was computed from. */
+  key: string;
+  /** Stable id of (inputs, data version, kernel version) — printed with the report. */
+  id: string;
+  /** ISO time the calculation ran (display only). */
+  computedAt: string;
+}
+
+/** The analysis for a serialised input key (pure apart from `computedAt`); null when the inputs are incomplete or invalid. */
+export function analysisOf(key: string, computedAt: string): AnalysisSnapshot | null {
+  const a = JSON.parse(key) as {
+    profile: UserProfile | null;
+    terms: CommercialTerms;
+    taxArrangement: TaxArrangement;
+    levyCap: number | null;
+    developerPaysInterest: boolean;
+  };
+  if (!a.profile) return null;
+  const base = withArrangement(PROJECT_CONFIG, a.taxArrangement);
+  const offer = { levyCap: a.levyCap, developerPaysTaxLoanInterest: a.developerPaysInterest };
+  const config: ProjectConfig = { ...base, commercial: { ...base.commercial, offer } };
+  // Inputs the domain rejects never produce a result (and never crash the page).
+  if (validateInputs(a.profile, a.terms, config).length) return null;
+  return {
+    result: analyzeProfile(a.profile, a.terms, config),
+    profile: a.profile,
+    terms: a.terms,
+    config,
+    key,
+    id: fingerprint({ key, data: config.version, kernel: KERNEL_VERSION }),
+    computedAt,
+  };
 }
 
 export function useDecisionEngine(saved: SavedInputs | null = null) {
@@ -147,22 +189,9 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   const deferredKey = useDeferredValue(settledKey);
   // The result together with the exact inputs it was computed from (iteration 10 / E1): cards that re-run parts of the
   // analysis must use these, never the newer inputs still being analysed.
-  const analysis: { result: DecisionResult; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig; key: string } | null = useMemo(() => {
-    const a = JSON.parse(deferredKey) as {
-      profile: UserProfile | null;
-      terms: CommercialTerms;
-      taxArrangement: TaxArrangement;
-      levyCap: number | null;
-      developerPaysInterest: boolean;
-    };
-    if (!a.profile) return null;
-    const base = withArrangement(PROJECT_CONFIG, a.taxArrangement);
-    const offer = { levyCap: a.levyCap, developerPaysTaxLoanInterest: a.developerPaysInterest };
-    const config: ProjectConfig = { ...base, commercial: { ...base.commercial, offer } };
-    // Inputs the domain rejects never produce a result (and never crash the page).
-    if (validateInputs(a.profile, a.terms, config).length) return null;
-    return { result: analyzeProfile(a.profile, a.terms, config), profile: a.profile, terms: a.terms, config, key: deferredKey };
-  }, [deferredKey]);
+  // The result together with the exact inputs it was computed from (iteration 10 / E1, V1 / MH-08): cards that re-run
+  // parts of the analysis, and the printout, use these — never the newer inputs still being analysed.
+  const analysis = useMemo(() => analysisOf(deferredKey, new Date().toISOString()), [deferredKey]);
   const result = analysis?.result ?? null;
   const updating = deferredKey !== analysisKey;
 

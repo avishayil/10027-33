@@ -2202,3 +2202,10 @@ button {
 .cell-warn {
   background: #fffbeb;
 }
+
+/* V1: printed while a newer calculation is still running */
+.print-warning {
+  font-weight: 700;
+  border: 1px solid currentColor;
+  padding: 0.3em 0.5em;
+}

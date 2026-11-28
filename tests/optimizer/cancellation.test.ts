@@ -39,3 +39,43 @@ describe('approval delayed two years', () => {
     expect(r.delayedApproval!.valueChange).toBeLessThan(0);
   });
 });
+
+describe('V1 / MH-13: the no-approval outcome separates reserves, refunds, assets kept, taxes and real expenses', () => {
+  const profiles = [
+    profile({ availableCapital: 800_000, maxMonthlyRepayment: 8000 }),
+    profile({ availableCapital: 2_000_000, maxMonthlyRepayment: 15_000 }),
+    profile({ landAreaSqm: 125.25, availableCapital: 1_500_000, maxMonthlyRepayment: 12_000 }),
+  ];
+  const results = profiles.flatMap((p) => analyzeProfile(p, TERMS, C).results);
+  it('payments before approval = refundable advances + taxes + non-refundable costs + rights bought', () => {
+    for (const r of results) {
+      const n = r.noApproval;
+      expect(n.refundableAdvances + n.taxesPaid + n.nonRefundableCosts + n.assetsKept).toBeCloseTo(n.advances, 4);
+      expect(n.realExpenses).toBeCloseTo(n.nonRefundableCosts + n.interest, 6);
+    }
+  });
+  it('rights bought before approval are reported as an asset kept — but never credited: maximum exposure values them at zero', () => {
+    const buying = results.filter((r) => r.noApproval.assetsKept > 1);
+    expect(buying.length).toBeGreaterThan(0);
+    for (const r of buying) {
+      const n = r.noApproval;
+      expect(n.unprotected).toBeCloseTo(n.advances + n.interest, 4);
+      expect(n.assetsKept).toBeCloseTo(n.purchasedRights, 9);
+      // Without them, the loss is what is gone or refundable only by contract.
+      expect(n.unprotected - n.assetsKept).toBeCloseTo(n.realExpenses + n.refundableAdvances + n.taxesPaid, 4);
+    }
+  });
+  it('the reserve is the owner’s liquidity, reported apart and never a loss', () => {
+    for (const r of results) {
+      expect(r.noApproval.reserves).toBeGreaterThanOrEqual(0);
+      expect(r.noApproval.unprotected).toBeLessThanOrEqual(r.noApproval.advances + r.noApproval.interest + 1e-6);
+    }
+  });
+  it('developer failure: paid-in, interest, debt and the land kept are reported apart', () => {
+    for (const r of results) {
+      const f = r.developerFailure;
+      expect(f.realExpenses).toBeCloseTo(f.interest, 9);
+      expect(f.refundableIfGuaranteed).toBeCloseTo(f.paidToDeveloper, 9);
+    }
+  });
+});

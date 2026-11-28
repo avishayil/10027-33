@@ -415,3 +415,28 @@ engine-resolved with UI work left MH-03, MH-06, MH-07, MH-11; partial MH-01, MH-
 MH-10, MH-14. Fixtures: 16 pass, 4 partial (bought-rights dating, F1 cash repayment, F3 engine-derived ceiling,
 stale-then-print).
 **Behaviour**: unchanged (documentation only). **Limits**: professional review outstanding (blocking for reliance).
+
+## V1.0 — Milestone B: economic correctness (2026-11-28)
+
+**Acceptance**: all P0 accounting, feasibility and snapshot tests pass; unsupported claims stay conditional.
+
+| Item | Result | Tests |
+|---|---|---|
+| MH-01 snapshot v1 + events | resolved (engine) | `tests/kernel/events.test.ts` — parties, ledger completeness, liable vs payer, receipts after settlement, schema/kernel/pack versions, input hash sensitivity |
+| MH-05 facilities reconcile | resolved | same file — every facility of 4 households × 3 contracts × all routes reconciles within ₪0.0001; flow totals = accounts; refinance is a transfer |
+| MH-09 pack, evidence, scope | resolved | `tests/pack/pack.test.ts` — validity, stable ids, canonical statuses, no personal identifiers, refusals; offer scope by lot and date; doubled scenario price leaves the ranking unchanged |
+| MH-13 cancellation split | resolved (engine) | `tests/optimizer/cancellation.test.ts` — parts add up to the payments; rights bought reported, valued at zero in the maximum |
+| MH-08 snapshot binding | resolved (engine) | `tests/hooks/snapshot.test.ts` — snapshot = analysis of its key; id stable / sensitive; invalid → no snapshot; "forget" clears every app key |
+| Shared fixtures F-b, F-e, F-h, F-i | pass | `tests/validation/sharedFixtures.test.ts` — ₪498,607 exact before indexation; 0.75 right bought at month 0 < approval, one ₪85,646 levy line on the owner; F1 repaid from cash, refinance 0; ceiling = 50% × collateral × 1.02⁵ |
+
+**Before / after** (`docs/validation/before-milestone-b.md` = `after-milestone-b.md`): identical — the new 16-row
+matrix (all five goals, three lots, slider extremes, unknown inputs; official and simulation bases) gives the same
+decisions and figures before and after. Milestone B changed accounting structure, evidence and reporting, not
+outcomes. Noted for Milestone C: the cash-soon and passive-income goals currently get the same conditional direction
+as "balanced" for 167 m² / ₪300K — they need their own guidance (C3).
+
+**Performance**: dated facility flows on demand keep the joint search at baseline (407 ms vs 399 ms for the
+reference household; recording always would have cost ≈ 35%).
+
+**Evidence changes**: canonical statuses; `analysis.valuationDate` 2026-11-28; data version 2026-11-28.15.
+**Limits**: VAT liability modelled as the payer's (adviser to confirm); per-event evidence ids are snapshot-level.

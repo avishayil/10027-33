@@ -299,19 +299,33 @@ function noApprovalOutcome(
   // accrues. The contingency reserve is refundable liquidity, never a lost payment (ownerOut excludes it).
   const real = (e: LedgerEntry) => (e.priceBasis === 'nominal' ? e.amount * Math.pow(1 + config.analysis.inflation, -e.month / 12) : e.amount);
   const before = ledger.filter((e) => ownerOut(e) && e.month < approval);
-  const advances = before.reduce((s, e) => s + real(e), 0);
-  const nonRefundable = before.filter((e) => e.category === 'purchase_tax' || e.category === 'transaction_costs').reduce((s, e) => s + real(e), 0);
-  const purchasedRights = before.filter((e) => e.category === 'rights_purchase').reduce((s, e) => s + real(e), 0);
+  const sum = (pred: (e: LedgerEntry) => boolean) => before.filter(pred).reduce((s, e) => s + real(e), 0);
+  const advances = sum(() => true);
+  // V1 / MH-13: what was paid splits into money a guarantee could return (advances to the developer), taxes whose refund
+  // needs a claim, costs that are gone, and rights bought — which stay the owner's (an asset, resale value unknown).
+  const nonRefundableCosts = sum((e) => e.category === 'purchase_tax' || e.category === 'transaction_costs');
+  const assetsKept = sum((e) => e.category === 'rights_purchase');
+  const taxesPaid = sum((e) => e.category === 'betterment_levy' || e.category === 'capital_gains_tax' || e.category === 'services_vat');
+  const refundableAdvances = advances - nonRefundableCosts - assetsKept - taxesPaid;
+  const reserves = ledger
+    .filter((e) => e.payer === 'owner' && e.direction === 'out' && e.category === 'contingency_reserve' && e.month < approval)
+    .reduce((s, e) => s + real(e), 0);
   const interest = sim.real.interestToApproval;
-  const refundable = advances - nonRefundable;
+  const protectedLoss = interest + nonRefundableCosts;
   return {
     advances,
     interest,
-    nonRefundable,
-    purchasedRights,
-    protected: interest + nonRefundable,
-    partial: interest + nonRefundable + refundable / 2,
-    unprotected: advances + interest,
+    nonRefundableCosts,
+    purchasedRights: assetsKept,
+    refundableAdvances,
+    taxesPaid,
+    assetsKept,
+    reserves,
+    realExpenses: protectedLoss,
+    protected: protectedLoss,
+    partial: protectedLoss + (refundableAdvances + taxesPaid) / 2,
+    // Maximum exposure: the rights bought are valued at zero here (resale value unknown) — reported apart, not credited.
+    unprotected: protectedLoss + refundableAdvances + taxesPaid + assetsKept,
     apartments: 0,
     rent: 0,
   };
@@ -347,7 +361,16 @@ function developerFailureOutcome(
     .reduce((s, e) => s + real(e), 0);
   const interest = sim.real.interestToFailure;
   const debtOutstanding = sim.debtAtFailure * Math.pow(1 + config.analysis.inflation, -month / 12);
-  return { month, paidToDeveloper, interest, debtOutstanding, protected: interest, unprotected: paidToDeveloper + interest };
+  return {
+    month,
+    paidToDeveloper,
+    interest,
+    debtOutstanding,
+    refundableIfGuaranteed: paidToDeveloper,
+    realExpenses: interest,
+    protected: interest,
+    unprotected: paidToDeveloper + interest,
+  };
 }
 
 export interface CoreAnalysis {

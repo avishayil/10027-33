@@ -123,7 +123,7 @@ export default function App() {
           />
         ) : (
           <main className={`main-view ${engine.updating ? 'results-updating' : ''}`} aria-busy={engine.updating || undefined}>
-            {profile && <PrintHeader profile={profile} terms={terms} />}
+            {engine.analysis && <PrintHeader analysis={engine.analysis} updating={engine.updating} build={__BUILD_VERSION__} />}
             {result && profile && <TopPriorities result={result} goal={profile.goal} combinationPct={terms.combinationPct} availableCapital={profile.availableCapital} basisKnown={typeof profile.acquisitionBasis === 'number'} />}
             <AnswersBar
               engine={engine}

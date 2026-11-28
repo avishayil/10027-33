@@ -6,7 +6,9 @@
 import { PROJECT_CONFIG } from '../data/config';
 import type { Goal, TaxArrangement } from '../domain/types';
 
-export const STORAGE_KEY = 'mimush-chacham:answers:v1';
+/** Every key this app writes starts with this prefix. */
+export const APP_PREFIX = 'mimush-chacham:';
+export const STORAGE_KEY = `${APP_PREFIX}answers:v1`;
 
 export interface SavedInputs {
   version: 1;
@@ -83,9 +85,15 @@ export function saveInputs(inputs: SavedInputs): boolean {
   }
 }
 
+/** Removes everything this app stored in the browser: the saved answers and the display preference (V1 / MH-08). */
 export function clearInputs(): void {
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(APP_PREFIX)) keys.push(k);
+    }
+    for (const k of keys) window.localStorage.removeItem(k);
   } catch {
     // Storage unavailable — nothing to clear.
   }

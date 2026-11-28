@@ -510,3 +510,24 @@ Owner decisions this iteration: the entitlement is the official allocation share
 137. **Prototype treatment** (owner, 2026-11-28): the group planner stays in the advanced view labelled illustrative and
      limited; the option-contract card becomes protections and negotiation questions, ranking an option only when its
      terms are entered in the actual-offer panel.
+138. **Contract snapshot v1 and bilateral events** (Milestone B1, MH-01/MH-05). Every non-zero ledger amount is a
+     transfer source → destination; the party legally liable is kept apart from the contractual payer (levy and capital
+     gains are always the owner's liability; VAT is modelled as the payer's, to confirm with an adviser). Facilities
+     keep an account each — drawn + transfers in (+ capitalised interest) − repayments − transfers out = terminal
+     balance — tested for every snapshot. Dated facility flows are recorded only on request (the solvers run thousands
+     of simulations; recording them always cost ≈ 35% of the joint search) and re-run from the stored input when a
+     snapshot's events are read. The input hash covers the profile, the whole configuration and the terms.
+139. **Project Pack v1 and canonical evidence** (B2, spec §C). One validated, versioned, bundled pack per project;
+     statuses `verified_fact`, `reported`, `appraisal_reference`, `confirmed_offer`, `assumption`, `scenario`,
+     `unknown` (config.evidence migrated: hypothetical → scenario, assumed → assumption). Historical land transactions
+     are dated `reported` evidence, never a current valuation; inventory is explicitly unknown.
+140. **Common comparison date and scoped offers** (B4, MH-09). `analysis.valuationDate` (2026-11-28) is "today" of the
+     prices and the date offers are checked on. A confirmed term counts as fact only for the lots it was offered for and
+     within its validity window; outside it the route stays price-conditional.
+141. **No-approval split** (B3, MH-13). Payments before approval = advances to the developer (back only under a
+     guarantee or refund clause) + taxes (refund only by claim) + non-refundable costs + rights bought; the reserve is
+     reported apart and never a loss. Rights bought are shown as an asset kept, but the maximum exposure still values
+     them at zero (resale value unknown — #97 kept).
+142. **Print binds to the analysed snapshot** (B5, MH-08). The printed header shows the snapshot id, time, data and
+     build versions and the inputs and terms the result was computed from — never the newer inputs being analysed; a
+     printout made while recalculating says so. "Forget" removes every key the app stored.

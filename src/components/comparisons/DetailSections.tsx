@@ -409,9 +409,14 @@ export function ScenarioComparison({ result }: { result: DecisionResult }) {
                   </td>
                 ))}
                 <td className={r.noApproval.unprotected > 1000 ? 'cell-fail' : ''}>
-                  {r.noApproval.unprotected > 1000
-                    ? `מוגן ${formatCurrency(r.noApproval.protected)} · חלקית ${formatCurrency(r.noApproval.partial)} · בלי הגנה ${formatCurrency(r.noApproval.unprotected)}${r.noApproval.purchasedRights > 1 ? ` (וזכויות שנקנו ב-${formatCurrency(r.noApproval.purchasedRights)} — שווי מכירה לא ידוע)` : ''}`
-                    : 'בלי חשיפה — הקרקע נשארת שלכם'}
+                  {r.noApproval.unprotected > 1000 ? (
+                    <>
+                      מוגן {formatCurrency(r.noApproval.protected)} · חלקית {formatCurrency(r.noApproval.partial)} · בלי הגנה {formatCurrency(r.noApproval.unprotected)}
+                      <span className="sub">{noApprovalParts(r.noApproval).join(' · ')}</span>
+                    </>
+                  ) : (
+                    'בלי חשיפה — הקרקע נשארת שלכם'
+                  )}
                 </td>
               </tr>
             ))}
@@ -1047,4 +1052,16 @@ export function ProjectionSection({ result }: { result: DecisionResult }) {
       </table>
     </Section>
   );
+}
+
+/** What the no-approval exposure is made of (V1 / MH-13): money back only by contract, taxes, costs, assets kept, reserve. */
+function noApprovalParts(n: StrategyResult['noApproval']): string[] {
+  const part = (x: number, label: string) => (x > 1000 ? `${label} ${formatCurrency(x)}` : null);
+  return [
+    part(n.refundableAdvances, 'מקדמות ליזם (חוזרות רק בערבות או בסעיף החזר)'),
+    part(n.taxesPaid, 'מסים ששולמו (החזר רק בבקשה)'),
+    part(n.realExpenses, 'הוצאות שלא חוזרות (ריבית, מס רכישה, עלויות)'),
+    part(n.assetsKept, 'זכויות שנקנו — נשארות שלכם, שווי מכירה לא ידוע'),
+    part(n.reserves, 'רזרבה שהפרשתם — נשארת אצלכם'),
+  ].filter((x): x is string => x !== null);
 }

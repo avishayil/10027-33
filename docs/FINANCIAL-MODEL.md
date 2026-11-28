@@ -333,3 +333,16 @@ minApartmentPricePerSqm}, atDeveloperMax {%, extraCapital, route}}.
   the target's earlier events moved to E (identical events paid once). Regret over financed / no financing / no approval.
 - **Concessions**: owner gain = Δ ranking value (real 3%); developer cost = Δ Σ equity flowₘ × 1.03^(−m/12) on the lot,
   attributed by the holding's lot share for lot-wide terms. Efficiency = gain ÷ cost.
+
+## V1.0 Milestone B (economic correctness)
+
+- **Facility accounts** (`SimulationResult.facilityAccounts`): mortgage (project draws + refinance transfer in),
+  secured loan, tax loan (capitalised interest). Identity per facility: drawn + transfer in (+ capitalised interest) −
+  repayments − transfer out = terminal balance. Dated flows (`facilityFlows`) on request (`recordFlows`): draws and
+  transfers by month, interest and repayments by year.
+- **Bilateral events** (`kernel/events.ts`): ledger → transfers between parties; facilities → lender transfers.
+- **No approval**: refundable advances, taxes paid, non-refundable costs, assets kept, reserve, real expenses;
+  protected = interest + non-refundable costs; partial = protected + ½(advances + taxes); unprotected = protected +
+  advances + taxes + rights bought (valued at zero).
+- **Evidence scope**: a confirmed term applies on its lots between `validFrom` and `validUntil`, checked on
+  `analysis.valuationDate`.

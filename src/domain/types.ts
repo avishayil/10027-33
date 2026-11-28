@@ -710,12 +710,23 @@ export interface StrategyResult {
    * resale value is unknown — not credited.
    */
   noApproval: {
+    /** Everything the owner paid before approval (reserve excluded) = refundable advances + taxes + costs + rights bought. */
     advances: number;
     interest: number;
-    /** Non-refundable costs paid before approval (purchase tax, transaction costs). */
-    nonRefundable: number;
-    /** Paid for complementary rights before approval (the rights remain; resale value unknown). */
+    /** Gone whatever the contract says: purchase tax and transaction costs. */
+    nonRefundableCosts: number;
+    /** Paid for complementary rights before approval (the rights remain; resale value unknown). Same as assetsKept. */
     purchasedRights: number;
+    /** Advances to the developer (construction, completion) — returned only under a guarantee or refund clause. */
+    refundableAdvances: number;
+    /** Levy, capital-gains tax and VAT paid before approval — a refund needs a claim and is not assumed. */
+    taxesPaid: number;
+    /** Assets that stay the owner's (rights bought) — reported apart; resale value unknown, so the maximum exposure values them at zero. */
+    assetsKept: number;
+    /** The contingency reserve set aside before approval: the owner's own liquidity, returned, never a loss. */
+    reserves: number;
+    /** Real expenses: interest and non-refundable costs. */
+    realExpenses: number;
     protected: number;
     partial: number;
     unprotected: number;
@@ -732,6 +743,10 @@ export interface StrategyResult {
     paidToDeveloper: number;
     interest: number;
     debtOutstanding: number;
+    /** What a guarantee would return (the payments to the developer). */
+    refundableIfGuaranteed: number;
+    /** Real expenses (interest). The land and what was built on it stay the owner's (value unknown). */
+    realExpenses: number;
     /** Payments refunded by a guarantee: interest lost. */
     protected: number;
     /** No guarantee: payments and interest lost. */
