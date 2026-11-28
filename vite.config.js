@@ -19,8 +19,10 @@ const base =
 
 /**
  * Restrictive Content-Security-Policy for production builds (the dev server needs inline
- * scripts and a websocket, so it is only injected at build time). connect-src 'none' means the
- * page cannot send personal data anywhere, even by accident.
+ * scripts and a websocket, so it is only injected at build time). connect-src 'none' blocks every
+ * fetch / XHR / beacon / websocket, scripts load only from this origin and forms post nowhere. It is
+ * one layer, not a guarantee: it does not stop navigation or links the user follows, printing,
+ * screenshots or browser extensions (docs/ARCHITECTURE.md, "Privacy limits").
  */
 const CSP = [
   "default-src 'self'",

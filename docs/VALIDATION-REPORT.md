@@ -470,3 +470,28 @@ BOI 329 not re-verifiable automatically; VAT from secondary sources; Rothstein r
 "not professionally validated" in the footer and the print header.
 **Open (blocking for reliance)**: the three signatures; a current developer offer or an approved benchmark.
 **Behaviour**: no model value changed.
+
+## V1.0 — Milestone E: release hardening (2026-11-28)
+
+**Acceptance**: CI and production acceptance pass; V1.0 report and open limitations published (`docs/RELEASE-NOTES.md`).
+
+| Gate | Result |
+|---|---|
+| Browser, deployed base path | `privacy.mjs` and `release.mjs` pass: keyboard-only wizard; `dir=rtl lang=he`; axe A/AA none serious/critical; print header with snapshot id, report printed, controls and offer form hidden; print disabled while recalculating, enabled after; offer check: 0 requests, nothing in localStorage; forget removes every app key; shared-device warning shown |
+| Accessibility fix | muted text #6b7280 → #4b5563 (contrast 4.3–4.46 → ≈ 7:1) |
+| Performance (4× CPU) | input paint 35 ms, recalculation 650 ms, joint search 1.7 s, offer check 125 ms — all within budget |
+| Dependencies | `npm audit`: 0 (11 dev-tooling findings fixed within ranges; production was clean); `@axe-core/playwright` 4.14.1 locked |
+| Security notes | CSP comment corrected (one layer, not a guarantee); privacy limits documented |
+
+## V1.0 summary
+
+| Milestone | Status |
+|---|---|
+| A baseline and scope freeze | done |
+| B economic correctness (MH-01…09) | done |
+| C consumer experience (MH-10…13) | done |
+| D evidence and professional review | packets and source refresh done; **sign-off open (external, blocking)** |
+| E release hardening (MH-15) | done |
+
+Recommendations: unchanged across V1.0 (16-row matrix identical from the iteration-10 baseline through Milestone C; E
+changed presentation only). Version 1.0.0-rc.1 until the professional sign-off.

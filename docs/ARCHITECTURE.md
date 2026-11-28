@@ -36,7 +36,7 @@ UserProfile + CommercialTerms ─▶ analyzeProfile()  (src/optimizer/analyze.ts
 | `src/components/` | `inputs/`, `verdict/`, `comparisons/` (incl. the on-demand JointSearch, GroupPlanner, ContingentCard, ConcessionsCard), `assumptions/`, `print/`. The original four-track simulator was removed (DECISIONS #118). |
 | `src/utils/simulationMath.js` | Table-rights math (`computeTableRights`) and the legacy calculator kept only as a regression fixture. |
 
-A full analysis takes ~80–130 ms in Node. On-demand engines (`tests/perf/benchmark.test.ts`): group of 8 ≤ 90 ms;
+A full analysis takes ~80–130 ms in Node; in the browser at 4× CPU slowdown (V1.0 Milestone E): input paint ≈ 35 ms, recalculation ≈ 650 ms (incl. the 250 ms debounce), joint search ≈ 1.7 s, offer check ≈ 125 ms. On-demand engines (`tests/perf/benchmark.test.ts`): group of 8 ≤ 90 ms;
 joint search 0.4–0.5 s for typical holdings, ≈ 2 s for a whole-lot holding; contingent plan and concessions < 25 ms.
 They run after a short timeout with an input fingerprint: a run started on inputs that changed meanwhile is dropped and
 a result computed on older inputs is hidden. No Web Worker (DECISIONS #134).
@@ -66,6 +66,18 @@ ContractTerms (arrangement, %, markup, offer, funding) ─▶ contractConfig ─
 * `tests/release/publicAssets.test.ts`: the PDFs in `public/` are a reviewed SHA-256 allow-list without author
   metadata or valid Israeli ID numbers in their text.
 * The named allocation tables stay out of git (`to-review/` is ignored).
+
+### Privacy limits (V1.0, stated plainly)
+
+* **CSP** (`vite.config.js`): `connect-src 'none'`, `script-src 'self'`, `form-action 'none'`, `object-src 'none'`,
+  images only from this origin or `data:`; `referrer: no-referrer`. It blocks the page's own network requests. It does
+  not stop the user following a link (the plan site, the maps), printing, taking screenshots, or a browser extension
+  reading the page.
+* **localStorage**: saved only with consent; plain text in this browser profile; readable by anyone using the same
+  device and profile and by extensions with page access; no expiry. "מחיקת התשובות השמורות" removes every key the app
+  wrote. The wizard warns about shared devices. The actual offer and the group planner inputs are never stored.
+* **No telemetry**, no server, no third-party requests — checked in the browser on the deployed build
+  (`tests/e2e/privacy.mjs`, `tests/e2e/release.mjs`).
 
 ## UX flow
 

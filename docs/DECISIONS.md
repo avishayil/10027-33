@@ -554,3 +554,9 @@ Owner decisions this iteration: the entitlement is the official allocation share
      the sign-off table is open. Until it is signed the app footer, the printout and the docs say "not professionally
      validated". Sources were refreshed where automated access allows; the ones that could not be re-verified are
      listed, not assumed current.
+150. **Release candidate, not 1.0.0** (Milestone E). Every automated gate passes; the professional sign-off is blocking
+     in the definition of done, so the version is 1.0.0-rc.1 and becomes 1.0.0 when the three reviews are recorded.
+151. **Accessibility and browser gates** (E): axe WCAG 2 A/AA with no serious or critical violations on the settled
+     wizard, summary and advanced view (the dimmed, aria-busy recalculating state is transient); the muted text colour
+     darkened for 4.5:1. Timings at 4× CPU slowdown are checked against budgets (fail only beyond 3×, so CI noise does
+     not block); no Web Worker needed.
