@@ -2,6 +2,7 @@
 import { useId } from 'react';
 import { PROJECT_CONFIG } from '../../data/config';
 import { mortgageCapacity } from '../../domain/mortgage';
+import { calculateRights } from '../../domain/rights';
 import type { Goal, TaxArrangement } from '../../domain/types';
 import type { DecisionEngine } from '../../hooks/useDecisionEngine';
 import { GOAL_LABELS } from '../../optimizer/explain';
@@ -117,8 +118,9 @@ export function LandFields({ engine }: { engine: DecisionEngine }) {
       )}
       <p className="field-hint">
         השטח במ״ר הוא החלק שלכם בחלקה המקורית — רק דרך נוחה לתאר אותו. כל החישובים לפי הטבלאות המעודכנות
-        (106(ב)): כל {PROJECT_CONFIG.rights.originalAreaSqm} מ״ר ≈ {PROJECT_CONFIG.rights.apartmentEquivalents} זכויות לדירה
-        (הנחת הסימולציה; הטבלה מראה כ-2.4 יח״ד).
+        (106(ב)): הזכאות היא חלקכם בשטח המגורים של המגרש — כל {PROJECT_CONFIG.rights.originalAreaSqm} מ״ר ≈{' '}
+        {formatNumber(calculateRights(PROJECT_CONFIG.rights.originalAreaSqm, PROJECT_CONFIG, i.lotId || undefined).apartmentEquivalents, 2)} שוות-ערך
+        לדירת 100 מ״ר במגרש {i.lotId || PROJECT_CONFIG.rights.defaultLotId} (כ-2.4 יחידות ממוצעות של 110 מ״ר).
       </p>
       <div className="field">
         <label htmlFor={ids.lot}>המגרש שהוקצה לכם (לא חובה)</label>

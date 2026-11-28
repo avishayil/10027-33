@@ -3,7 +3,8 @@
  * Each expected number comes from the formula in the comment, not from an engine call. Sources: reviews of 0bf74d7.
  */
 import { describe, expect, it } from 'vitest';
-import { PROJECT_CONFIG as C } from '../../src/data/config';
+// Pinned to the simulation basis (2.25 rights per 167 m²): numbers reconciled on it (iteration 10).
+import { C_SIM as C } from '../fixtures/configs';
 import { constructionQuotePerApartment } from '../../src/domain/construction';
 import { developerBudget } from '../../src/domain/lotDeveloper';
 import { calculateRights } from '../../src/domain/rights';

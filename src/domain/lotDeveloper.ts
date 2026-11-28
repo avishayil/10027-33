@@ -23,10 +23,12 @@ import { completionMonth, constructionQuotePerApartment, milestoneMonth, permitM
 import { lotPolicy } from './policy';
 import { calculateRights } from './rights';
 import { buildTransactionPlan } from './transactions';
+import { apartmentValueToday } from './valuation';
 import type {
   Candidate,
   CommercialTerms,
   ConsiderationReconciliation,
+  InventoryClaim,
   ProjectConfig,
   RightsInfo,
   TaxArrangement,
@@ -448,16 +450,48 @@ export function considerationReconciliation(ctx: LotContext, plan: TransactionPl
   const pooled = plan.fractionSettled?.mode === 'pool' ? plan.fractionSettled.share : 0;
   const eq = plan.retainedApartmentEquivalents + plan.apartmentsSoldByOwner + pooled;
   const perSqm = config.market.apartmentValuePerSqm;
-  const standardAreaSqm = eq * config.construction.apartmentSizeSqm;
+  const std = config.construction.apartmentSizeSqm;
+  const standardAreaSqm = eq * std;
   const officialAreaSqm = eq * officialAreaPerRight(ctx);
+  const unallocatedAreaSqm = officialAreaSqm - standardAreaSqm;
+  const unallocatedValue = unallocatedAreaSqm * perSqm;
+  const ownerValue = standardAreaSqm * perSqm;
+  // Physical inventory: whole apartments by their actual (illustrative) sizes; fractions at the standard size.
+  const wholeArea = plan.apartmentSizes.reduce((x, a) => x + a, 0) + plan.apartmentsSoldByOwner * std;
+  const physicalApartments = plan.wholeApartmentsRetained + plan.apartmentsSoldByOwner + plan.fractionalShare + pooled;
+  const physicalAreaSqm = wholeArea + (plan.fractionalShare + pooled) * std;
+  const apt = apartmentValueToday(config);
+  const claims: InventoryClaim[] = [];
+  plan.apartmentRooms.forEach((rooms, i) =>
+    claims.push({
+      assetId: `apartment-${i + 1}-${rooms}r`,
+      recipient: 'owner',
+      quantity: 1,
+      areaSqm: plan.apartmentSizes[i] ?? std,
+      value: (plan.apartmentValues[i] ?? 1) * apt,
+      priceBasis: rooms === 4 ? 'standard_per_sqm' : 'comparables',
+      valuationSource: rooms === 4 ? 'תרחיש ₪25,000 למ״ר לדירת 4 חד׳' : 'יחס מחירים מעסקאות ההשוואה בשמאות',
+    }),
+  );
+  if (plan.fractionalShare > 1e-9)
+    claims.push({ assetId: 'fraction', recipient: 'owner', quantity: plan.fractionalShare, areaSqm: plan.fractionalShare * std, value: plan.fractionalShare * apt, priceBasis: 'standard_per_sqm', valuationSource: 'חלק מדירת 100 מ״ר' });
+  if (pooled > 1e-9)
+    claims.push({ assetId: 'pool-share', recipient: 'pool', quantity: pooled, areaSqm: pooled * std, value: pooled * apt, priceBasis: 'standard_per_sqm', valuationSource: 'חלק ביחידת סל' });
+  if (Math.abs(unallocatedValue) > 0.5)
+    claims.push({ assetId: 'unallocated', recipient: 'unallocated', quantity: 0, areaSqm: unallocatedAreaSqm, value: unallocatedValue, priceBasis: 'standard_per_sqm', valuationSource: 'הפרש בין חלקכם בטבלת ההקצאה לבין הזכאות בסימולציה — לא הועבר לאף אחד' });
   return {
     apartmentEquivalents: eq,
     standardAreaSqm,
     officialAreaSqm,
-    unallocatedAreaSqm: officialAreaSqm - standardAreaSqm,
-    ownerValue: standardAreaSqm * perSqm,
-    developerForgoneValue: officialAreaSqm * perSqm,
-    unallocatedValue: (officialAreaSqm - standardAreaSqm) * perSqm,
+    unallocatedAreaSqm,
+    // Value: by apartment type (comparables) for whole apartments; the standard price for fractions.
+    ownerValue: plan.wholeApartmentValueEq * apt + (plan.fractionalShare + pooled + plan.apartmentsSoldByOwner) * apt,
+    developerForgoneValue: ownerValue + unallocatedValue,
+    unallocatedValue,
+    physicalApartments,
+    physicalAreaSqm,
+    material: Math.abs(unallocatedValue) > Math.max(10_000, 0.01 * ownerValue),
+    claims,
   };
 }
 

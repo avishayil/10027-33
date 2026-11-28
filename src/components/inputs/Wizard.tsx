@@ -4,8 +4,9 @@
  */
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { PROJECT_CONFIG } from '../../data/config';
+import { calculateRights } from '../../domain/rights';
 import type { DecisionEngine } from '../../hooks/useDecisionEngine';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatNumber } from '../../utils/format';
 import { BasisField, CapitalField, describeAnswers, GoalFields, LandFields, OfferFields, RepaymentFields, TermsFields } from './fields';
 
 export const WIZARD_STEPS = ['welcome', 'land', 'capital', 'repayment', 'goal', 'terms', 'summary'] as const;
@@ -23,7 +24,16 @@ interface Props {
 function KeyAssumptions() {
   const m = PROJECT_CONFIG.market;
   const items: { text: ReactNode; tag: string; tagClass: string }[] = [
-    { text: <>כל 167 מ״ר בחלקה ≈ <strong>2.25 זכויות לדירה</strong></>, tag: 'הנחה', tagClass: 'verif-assumed' },
+    {
+      text: (
+        <>
+          הזכאות שלכם לפי <strong>חלקכם בטבלת ההקצאה</strong>: כל 167 מ״ר ≈{' '}
+          <strong>{formatNumber(calculateRights(167, PROJECT_CONFIG).apartmentEquivalents, 2)} שוות-ערך לדירת 100 מ״ר</strong> (במגרש 149)
+        </>
+      ),
+      tag: 'טבלה רשמית',
+      tagClass: 'verif-verified',
+    },
     { text: <>שווי דירה חדשה בחדרה: <strong>{formatCurrency(m.apartmentValuePerSqm)} למ״ר</strong> (דירה של 100 מ״ר)</>, tag: 'מדווח', tagClass: 'verif-reported' },
     { text: <>עלות בנייה: <strong>{formatCurrency(PROJECT_CONFIG.construction.costPerSqm)} למ״ר</strong> לפני מע״מ ורווח יזמי</>, tag: 'הנחה', tagClass: 'verif-assumed' },
     { text: <>מחיר שיזם ישלם על זכויות: <strong>{formatCurrency(m.developerRightsSaleScenario.pricePerOriginalSqm)} למ״ר</strong> — תרחיש, לא הצעה קיימת</>, tag: 'לא מאומת', tagClass: 'verif-assumed' },

@@ -289,7 +289,7 @@ export function Verdict({ result, goal, combinationPct, developerMarkup }: Props
             <dt>
               לפי הטבלה הרשמית — לא נספר לטובתכם{' '}
               <Tooltip
-                content={`היזם מוותר על ${formatRights(rec.developerLot.consideration.officialAreaSqm)} מ״ר לפי חלקכם בטבלת ההקצאה; הסימולציה מחשבת לכם ${formatRights(rec.developerLot.consideration.standardAreaSqm)} מ״ר (2.25 זכויות ל-167 מ״ר, דירה של 100 מ״ר). ההפרש מוצג כאן ולא נכלל במספרים שלכם — אם החוזה יחושב לפי הטבלה, ייתכן שתקבלו יותר.`}
+                content={`היזם מוותר על ${formatRights(rec.developerLot.consideration.officialAreaSqm)} מ״ר לפי חלקכם בטבלת ההקצאה; המחשבון מזכה אתכם ב-${formatRights(rec.developerLot.consideration.standardAreaSqm)} מ״ר. ההפרש הוא מלאי שלא הוקצה לאף אחד — מוצג כאן ולא נכלל במספרים שלכם.`}
               />
             </dt>
             <dd>

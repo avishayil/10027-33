@@ -109,7 +109,14 @@ export interface ProjectConfig {
   version: string;
   rights: {
     originalAreaSqm: number;
+    /** Simulation unit: rights per 167 m² under the 'simulation' basis (2.25). */
     apartmentEquivalents: number;
+    /**
+     * What the owner's entitlement is measured in (iteration 10, owner decision): 'official' = the allocation-table share
+     * of the lot's saleable area, in standard-apartment equivalents (100 m² each); 'simulation' = 2.25 per 167 m²
+     * (iterations 1–9, kept for pinned legacy fixtures).
+     */
+    entitlementBasis: 'official' | 'simulation';
     planningVersion: string;
     tableVersion: 'v2';
     defaultLotId: string;
@@ -870,6 +877,26 @@ export interface ConsiderationReconciliation {
   ownerValue: number;
   developerForgoneValue: number;
   unallocatedValue: number;
+  /** Physical apartments the owner receives (whole apartments as units; a fraction or pool share as its share). */
+  physicalApartments: number;
+  /** Their physical area: the actual sizes of the whole apartments + fractions at the standard size. */
+  physicalAreaSqm: number;
+  /** A gap above ₪10,000 (or 1%) between what the owner is credited and what the developer gives up. */
+  material: boolean;
+  /** Shared inventory / consideration ledger: who holds what, on which basis. */
+  claims: InventoryClaim[];
+}
+
+export interface InventoryClaim {
+  assetId: string;
+  recipient: 'owner' | 'pool' | 'unallocated';
+  /** Physical apartments (units) — 0 for an unallocated area claim. */
+  quantity: number;
+  areaSqm: number;
+  value: number;
+  /** comparables (apartment types from the appraisal) or the standard 100 m² price per m². */
+  priceBasis: 'comparables' | 'standard_per_sqm';
+  valuationSource: string;
 }
 
 export interface LotPnLSummary {

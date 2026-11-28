@@ -1,6 +1,7 @@
 /** Iteration 9 / F05: levy on complementary rights bought before the plan is approved. */
 import { describe, expect, it } from 'vitest';
-import { PROJECT_CONFIG as C } from '../../src/data/config';
+// Pinned to the simulation basis (2.25 rights per 167 m²): numbers reconciled on it (iteration 10).
+import { C_SIM as C } from '../fixtures/configs';
 import { calculateRights } from '../../src/domain/rights';
 import { levyPerRight } from '../../src/domain/taxation';
 import { analyzeProfile } from '../../src/optimizer/analyze';

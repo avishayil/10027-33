@@ -173,7 +173,7 @@ export function AllocationTable({ result }: { result: DecisionResult }) {
     ['שטח מגורים לפי החלק במגרש', `${formatNumber(t.lotShare * lot.residentialArea, 1)} מ״ר`],
     ['שווי במצב הנכנס', formatCurrency(t.incomingValue)],
     ['שווי הזכויות (מצב יוצא)', formatCurrency(t.allocationValue)],
-    ['זכויות בסימולציה (2.25 ל-167 מ״ר)', formatNumber(info.apartmentEquivalents, 2)],
+    ['הזכאות בשוות-ערך לדירת 100 מ״ר (חלקכם בשטח המגורים ÷ 100)', formatNumber(info.apartmentEquivalents, 2)],
   ];
   return (
     <Section title="הזכויות שלכם לפי טבלת ההקצאה" sub={`${formatArea(info.landAreaSqm)} מ״ר בחלקה`}>

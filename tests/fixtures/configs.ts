@@ -5,7 +5,15 @@
  * reconciled numbers stay traceable. It is not a current assumption. Legacy and golden fixtures keep the services VAT
  * on the developer (servicesVatOnOwner: false), as before the payer table.
  */
-import { PROJECT_CONFIG as C } from '../../src/data/config';
+import { PROJECT_CONFIG } from '../../src/data/config';
+import type { ProjectConfig as PC } from '../../src/domain/types';
+
+/**
+ * The simulation entitlement basis (2.25 rights per 167 m², iterations 1–9). Golden and numeric fixtures that were
+ * reconciled on it stay pinned to it; the product default is the official allocation-table share (iteration 10).
+ */
+export const C_SIM: PC = { ...PROJECT_CONFIG, rights: { ...PROJECT_CONFIG.rights, entitlementBasis: 'simulation' } };
+const C = C_SIM;
 import type { ProjectConfig, TaxArrangement } from '../../src/domain/types';
 
 export const withArrangement = (cfg: ProjectConfig, taxArrangement: TaxArrangement): ProjectConfig => ({

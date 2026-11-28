@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PROJECT_CONFIG as C } from '../../src/data/config';
+// Pinned to the simulation basis (2.25 rights per 167 m²): numbers reconciled on it (iteration 10).
+import { C_SIM as C } from '../fixtures/configs';
 import { calculateRights } from '../../src/domain/rights';
 import { analyzeProfile } from '../../src/optimizer/analyze';
 import { generateStrategies } from '../../src/optimizer/generate';

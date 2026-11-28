@@ -16,6 +16,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
   rights: {
     originalAreaSqm: PROJECT.originalAreaSqm.value,
     apartmentEquivalents: PROJECT.apartmentEquivalentsPerBlock.value,
+    entitlementBasis: 'official',
     planningVersion: PLANNING_VERSION,
     tableVersion: 'v2',
     defaultLotId: DEFAULT_LOT_ID,
