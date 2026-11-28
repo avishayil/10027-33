@@ -498,3 +498,15 @@ Owner decisions this iteration: the entitlement is the official allocation share
      allow-list. Benchmarks (`tests/perf`): group of 8 ≤ 90 ms, joint search 0.4–0.5 s (≈ 2 s for a whole-lot holding).
      No Web Worker: typical runs are well under a second and stale runs are already discarded; revisit if phones show
      long freezes on large holdings.
+
+## V1.0 — product specification (2026-11-28)
+
+135. **The product specification governs V1.0** (`docs/PRODUCT-SPEC.md`). The review-and-feature cycle ends; V1.0 is
+     reached by closing the finite backlog (`docs/BACKLOG-V1.md`) through milestones A–E (`docs/RELEASE-CRITERIA.md`).
+     Shared semantics with LandLens are documented in `docs/ECONOMIC-CONTRACT.md`; no shared package or runtime link.
+136. **Approved deviations** (owner, 2026-11-28): D-1 — the official allocation share stays the default entitlement (#122);
+     the 2.25 simulation convention is shown beside it and remains the basis of the shared fixtures. D-2 — amends #53:
+     the wizard keeps three goals, the advanced view offers all five, and saved goals are no longer migrated.
+137. **Prototype treatment** (owner, 2026-11-28): the group planner stays in the advanced view labelled illustrative and
+     limited; the option-contract card becomes protections and negotiation questions, ranking an option only when its
+     terms are entered in the actual-offer panel.

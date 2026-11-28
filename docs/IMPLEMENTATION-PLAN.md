@@ -1,4 +1,6 @@
-# Implementation status
+# Implementation status (history)
+
+> Superseded on 2026-11-28 by [BACKLOG-V1](BACKLOG-V1.md) and [RELEASE-CRITERIA](RELEASE-CRITERIA.md). Kept as the record of phases 0–7.
 
 | Phase | Status |
 | --- | --- |

@@ -403,3 +403,15 @@ option terms need the developer's agreement. Professional review by an appraiser
 release gate.
 
 Commands: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, `E2E_BASE=/10027-33/ npm run test:e2e`.
+
+## V1.0 — Milestone A: baseline and scope freeze (2026-11-28)
+
+**Acceptance**: every backlog item MH-01…15 mapped to code, test and evidence (`docs/BACKLOG-V1.md`); no new mandatory
+questions; approved assumptions and the two owner-approved deviations recorded (`docs/PRODUCT-SPEC.md` §4–§5).
+**Baseline**: `main` at `14f4f48`, config `2026-11-28.14`, 530 tests passing, deploy green.
+**Summary**: product spec, economic contract (entity mapping, invariants, 20 cross-product fixtures with basis and
+status), release criteria with proposed budgets, finite backlog. Status at baseline: resolved MH-02, MH-04, MH-12;
+engine-resolved with UI work left MH-03, MH-06, MH-07, MH-11; partial MH-01, MH-05, MH-08, MH-09, MH-13, MH-15; open
+MH-10, MH-14. Fixtures: 16 pass, 4 partial (bought-rights dating, F1 cash repayment, F3 engine-derived ceiling,
+stale-then-print).
+**Behaviour**: unchanged (documentation only). **Limits**: professional review outstanding (blocking for reliance).

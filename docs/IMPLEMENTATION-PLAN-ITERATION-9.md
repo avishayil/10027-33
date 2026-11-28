@@ -1,5 +1,7 @@
 # Iteration 9 — implementation plan (reviews of 0bf74d7)
 
+> History. The open items are carried in [BACKLOG-V1](BACKLOG-V1.md) (2026-11-28).
+
 Inputs: *Iteration 8 independent review* and *Comprehensive architecture, business logic and innovation review
 (BLRO)*, both of revision `0bf74d7`, config `2026-11-27.8`. Each finding was checked against the code before planning;
 the check result is in the "Verified" column. Nothing here changes a tax rule, a market value or a user assumption
