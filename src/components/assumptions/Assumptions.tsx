@@ -56,6 +56,9 @@ export function Assumptions() {
                       ) : (
                         dp.sourceName && <span className="summary-sub">{dp.sourceName}</span>
                       )}
+                      <span className="summary-sub">
+                        {dp.observedAt ? `נכון ל-${dp.observedAt} · ` : ''}נאסף {dp.retrievedAt}
+                      </span>
                     </td>
                   </tr>
                 ))}

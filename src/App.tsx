@@ -21,7 +21,9 @@ import { ContingentCard, GroupPlanner } from './components/comparisons/PhaseF';
 import { AnswersBar, TermsCard } from './components/inputs/AnswersBar';
 import { Wizard, type WizardStep } from './components/inputs/Wizard';
 import { PrintHeader } from './components/print/PrintHeader';
+import { PrintReport } from './components/print/PrintReport';
 import { OfferCheck } from './components/offer/OfferCheck';
+import { TermsToRequestCard } from './components/comparisons/TermsToRequest';
 import { EMPTY_OFFER, type ActualOffer } from './optimizer/offer';
 import { FollowUps } from './components/verdict/FollowUps';
 import { TopPriorities } from './components/verdict/TopPriorities';
@@ -129,6 +131,7 @@ export default function App() {
         ) : (
           <main className={`main-view ${engine.updating ? 'results-updating' : ''}`} aria-busy={engine.updating || undefined}>
             {engine.analysis && <PrintHeader analysis={engine.analysis} updating={engine.updating} build={__BUILD_VERSION__} />}
+            {engine.analysis && <PrintReport analysis={engine.analysis} offer={offer} />}
             {result && profile && <TopPriorities result={result} goal={profile.goal} combinationPct={terms.combinationPct} availableCapital={profile.availableCapital} basisKnown={typeof profile.acquisitionBasis === 'number'} />}
             <AnswersBar
               engine={engine}
@@ -163,6 +166,9 @@ export default function App() {
                 <AllocationTable result={result} />
                 {focus && <Financing result={result} r={focus} />}
                 <ScenarioComparison result={result} />
+                {engine.analysis && (
+                  <TermsToRequestCard result={engine.analysis.result} profile={engine.analysis.profile} terms={engine.analysis.terms} config={engine.analysis.config} />
+                )}
                 <NegotiationPanel result={result} />
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
                 {engine.analysis && (

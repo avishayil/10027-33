@@ -202,6 +202,10 @@ export function Wizard({ engine, startAt = 'welcome', editing, initialRemember, 
                 ואפשר למחוק אותן בכל רגע.
               </span>
             </label>
+            <p className="field-hint shared-device-warning" role="note">
+              במחשב משותף או ציבורי עדיף לא לשמור: מי שישתמש בדפדפן אחריכם יראה את הסכומים. השמירה היא בדפדפן (localStorage) — לא מוצפנת,
+              ונמחקת רק כשתלחצו ״מחיקת התשובות השמורות״ או תנקו את נתוני הדפדפן.
+            </p>
           </>
         )}
 

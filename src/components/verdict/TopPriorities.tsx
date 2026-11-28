@@ -270,7 +270,7 @@ export function TopPriorities({
       </h2>
       <p className="goal-measure">
         לפי מה שחשוב לכם — {GOAL_LABELS[goal]}: {guide.measure.label}
-        {guide.kind === 'no_fit' ? ' (במסלול הקרוב ביותר)' : ''}: <strong>{guide.measure.text}</strong>
+        {guide.kind === 'no_fit' ? ' (במסלול הקרוב ביותר)' : guide.kind === 'conditional' ? ' (בכיוון המותנה)' : ''}: <strong>{guide.measure.text}</strong>
       </p>
       {guide.kind === 'no_fit' && (
         <div className="card callout callout-strong" role="note">
