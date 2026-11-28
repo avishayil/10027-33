@@ -90,11 +90,23 @@ export function needsInventory(c: Candidate): boolean {
 
 /** Every route of a contract, each evaluated once (owner and route-specific developer side together). */
 export function evaluateRoutes(profile: UserProfile, k: ContractTerms, base: ProjectConfig): StrategyResult[] {
+  const { info, terms, config, ctx } = contractContext(profile, k, base);
+  return generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
+}
+
+function contractContext(profile: UserProfile, k: ContractTerms, base: ProjectConfig) {
   const config = contractConfig(base, k);
   const info = calculateRights(profile.landAreaSqm, config, profile.lotId);
   const terms: CommercialTerms = { combinationPct: k.combinationPct, developerMarkup: k.markup };
   const ctx: EngineContext = { info, profile, terms };
-  return generateStrategies(info, terms, config).map((c) => buildResult(c, evaluateScenarios(c, ctx, config), ctx, config));
+  return { config, info, terms, ctx };
+}
+
+/** One explicit candidate (e.g. a route with a group-specific pool sale) on a contract; `peers` = the goal's reference set. */
+export function snapshotForCandidate(profile: UserProfile, k: ContractTerms, base: ProjectConfig, candidate: Candidate, peers: StrategyResult[]): ContractSnapshot {
+  const { config, ctx } = contractContext(profile, k, base);
+  const r = buildResult(candidate, evaluateScenarios(candidate, ctx, config), ctx, config);
+  return toSnapshot(r, peers, profile, k, base);
 }
 
 const hardOk = (r: StrategyResult) => r.assessment.affordability === 'fits' || r.assessment.affordability === 'fits_with_financing';
@@ -125,56 +137,58 @@ export function goalReason(goal: Goal, r: StrategyResult, peers: StrategyResult[
 /** Snapshots of every route of a contract, with acceptance on both sides and the status of the result. */
 export function snapshotsFor(profile: UserProfile, k: ContractTerms, base: ProjectConfig): ContractSnapshot[] {
   const results = evaluateRoutes(profile, k, base);
+  return results.map((r) => toSnapshot(r, results, profile, k, base));
+}
+
+function toSnapshot(r: StrategyResult, results: StrategyResult[], profile: UserProfile, k: ContractTerms, base: ProjectConfig): ContractSnapshot {
   const lotId = profile.lotId || base.rights.defaultLotId;
   const inputHash = fingerprint({ profile, base: base.version, lotId });
   const hurdle = base.developer.targetMarginOnRevenue;
-  return results.map((r) => {
-    const baseFails = r.scenarioResults.find((s) => s.scenarioId === 'base')?.fails ?? [];
-    const hard = [...new Set([...baseFails, ...r.reasonCodes.filter((c) => c === 'CAPITAL_UNKNOWN')])];
-    let code: OwnerReason | null = null;
-    let reason: string | null = null;
-    if (!hardOk(r)) [code, reason] = r.assessment.affordability === 'unknown' ? ['missing_info', 'חסר מידע (הון / החזר)'] : ['unfunded', 'לא ניתן לממן'];
-    else if (r.priceDependency) [code, reason] = ['price', 'תלוי במחיר שלא ידוע'];
-    else if (needsInventory(r.candidate)) [code, reason] = ['inventory', 'תלוי במלאי דירות שלא אושר'];
-    else if (r.assessment.commercial === 'negotiable') [code, reason] = ['policy', 'היזם לא צפוי להציע (מדיניות שירותי בנייה)'];
-    else {
-      reason = goalReason(profile.goal, r, results);
-      code = reason ? 'goal' : null;
-    }
-    const margin = r.developerLot?.margin ?? r.developerMargin ?? null;
-    const developerOk = margin !== null && margin >= hurdle - 1e-9;
-    const conditions = [
-      ...r.requiredConditions,
-      // Neither side's outside option is known: the owner's no-agreement value (no current land price) and whether
-      // the developer's hurdle is its actual requirement.
-      'OUTSIDE_OPTION_UNKNOWN',
-      'DEVELOPER_HURDLE_ASSUMED',
-      ...(r.developerLot?.consideration.material ? ['CONSIDERATION_MISMATCH'] : []),
-    ];
-    const accepts = reason === null;
-    const status: ContractStatus = !accepts || !developerOk ? 'infeasible' : conditions.length ? 'modeled_conditional' : 'terms_confirmed';
-    return {
-      id: fingerprint({ lotId, contract: k, route: r.candidate }),
-      inputHash,
-      lotId,
-      contract: k,
-      routeId: r.id,
-      route: r.candidate,
-      owner: {
-        value: r.comparisonValue,
-        transactionValue: r.transactionValue,
-        accepts,
-        reason,
-        reasonCode: code,
-        hard,
-        wholeApartments: r.metrics.wholeApartments,
-        borrowing: r.simulation.totalDrawn,
-      },
-      developer: { margin, profit: r.developerLot?.profit ?? null, hurdle, ok: developerOk },
-      consideration: r.developerLot?.consideration ?? null,
-      conditions: [...new Set(conditions)],
-      status,
-      result: r,
-    };
-  });
+  const baseFails = r.scenarioResults.find((s) => s.scenarioId === 'base')?.fails ?? [];
+  const hard = [...new Set([...baseFails, ...r.reasonCodes.filter((c) => c === 'CAPITAL_UNKNOWN')])];
+  let code: OwnerReason | null = null;
+  let reason: string | null = null;
+  if (!hardOk(r)) [code, reason] = r.assessment.affordability === 'unknown' ? ['missing_info', 'חסר מידע (הון / החזר)'] : ['unfunded', 'לא ניתן לממן'];
+  else if (r.priceDependency) [code, reason] = ['price', 'תלוי במחיר שלא ידוע'];
+  else if (needsInventory(r.candidate)) [code, reason] = ['inventory', 'תלוי במלאי דירות שלא אושר'];
+  else if (r.assessment.commercial === 'negotiable') [code, reason] = ['policy', 'היזם לא צפוי להציע (מדיניות שירותי בנייה)'];
+  else {
+    reason = goalReason(profile.goal, r, results);
+    code = reason ? 'goal' : null;
+  }
+  const margin = r.developerLot?.margin ?? r.developerMargin ?? null;
+  const developerOk = margin !== null && margin >= hurdle - 1e-9;
+  const conditions = [
+    ...r.requiredConditions,
+    // Neither side's outside option is known: the owner's no-agreement value (no current land price) and whether
+    // the developer's hurdle is its actual requirement.
+    'OUTSIDE_OPTION_UNKNOWN',
+    'DEVELOPER_HURDLE_ASSUMED',
+    ...(r.developerLot?.consideration.material ? ['CONSIDERATION_MISMATCH'] : []),
+  ];
+  const accepts = reason === null;
+  const status: ContractStatus = !accepts || !developerOk ? 'infeasible' : conditions.length ? 'modeled_conditional' : 'terms_confirmed';
+  return {
+    id: fingerprint({ lotId, contract: k, route: r.candidate }),
+    inputHash,
+    lotId,
+    contract: k,
+    routeId: r.id,
+    route: r.candidate,
+    owner: {
+      value: r.comparisonValue,
+      transactionValue: r.transactionValue,
+      accepts,
+      reason,
+      reasonCode: code,
+      hard,
+      wholeApartments: r.metrics.wholeApartments,
+      borrowing: r.simulation.totalDrawn,
+    },
+    developer: { margin, profit: r.developerLot?.profit ?? null, hurdle, ok: developerOk },
+    consideration: r.developerLot?.consideration ?? null,
+    conditions: [...new Set(conditions)],
+    status,
+    result: r,
+  };
 }

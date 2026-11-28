@@ -344,7 +344,11 @@ export type Leg =
   /** The developer buys out a fractional combination entitlement for cash at completion. */
   | { kind: 'settle_fraction_cash' }
   /** The fraction joins a project balancing pool (יחידת סל) sold at completion; net proceeds distributed. */
-  | { kind: 'balancing_pool' }
+  /**
+   * soldFraction (group planner, iteration 10 / B1): the share of this owner's fraction actually sold with the pool's
+   * whole units (units ÷ pooled shares); the rest stays an illiquid fractional share. Default 1 (a single-owner view).
+   */
+  | { kind: 'balancing_pool'; soldFraction?: number }
   /**
    * Convert the fractional combination entitlement into one whole apartment of `sizeSqm` (value-based): pay the
    * value gap if the apartment is worth more, receive the excess (settlement factor) if it is worth less.

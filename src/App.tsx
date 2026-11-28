@@ -161,7 +161,7 @@ export default function App() {
                 <NegotiationPanel result={result} />
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
                 {profile && <ContingentCard result={result} profile={profile} terms={terms} config={analysisConfig} />}
-                <GroupPlanner terms={terms} config={analysisConfig} />
+                <GroupPlanner terms={terms} config={analysisConfig} lotId={profile?.lotId || PROJECT_CONFIG.rights.defaultLotId} />
                 {profile && (
                   <JointSearch
                     profile={profile}

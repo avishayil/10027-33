@@ -81,6 +81,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
   let rentCountsForRepayment = false;
   let retainedLandRights = 0;
   let settleFraction: 'cash' | 'pool' | null = null;
+  let poolSoldFraction = 1;
   let fractionSettled: TransactionPlan['fractionSettled'] = null;
   let tierRooms: number | null = null;
   let mixRooms: number[] | null = null;
@@ -321,6 +322,7 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
         break;
       case 'balancing_pool':
         settleFraction = 'pool';
+        poolSoldFraction = Math.max(0, Math.min(1, leg.soldFraction ?? 1));
         break;
       case 'tier_apartment':
         tierRooms = leg.rooms;
@@ -438,21 +440,24 @@ export function buildTransactionPlan(candidate: Candidate, ctx: PlanContext): Tr
     fractionalShare = 0;
   }
 
-  if (settleFraction && fractionalShare > 0) {
+  const settledShare = settleFraction === 'pool' ? fractionalShare * poolSoldFraction : fractionalShare;
+  if (settleFraction && settledShare > 1e-12) {
     // Cash: the developer buys the fraction back at a negotiated discount. Pool (יחידת סל): fractions of several
-    // owners are pooled into balancing units sold on the market; proceeds after costs are distributed.
+    // owners are pooled into balancing units sold on the market; proceeds after costs are distributed. Only the part
+    // actually sold with whole units is cash (B1); the rest stays an illiquid fractional share.
     const factor = settleFraction === 'cash' ? config.commercial.fractionCashSettlementFactor : 1 - costRate;
-    const amount = fractionalShare * aptAtCompletion * factor;
+    const amount = settledShare * aptAtCompletion * factor;
     inflow(completion + settlementDelay, amount, settleFraction === 'cash' ? 'פיצוי כספי על חלק הדירה' : 'חלקכם ממכירת יחידת הסל', 'fraction_settlement');
     // Disposal of retained property (the apartment entitlement received), not extra land consideration: the gain is
     // measured over its basis — the services value already taxed when it was received.
-    const tax = disposalTax(amount, fractionalShare);
+    const tax = disposalTax(amount, settledShare);
     cgRange.low += tax;
     cgRange.high += tax;
     out(completion + settlementDelay, tax, 'מס שבח על הפיצוי (רזרבה)', 'capital_gains_tax', 'owner', { saleRelated: true });
-    retainedEq -= fractionalShare;
-    fractionSettled = { mode: settleFraction, share: fractionalShare };
-    fractionalShare = 0;
+    retainedEq -= settledShare;
+    fractionSettled = { mode: settleFraction, share: settledShare };
+    fractionalShare -= settledShare;
+    if (fractionalShare < 1e-9) fractionalShare = 0;
     wholeApartmentsRetained = Math.floor(retainedEq + 1e-6);
     apartmentSizes.length = wholeApartmentsRetained;
     apartmentRooms.length = wholeApartmentsRetained;

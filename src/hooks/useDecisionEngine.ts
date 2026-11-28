@@ -5,7 +5,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { withArrangement } from '../domain/arrangements';
 import { PROJECT_CONFIG } from '../data/config';
-import type { CommercialTerms, DecisionResult, Goal, TaxArrangement, UserProfile } from '../domain/types';
+import type { CommercialTerms, DecisionResult, Goal, ProjectConfig, TaxArrangement, UserProfile } from '../domain/types';
 import { analyzeProfile } from '../optimizer/analyze';
 import { parseParcelFraction } from '../utils/simulationMath';
 import { PARCEL } from '../data/parcel33';
@@ -143,7 +143,9 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
   // A burst of changes (dragging a slider, typing digits) runs one analysis 250 ms after it settles, on a deferred render.
   const settledKey = useDebounced(analysisKey, 250);
   const deferredKey = useDeferredValue(settledKey);
-  const result: DecisionResult | null = useMemo(() => {
+  // The result together with the exact inputs it was computed from (iteration 10 / E1): cards that re-run parts of the
+  // analysis must use these, never the newer inputs still being analysed.
+  const analysis: { result: DecisionResult; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig; key: string } | null = useMemo(() => {
     const a = JSON.parse(deferredKey) as {
       profile: UserProfile | null;
       terms: CommercialTerms;
@@ -154,8 +156,10 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
     if (!a.profile) return null;
     const base = withArrangement(PROJECT_CONFIG, a.taxArrangement);
     const offer = { levyCap: a.levyCap, developerPaysTaxLoanInterest: a.developerPaysInterest };
-    return analyzeProfile(a.profile, a.terms, { ...base, commercial: { ...base.commercial, offer } });
+    const config: ProjectConfig = { ...base, commercial: { ...base.commercial, offer } };
+    return { result: analyzeProfile(a.profile, a.terms, config), profile: a.profile, terms: a.terms, config, key: deferredKey };
   }, [deferredKey]);
+  const result = analysis?.result ?? null;
   const updating = deferredKey !== analysisKey;
 
   const values: SavedInputs = {
@@ -181,6 +185,7 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
     profile,
     terms,
     result,
+    analysis,
     /** True while a newer analysis is being computed (the shown result is the previous one). */
     updating,
   };

@@ -4,11 +4,12 @@
  *  - GroupPlanner: an anonymous group of owners in one lot — who takes the services slots and who pools fractions so
  *    that the shared resources fit and nobody is worse off than alone. Inputs are typed here, never saved or sent.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CommercialTerms, DecisionResult, Goal, ProjectConfig, StrategyResult, UserProfile } from '../../domain/types';
 import { contingentPlan } from '../../optimizer/contingent';
 import { GOAL_LABELS, strategyTitle } from '../../optimizer/explain';
-import { planGroup, type GroupMember, type GroupResult } from '../../optimizer/group/collective';
+import { fingerprint } from '../../optimizer/contract';
+import { MAX_MEMBERS, planGroup, type GroupMember, type GroupResult, type MemberStatus } from '../../optimizer/group/collective';
 import { formatCompactCurrency, formatNumber } from '../../utils/format';
 
 const money = (x: number | null) => (x === null ? 'לא ניתן' : formatCompactCurrency(x));
@@ -77,42 +78,58 @@ export function ContingentCard({ result, profile, terms, config }: { result: Dec
 
 const DEFAULT_GROUP: GroupMember[] = [
   { label: 'בעלים 1', landAreaSqm: 167, availableCapital: 0, maxMonthlyRepayment: 0, goal: 'minimize_risk' },
-  { label: 'בעלים 2', landAreaSqm: 167, availableCapital: 300_000, maxMonthlyRepayment: 5000, goal: 'maximize_apartments' },
+  { label: 'בעלים 2', landAreaSqm: 167, availableCapital: 300_000, maxMonthlyRepayment: 5000, goal: 'balanced' },
   { label: 'בעלים 3', landAreaSqm: 167, availableCapital: 800_000, maxMonthlyRepayment: 6000, goal: 'maximize_apartments' },
   { label: 'בעלים 4', landAreaSqm: 167, availableCapital: 2_000_000, maxMonthlyRepayment: 15000, goal: 'balanced' },
 ];
-const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'minimize_risk'];
+const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'minimize_risk', 'immediate_cash', 'passive_income'];
+const STATUS: Record<MemberStatus, string> = {
+  at_or_above_reservation: 'לפחות כמו המסלול שלו בלי משאבים משותפים',
+  no_reservation_option: 'אין לו מסלול בלי משאב משותף — אין הבטחה שלא ייפגע',
+  outside_option: 'לא נכנס לתכנון: נשאר בלי הסכם (ערך לא ידוע)',
+};
+const FUNDING: Record<string, string> = { none: 'בלי מימון למסים', developer_loan: 'הלוואת מסים מהיזם לכל הקבוצה', other_property: 'הלוואה על נכס אחר' };
 
-export function GroupPlanner({ terms, config }: { terms: CommercialTerms; config: ProjectConfig }) {
+export function GroupPlanner({ terms, config, lotId }: { terms: CommercialTerms; config: ProjectConfig; lotId: string }) {
   const [members, setMembers] = useState<GroupMember[]>(DEFAULT_GROUP);
   const [slots, setSlots] = useState(1);
-  const [res, setRes] = useState<GroupResult | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const update = (i: number, patch: Partial<GroupMember>) => {
-    setRes(null);
-    setMembers((m) => m.map((x, j) => (j === i ? { ...x, ...patch } : x)));
-  };
+  const [state, setState] = useState<{ key: string; res: GroupResult } | { key: string; error: string } | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const key = fingerprint({ members, slots, terms, lotId, arrangement: config.commercial.taxArrangement, offer: config.commercial.offer, v: config.version });
+  const latest = useRef(key);
+  useEffect(() => {
+    latest.current = key;
+  }, [key]);
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  const update = (i: number, patch: Partial<GroupMember>) => setMembers((m) => m.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const run = () => {
-    setBusy(true);
-    setError(null);
-    setTimeout(() => {
+    const runKey = key;
+    setBusyKey(runKey);
+    if (timer.current) clearTimeout(timer.current);
+    // A run started on older inputs is discarded (the inputs changed while it waited).
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      if (latest.current !== runKey) return setBusyKey(null);
       try {
-        setRes(planGroup(members, terms, slots, (r: StrategyResult) => strategyTitle(r), config));
+        const ctx = { lotId, members, slotsAvailable: slots, terms, offer: config.commercial.offer, arrangement: config.commercial.taxArrangement };
+        const res = planGroup(ctx, (r: StrategyResult) => strategyTitle(r), config);
+        if (latest.current === runKey) setState({ key: runKey, res });
       } catch (e) {
-        setError((e as Error).message);
+        setState({ key: runKey, error: (e as Error).message });
       }
-      setBusy(false);
+      setBusyKey(null);
     }, 30);
   };
+  const current = state && state.key === key ? state : null;
+  const res = current && 'res' in current ? current.res : null;
   const num = (v: string) => (v.trim() === '' ? null : Math.max(0, Number(v.replace(/[^\d.]/g, '')) || 0));
   return (
     <section className="card detail-section" aria-labelledby="group-title">
       <h2 id="group-title">תכנון קבוצתי — כמה בעלים באותו מגרש</h2>
       <p className="card-sub">
-        בעלים באותו מגרש מתחרים על מקומות לשירותי בנייה, ויחידת סל נוצרת רק כשחלקי הדירות מגיעים לדירה שלמה. כאן אפשר להזין
-        קבוצה אנונימית (ללא שמות) ולראות איזה חלוקה מתאימה לכולם — בלי שאף אחד יקבל פחות ממה שהיה מקבל לבד. הנתונים לא נשמרים
-        ולא נשלחים.
+        בעלים באותו מגרש (מגרש {lotId}, כמו בנתונים שלכם) מתחרים על מקומות לשירותי בנייה, ויחידת סל נמכרת רק בדירות שלמות. כאן
+        אפשר להזין קבוצה אנונימית (ללא שמות) ולבדוק חלוקה על אותם תנאי חוזה לכולם. הנתונים לא נשמרים ולא נשלחים.
       </p>
       <div className="table-scroll">
         <table className="compare-table group-inputs">
@@ -149,7 +166,7 @@ export function GroupPlanner({ terms, config }: { terms: CommercialTerms; config
                   </select>
                 </td>
                 <td>
-                  <button type="button" className="link-btn" aria-label={`הסרת ${m.label}`} onClick={() => (setRes(null), setMembers((x) => x.filter((_, j) => j !== i)))}>
+                  <button type="button" className="link-btn" aria-label={`הסרת ${m.label}`} onClick={() => setMembers((x) => x.filter((_, j) => j !== i))}>
                     הסרה
                   </button>
                 </td>
@@ -159,60 +176,89 @@ export function GroupPlanner({ terms, config }: { terms: CommercialTerms; config
         </table>
       </div>
       <div className="chip-row">
-        {members.length < 8 && (
+        {members.length < MAX_MEMBERS && (
           <button
             type="button"
             className="btn-chip"
-            onClick={() => (setRes(null), setMembers((x) => [...x, { label: `בעלים ${x.length + 1}`, landAreaSqm: 167, availableCapital: 300_000, maxMonthlyRepayment: 5000, goal: 'balanced' }]))}
+            onClick={() => setMembers((x) => [...x, { label: `בעלים ${x.length + 1}`, landAreaSqm: 167, availableCapital: 300_000, maxMonthlyRepayment: 5000, goal: 'balanced' }])}
           >
             הוספת בעלים
           </button>
         )}
         <label className="inline-field">
-          מקומות פנויים לשירותי בנייה לקבוצה{' '}
-          <input aria-label="מקומות פנויים לשירותי בנייה" inputMode="numeric" value={slots} onChange={(e) => (setRes(null), setSlots(num(e.target.value) ?? 0))} />
+          מקומות פנויים לשירותי בנייה לקבוצה (אחרי התחייבויות לאחרים){' '}
+          <input aria-label="מקומות פנויים לשירותי בנייה" inputMode="numeric" value={slots} onChange={(e) => setSlots(Math.floor(num(e.target.value) ?? 0))} />
         </label>
       </div>
-      <button type="button" className="btn-secondary" onClick={run} disabled={busy || members.length === 0}>
-        {busy ? 'מחשב…' : 'תכנון קבוצתי'}
+      {state && !current && <p className="field-hint">הנתונים השתנו מאז החישוב הקודם — התוצאה הוסתרה. חשבו מחדש.</p>}
+      <button type="button" className="btn-secondary" onClick={run} disabled={busyKey === key || members.length === 0}>
+        {busyKey === key ? 'מחשב…' : 'תכנון קבוצתי'}
       </button>
-      {error && <p className="field-error">{error}</p>}
-      {res && (
-        <>
-          <div className="table-scroll">
-            <table className="compare-table">
-              <thead>
-                <tr>
-                  <th>בעלים</th>
-                  <th>לבד היה בוחר</th>
-                  <th>בתכנון הקבוצתי</th>
-                </tr>
-              </thead>
-              <tbody>
-                {res.members.map((m, i) => (
-                  <tr key={i}>
-                    <th>{m.member.label}</th>
-                    <td>{m.alone ? `${m.alone.title}${m.alone.condition ? ` (${m.alone.condition})` : ''}` : 'אין מסלול מתאים'}</td>
-                    <td className={m.chosen && m.chosen.rank === 0 ? '' : 'cell-warn'}>
-                      {m.chosen ? `${m.chosen.title}${m.chosen.condition ? ` (${m.chosen.condition})` : ''}` : 'אין מסלול בתכנון הזה'}
-                      {m.chosen && m.chosen.rank > 0 && <span className="sub">בחירה {m.chosen.rank + 1} שלו — כדי שהקבוצה תסתדר</span>}
-                      {m.chosen && m.chosen.poolShare > 0 && <span className="sub">מצטרף ליחידת סל ({formatNumber(m.chosen.poolShare, 2)} דירה)</span>}
-                      {m.chosen && m.chosen.slots > 0 && <span className="sub">תופס מקום לשירותי בנייה</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="field-hint">
-            {res.uncoordinated.feasible ? 'גם לבד כל אחד היה מסתדר. ' : `לבד זה לא מסתדר: ${res.uncoordinated.problems.join('; ')}. `}
-            בתכנון: {res.firstChoices} מתוך {res.members.length} מקבלים את הבחירה הראשונה שלהם; {res.slotsUsed} מתוך {res.slotsAvailable} מקומות לשירותי בנייה;
-            {res.pool.shares > 0 ? ` יחידת סל: ${formatNumber(res.pool.shares, 2)} דירה (${res.pool.units} שלמות${res.pool.leftover > 0.01 ? `, ועוד ${formatNumber(res.pool.leftover, 2)} שצריך לסדר — קנייה של היזם או בעלים נוספים` : ''}).` : ' בלי יחידת סל.'}{' '}
-            אף אחד לא מקבל פחות ממה שהיה מקבל בלי משאבים משותפים. העברת זכויות בין בעלים לא מוצעת כאן — המחיר לא ידוע. כל הסכם כזה
-            צריך הסכם שיתוף ועורך דין.
-          </p>
-        </>
-      )}
+      {current && 'error' in current && <p className="field-error">{current.error}</p>}
+      {res && <GroupOutcome res={res} />}
     </section>
   );
 }
+
+function GroupOutcome({ res }: { res: GroupResult }) {
+  const p = res.pool;
+  return (
+    <>
+      <div className="table-scroll">
+        <table className="compare-table">
+          <thead>
+            <tr>
+              <th>בעלים</th>
+              <th>לבד היה בוחר</th>
+              <th>בתכנון הקבוצתי</th>
+            </tr>
+          </thead>
+          <tbody>
+            {res.members.map((m, i) => (
+              <tr key={i}>
+                <th>{m.member.label}</th>
+                <td>{m.alone ? m.alone.title : 'אין מסלול מתאים בתנאים האלה'}</td>
+                <td className={m.status === 'at_or_above_reservation' && m.chosen?.rank === 0 ? '' : 'cell-warn'}>
+                  {m.chosen ? m.chosen.title : 'אין מסלול בתכנון הזה'}
+                  {m.chosen && m.chosen.rank > 0 && <span className="sub">בחירה {m.chosen.rank + 1} שלו — כדי שהקבוצה תסתדר</span>}
+                  {m.chosen && m.chosen.poolShare > 0 && (
+                    <span className="sub">
+                      ביחידת סל: {formatNumber(m.chosen.poolShare, 2)} דירה, מהן נמכרות {formatNumber(m.chosen.poolShare * p.soldFraction, 2)}
+                      {m.chosenValue !== null && m.chosenValue < m.chosen.value - 1000 ? ` (ערך ${formatCompactCurrency(m.chosenValue)} — לא ${formatCompactCurrency(m.chosen.value)})` : ''}
+                    </span>
+                  )}
+                  {m.chosen && m.chosen.slots > 0 && <span className="sub">תופס {m.chosen.slots} מקום לשירותי בנייה</span>}
+                  <span className="sub">{STATUS[m.status]}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="field-hint">
+        {res.uncoordinated.feasible ? 'גם לבד כל אחד היה מסתדר. ' : `לבד זה לא מסתדר: ${res.uncoordinated.problems.join('; ')}. `}
+        חוזה אחד לכולם: {ARR_NAMES[res.contract.arrangement]}, קומבינציה {formatNumber(res.contract.combinationPct * 100, 1)}%, {FUNDING[res.contract.funding]}. בתכנון:{' '}
+        {res.assigned} מתוך {res.members.length} נכנסים; {res.firstChoices} מקבלים את הבחירה הראשונה שלהם; {res.slotsUsed} מתוך {res.slotsAvailable} מקומות
+        לשירותי בנייה.
+        {p.shares > 0
+          ? ` יחידת סל: ${formatNumber(p.shares, 2)} חלקי דירה → ${p.units} דירות שלמות נמכרות (${formatCompactCurrency(p.proceeds)} נטו, לפני מס), כל אחד מקבל רק את חלקו היחסי.${p.residualShares > 0.01 ? ` עוד ${formatNumber(p.residualShares, 2)} דירה לא נמכרת — נשארת חלק לא סחיר (שווי ברוטו כ-${formatCompactCurrency(p.residualValueGross)}), בלי כסף אלא אם נמצא קונה או שהיזם קונה.` : ''}`
+          : ' בלי יחידת סל.'}
+      </p>
+      <p className={`field-hint ${res.developer.ok ? '' : 'cell-fail'}`}>
+        רווח היזם במגרש עם כל המסלולים של הקבוצה יחד:{' '}
+        {res.developer.margin === null ? 'לא חושב (אף אחד לא נכנס)' : `${formatNumber(res.developer.margin * 100, 1)}% מההכנסות`}
+        {res.developer.margin !== null && (res.developer.ok ? ' — לפחות ביעד.' : ` — מתחת ליעד של ${formatNumber(res.developer.hurdle * 100, 1)}%, ולכן התכנון הזה לא סגור מול היזם.`)}
+      </p>
+      <p className="field-hint">
+        {res.fairness.holdsForAll
+          ? 'כל אחד מקבל לפחות את מה שהיה מקבל במסלול בלי משאבים משותפים. '
+          : `הבטחה שאף אחד לא ייפגע אינה מתקיימת לכולם: ${res.fairness.outside ? `${res.fairness.outside} בלי מסלול בתכנון` : ''}${res.fairness.outside && res.fairness.noReservation ? ', ' : ''}${res.fairness.noReservation ? `${res.fairness.noReservation} בלי מסלול עצמאי להשוואה` : ''}. `}
+        השוואה מול ״בלי הסכם״ לא אפשרית — אין מחיר קרקע עדכני. נבדקו עד {res.search.maxOptions} מסלולים לכל בעלים (ועוד המסלול העצמאי שלו), {res.search.explored.toLocaleString('he-IL')} חלוקות
+        {res.search.truncated ? ' — החיפוש נעצר בגבול שלו' : ''}; זו לא הוכחה שאין חלוקה טובה יותר. העברת זכויות בין בעלים לא מוצעת כאן — המחיר לא
+        ידוע. כל הסכם כזה צריך הסכם שיתוף ועורך דין.
+      </p>
+    </>
+  );
+}
+
+const ARR_NAMES: Record<string, string> = { gross: 'עסקת ברוטו', mixed: 'עסקה מעורבת', net: 'עסקת נטו' };
