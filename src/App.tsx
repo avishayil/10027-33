@@ -16,6 +16,7 @@ import {
   WhyFits,
 } from './components/comparisons/DetailSections';
 import { JointSearch } from './components/comparisons/JointSearch';
+import { ConcessionsCard } from './components/comparisons/Concessions';
 import { ContingentCard, GroupPlanner } from './components/comparisons/PhaseF';
 import { AnswersBar, TermsCard } from './components/inputs/AnswersBar';
 import { Wizard, type WizardStep } from './components/inputs/Wizard';
@@ -162,6 +163,14 @@ export default function App() {
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
                 {engine.analysis && (
                   <ContingentCard result={engine.analysis.result} profile={engine.analysis.profile} terms={engine.analysis.terms} config={engine.analysis.config} />
+                )}
+                {engine.analysis && (engine.analysis.result.recommendation ?? engine.analysis.result.ranked[0]) && (
+                  <ConcessionsCard
+                    route={(engine.analysis.result.recommendation ?? engine.analysis.result.ranked[0])!}
+                    profile={engine.analysis.profile}
+                    terms={engine.analysis.terms}
+                    config={engine.analysis.config}
+                  />
                 )}
                 <GroupPlanner terms={terms} config={analysisConfig} lotId={profile?.lotId || PROJECT_CONFIG.rights.defaultLotId} />
                 {profile && (

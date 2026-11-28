@@ -156,6 +156,8 @@ export function buildResult(
       profitOnCost: lot.profitOnCost,
       userPhysicalUnits: lot.userPhysicalUnits,
       consideration: delta.consideration,
+      equityNpv: lot.equityFlows.reduce((s, x, m) => s + x * Math.pow(1 + config.analysis.discountRate, -m / 12), 0),
+      peakEquity: lot.peakEquity,
     };
   }
   const blocked = policyBlock(candidate, R, config);

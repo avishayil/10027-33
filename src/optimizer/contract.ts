@@ -11,7 +11,7 @@ import { withArrangement } from '../domain/arrangements';
 import { calculateRights } from '../domain/rights';
 import type { Candidate, CommercialTerms, ConsiderationReconciliation, Goal, ProjectConfig, StrategyResult, TaxArrangement, UserProfile } from '../domain/types';
 import { buildResult } from './analyze';
-import type { EngineContext } from './evaluate';
+import type { EngineContext, PlanTransform } from './evaluate';
 import { generateStrategies } from './generate';
 import { evaluateScenarios } from './scenarios';
 
@@ -103,9 +103,16 @@ function contractContext(profile: UserProfile, k: ContractTerms, base: ProjectCo
 }
 
 /** One explicit candidate (e.g. a route with a group-specific pool sale) on a contract; `peers` = the goal's reference set. */
-export function snapshotForCandidate(profile: UserProfile, k: ContractTerms, base: ProjectConfig, candidate: Candidate, peers: StrategyResult[]): ContractSnapshot {
+export function snapshotForCandidate(
+  profile: UserProfile,
+  k: ContractTerms,
+  base: ProjectConfig,
+  candidate: Candidate,
+  peers: StrategyResult[],
+  transform?: PlanTransform,
+): ContractSnapshot {
   const { config, ctx } = contractContext(profile, k, base);
-  const r = buildResult(candidate, evaluateScenarios(candidate, ctx, config), ctx, config);
+  const r = buildResult(candidate, evaluateScenarios(candidate, ctx, config, transform), ctx, config);
   return toSnapshot(r, peers, profile, k, base);
 }
 

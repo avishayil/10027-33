@@ -926,6 +926,9 @@ export interface LotPnLSummary {
   /** Physical apartments this owner receives on the route. */
   userPhysicalUnits: number;
   consideration: ConsiderationReconciliation;
+  /** PV of the developer's equity flows at the analysis (real) discount rate — the developer side in the owner's units. */
+  equityNpv: number;
+  peakEquity: number;
 }
 
 export interface DeveloperThresholds {
