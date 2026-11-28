@@ -48,8 +48,13 @@ export function ContingentCard({ result, profile, terms, config }: { result: Dec
                 <th>
                   {r.option ? (
                     <>
-                      {title(r.option.fallbackRouteId)}, ואופציה ל{title(r.option.targetRouteId)}
-                      {r.option.targetContract.funding !== 'none' && <span className="sub">{FUNDING[r.option.targetContract.funding]}</span>}
+                      {title(r.option.fallbackRouteId)},{' '}
+                      {r.option.targetRouteId === r.option.fallbackRouteId
+                        ? `ואופציה ל${CONTRACT_FUNDING[r.option.targetContract.funding]}`
+                        : `ואופציה ל${title(r.option.targetRouteId)}`}
+                      {r.option.targetContract.funding !== 'none' && r.option.targetRouteId !== r.option.fallbackRouteId && (
+                        <span className="sub">{CONTRACT_FUNDING[r.option.targetContract.funding]}</span>
+                      )}
                     </>
                   ) : (
                     <>
@@ -57,7 +62,7 @@ export function ContingentCard({ result, profile, terms, config }: { result: Dec
                       {r.conditional && (
                         <span className="sub">
                           בתנאים אחרים: {ARR_NAMES[r.contract.arrangement]}, {formatNumber(r.contract.combinationPct * 100, 1)}%
-                          {r.contract.funding !== 'none' ? `, ${FUNDING[r.contract.funding]}` : ''}
+                          {r.contract.funding !== 'none' ? `, ${CONTRACT_FUNDING[r.contract.funding]}` : ''}
                         </span>
                       )}
                     </>
@@ -279,4 +284,5 @@ function GroupOutcome({ res }: { res: GroupResult }) {
   );
 }
 
+const CONTRACT_FUNDING: Record<string, string> = { none: 'בלי מימון למסים', developer_loan: 'הלוואת מסים מהיזם', other_property: 'הלוואה על נכס אחר' };
 const ARR_NAMES: Record<string, string> = { gross: 'עסקת ברוטו', mixed: 'עסקה מעורבת', net: 'עסקת נטו' };

@@ -1,8 +1,12 @@
 /**
  * Browser check against the production build (run `npm run build` first).
  *  - Changing personal financial inputs triggers no network requests.
+ *  - The advanced features (joint search, group planner, contingent and concession cards) send nothing and store
+ *    nothing: group inputs never reach localStorage.
+ *  - A result computed on older inputs is hidden once the inputs change (no stale result under current labels).
  *  - No request ever leaves the page's own origin.
  *  - No CSP violations or console errors; no horizontal scroll at phone width.
+ * E2E_BASE (e.g. /10027-33/) serves and tests the build under the same base path it is deployed at.
  * Usage: node tests/e2e/privacy.mjs [screenshotDir]
  */
 import { createServer } from 'node:http';
@@ -17,9 +21,15 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const DIST = process.env.E2E_DIST ? new URL(`../../${process.env.E2E_DIST.replace(/\/?$/, '/')}`, import.meta.url).pathname : new URL('../../dist/', import.meta.url).pathname;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.pdf': 'application/pdf' };
 const shotDir = process.argv[2];
+const BASE = (process.env.E2E_BASE || '/').replace(/^\/?/, '/').replace(/\/?$/, '/');
 
 const server = createServer(async (req, res) => {
-  const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^\/+/, '');
+  const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (!pathname.startsWith(BASE)) {
+    res.writeHead(404);
+    return res.end();
+  }
+  const path = normalize(pathname.slice(BASE.length)).replace(/^\/+/, '');
   const file = path === '' || path === '.' ? 'index.html' : path;
   try {
     const body = await readFile(join(DIST, file));
@@ -42,7 +52,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   page.on('request', (r) => requests.push(r.url()));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(origin + '/');
+  await page.goto(origin + BASE);
   const shot = async (name) => shotDir && page.screenshot({ path: `${shotDir}/${name}-${viewport.width}.png`, fullPage: true });
 
   // First visit: the onboarding wizard.
@@ -97,11 +107,27 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 
   );
   if (unnamed.length) failures.push(`${viewport.width}px: controls without an accessible name: ${unnamed.join(' | ')}`);
 
+  // Advanced features: the joint search and the group planner run locally.
+  if (!(await page.locator('#concessions-title').count())) failures.push(`${viewport.width}px: concessions card missing`);
+  const joint = page.locator('section[aria-labelledby="joint-title"]');
+  await joint.getByRole('button', { name: 'חיפוש תנאים' }).click();
+  await joint.getByText(/נבדקו \d+ חוזים/).waitFor({ timeout: 60_000 });
+  const group = page.locator('section[aria-labelledby="group-title"]');
+  await group.getByRole('button', { name: 'תכנון קבוצתי' }).click();
+  await group.getByText('חוזה אחד לכולם', { exact: false }).waitFor({ timeout: 60_000 });
+  await shot('advanced-features');
+
   // Main screen interactions.
   await page.getByLabel('רווח יזמי בשירותי בנייה').fill('0.2');
   await page.waitForTimeout(200);
   const afterInputs = requests.slice(initial);
   if (afterInputs.length) failures.push(`${viewport.width}px: inputs triggered requests: ${afterInputs.join(', ')}`);
+  // UX1: the joint result was computed on the old markup — it must be hidden now, not shown under the new labels.
+  if (!(await joint.getByText('הנתונים השתנו').isVisible())) failures.push(`${viewport.width}px: stale joint-search result still shown after an input change`);
+  if (await joint.getByText(/נבדקו \d+ חוזים/).count()) failures.push(`${viewport.width}px: stale joint-search details still rendered`);
+  // Group inputs are never stored.
+  const stored = await page.evaluate(() => Object.keys(localStorage).map((k) => localStorage.getItem(k)).join('\n'));
+  if (/בעלים \d|2000000|2,000,000/.test(stored)) failures.push(`${viewport.width}px: group inputs found in localStorage`);
 
   // Answers persist after a reload (consent was on by default) …
   await page.reload();

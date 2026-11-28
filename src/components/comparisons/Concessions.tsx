@@ -3,7 +3,7 @@
  * on both sides — and what currently blocks the deal. Computed from the inputs the shown result was computed from.
  */
 import { useMemo } from 'react';
-import type { CommercialTerms, ProjectConfig, StrategyResult, UserProfile } from '../../domain/types';
+import type { CommercialTerms, DecisionResult, ProjectConfig, StrategyResult, UserProfile } from '../../domain/types';
 import { concessionFrontier, explainFeasibility, type BindingKind } from '../../optimizer/concessions';
 import type { ContractTerms } from '../../optimizer/contract';
 import { strategyTitle } from '../../optimizer/explain';
@@ -18,6 +18,11 @@ const BINDING: Record<BindingKind, string> = {
   physical: 'מגבלה פיזית (חלק דירה שלא נסגר, זכויות לא מספיקות)',
   goal: 'לא מתאים למה שחשוב לכם',
 };
+
+/** The route the card explains: the recommendation, else the best ranked, else the closest one that does not fit yet. */
+export function concessionRoute(result: DecisionResult): StrategyResult | null {
+  return result.recommendation ?? result.ranked[0] ?? result.nearMiss[0]?.result ?? result.results.find((r) => r.id === 'S02') ?? null;
+}
 
 export function ConcessionsCard({ route, profile, terms, config }: { route: StrategyResult; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig }) {
   const data = useMemo(() => {

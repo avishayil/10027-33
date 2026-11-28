@@ -7,21 +7,24 @@ on:
       - master
   pull_request:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Least privilege: nothing by default; each job asks for what it needs.
+permissions: {}
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      # Actions pinned to release commits (tag in the comment).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -29,28 +32,33 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      # Browser privacy check on a production build served from the root path: no network requests from inputs,
-      # no cross-origin requests, no console errors, no horizontal scroll.
-      - run: npm run build -- --base / --outDir dist-e2e
-      - run: npm install --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-        env:
-          E2E_DIST: dist-e2e
+      # The build that is deployed, under the repository sub-path it is served from.
       - run: npm run build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+      # Browser privacy check on that same build and base path: no network requests from inputs or the advanced
+      # features, nothing stored from the group planner, no stale results, no cross-origin requests, no console
+      # errors, no horizontal scroll. Playwright comes from the lockfile.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          E2E_DIST: dist
+          E2E_BASE: /${{ github.event.repository.name }}/
       - if: github.event_name == 'push'
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist
 
   deploy:
     if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
