@@ -17,6 +17,7 @@
  * the ranking value; no approval uses minus the maximum modelled loss. Regret over all three states; minimax.
  */
 import { calculateRights } from '../domain/rights';
+import { validateInputs } from '../domain/validation';
 import type { Candidate, CommercialTerms, DecisionResult, ProjectConfig, StrategyResult, TransactionPlan, UserProfile } from '../domain/types';
 import { approvalMonthOf, buildTransactionPlan } from '../domain/transactions';
 import { buildResult } from './analyze';
@@ -168,6 +169,8 @@ function fixedStates(profile: UserProfile, k: ContractTerms, base: ProjectConfig
 }
 
 export function contingentPlan(result: DecisionResult, profile: UserProfile, terms: CommercialTerms, config: ProjectConfig): ContingentResult {
+  const invalid = validateInputs(profile, terms, config);
+  if (invalid.length) throw new Error(invalid.join(' '));
   const baseK: ContractTerms = {
     arrangement: config.commercial.taxArrangement,
     combinationPct: terms.combinationPct,

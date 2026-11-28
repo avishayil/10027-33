@@ -9,7 +9,7 @@ import type { CommercialTerms, DecisionResult, Goal, ProjectConfig, TaxArrangeme
 import { analyzeProfile } from '../optimizer/analyze';
 import { parseParcelFraction } from '../utils/simulationMath';
 import { PARCEL } from '../data/parcel33';
-import { maxAreaInLot } from '../domain/validation';
+import { MAX_AMOUNT, MAX_MONTHLY, maxAreaInLot, validateInputs } from '../domain/validation';
 import type { SavedInputs } from './storage';
 
 export type AreaMode = 'sqm' | 'fraction';
@@ -100,13 +100,15 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
           ? 'השטח גדול מכל המגרש שהוקצה. אחזקות בכמה מגרשים עוד לא נתמכות — הזינו את החלק שבמגרש אחד.'
           : null;
 
+  // Iteration 10 / E2: amounts beyond what the engine can search are rejected here too, not only at the domain boundary.
+  const amountError = (x: number | null, max = MAX_AMOUNT) => (x !== null && Number.isNaN(x) ? 'סכום לא תקין.' : x !== null && x > max ? 'הסכום גדול מכדי לחשב.' : null);
   const errors = {
     area: area.error ?? areaBound,
-    capital: Number.isNaN(capital) ? 'סכום לא תקין.' : null,
-    repayment: repaymentMode === 'amount' && Number.isNaN(repaymentAmount) ? 'סכום לא תקין.' : null,
-    basis: Number.isNaN(basis) ? 'סכום לא תקין.' : null,
-    levyCap: Number.isNaN(levyCap) ? 'סכום לא תקין.' : null,
-    otherPropertyLimit: Number.isNaN(otherPropertyLimit) ? 'סכום לא תקין.' : null,
+    capital: amountError(capital),
+    repayment: repaymentMode === 'amount' ? amountError(repaymentAmount, MAX_MONTHLY) : null,
+    basis: amountError(basis),
+    levyCap: amountError(levyCap),
+    otherPropertyLimit: amountError(otherPropertyLimit),
   };
 
   const maxMonthlyRepayment =
@@ -157,6 +159,8 @@ export function useDecisionEngine(saved: SavedInputs | null = null) {
     const base = withArrangement(PROJECT_CONFIG, a.taxArrangement);
     const offer = { levyCap: a.levyCap, developerPaysTaxLoanInterest: a.developerPaysInterest };
     const config: ProjectConfig = { ...base, commercial: { ...base.commercial, offer } };
+    // Inputs the domain rejects never produce a result (and never crash the page).
+    if (validateInputs(a.profile, a.terms, config).length) return null;
     return { result: analyzeProfile(a.profile, a.terms, config), profile: a.profile, terms: a.terms, config, key: deferredKey };
   }, [deferredKey]);
   const result = analysis?.result ?? null;

@@ -30,3 +30,33 @@ describe('validateInputs', () => {
     expect(() => analyzeProfile(profile({ landAreaSqm: 30_000 }), TERMS, C)).toThrow();
   });
 });
+
+describe('iteration 10 / E2: every input and the configuration are validated at the entry points', () => {
+  const bad = (over: Parameters<typeof profile>[0]) => validateInputs(profile(over), TERMS, C);
+  it('borrowing limit on another property: finite and non-negative', () => {
+    expect(bad({ otherPropertyBorrowingLimit: -1 }).length).toBeGreaterThan(0);
+    expect(bad({ otherPropertyBorrowingLimit: Number.POSITIVE_INFINITY }).length).toBeGreaterThan(0);
+    expect(bad({ otherPropertyBorrowingLimit: 500_000 })).toEqual([]);
+  });
+  it('liquidity deadline: finite, positive, within the horizon', () => {
+    for (const y of [0, -1, Number.NaN, C.analysis.horizonYears + 1]) expect(bad({ liquidityDeadlineYears: y }).length).toBeGreaterThan(0);
+    expect(bad({ liquidityDeadlineYears: 2 })).toEqual([]);
+  });
+  it('goal must be one of the known goals', () => {
+    expect(bad({ goal: 'get_rich' as never }).length).toBeGreaterThan(0);
+  });
+  it('the levy cap of an actual offer: finite and non-negative', () => {
+    const cfg = { ...C, commercial: { ...C.commercial, offer: { levyCap: -5, developerPaysTaxLoanInterest: false } } };
+    expect(validateInputs(profile(), TERMS, cfg).length).toBeGreaterThan(0);
+    const nan = { ...C, commercial: { ...C.commercial, offer: { levyCap: Number.NaN, developerPaysTaxLoanInterest: false } } };
+    expect(validateInputs(profile(), TERMS, nan).length).toBeGreaterThan(0);
+  });
+  it('configuration rates must be finite (a broken scenario rate never yields a confident result)', () => {
+    const cfg = { ...C, analysis: { ...C.analysis, discountRate: Number.NaN } };
+    expect(validateInputs(profile(), TERMS, cfg).length).toBeGreaterThan(0);
+  });
+  it('huge but finite values are rejected before they can freeze the engine', () => {
+    expect(bad({ availableCapital: 1e15 }).length).toBeGreaterThan(0);
+    expect(bad({ maxMonthlyRepayment: 1e12 }).length).toBeGreaterThan(0);
+  });
+});

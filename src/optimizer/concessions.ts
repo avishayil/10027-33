@@ -15,6 +15,7 @@
  */
 import type { ProjectConfig, ReasonCode, TransactionPlan, UserProfile } from '../domain/types';
 import { calculateRights } from '../domain/rights';
+import { validateInputs } from '../domain/validation';
 import { contractConfig, evaluateRoutes, snapshotForCandidate, type ContractSnapshot, type ContractTerms } from './contract';
 import type { PlanTransform } from './evaluate';
 
@@ -79,6 +80,8 @@ function snapshotOf(profile: UserProfile, k: ContractTerms, base: ProjectConfig,
 }
 
 export function concessionFrontier(profile: UserProfile, k0: ContractTerms, base: ProjectConfig, routeId: string): ConcessionFrontier {
+  const invalid = validateInputs(profile, { combinationPct: k0.combinationPct, developerMarkup: k0.markup }, contractConfig(base, k0));
+  if (invalid.length) throw new Error(invalid.join(' '));
   const s0 = snapshotOf(profile, k0, base, routeId);
   if (!s0) throw new Error(`מסלול לא קיים בתנאים האלה: ${routeId}`);
   const npv = (s: ContractSnapshot) => s.result.developerLot?.equityNpv ?? null;
