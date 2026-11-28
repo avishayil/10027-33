@@ -6,7 +6,7 @@ import { RETRIEVED_AT } from './project';
  * The slider is the offer's %, under the arrangement it states (who pays the taxes). Net offers sit lower and gross
  * offers higher: reported gross deals were 40%–47% (Rothstein 2022), so 25%–45% covers all three arrangements.
  */
-export const COMBINATION_RANGE = { min: 0.25, max: 0.45, default: 0.35 };
+export const COMBINATION_RANGE = { min: 0.25, max: 0.45, default: 0.35, step: 0.005 };
 export const MARKUP_RANGE = { min: 0.15, max: 0.2, default: 0.175 };
 
 export const COMMERCIAL = {

@@ -135,7 +135,8 @@ export interface ProjectConfig {
   evidence: Record<PriceKnob, EvidenceRef>;
   timeline: Timeline;
   commercial: {
-    combination: { min: number; max: number; default: number };
+    /** step = the slider step (0.5 point): the bilateral search tests at least this resolution where it matters. */
+    combination: { min: number; max: number; default: number; step: number };
     developerMarkup: { min: number; max: number; default: number };
     revenueShare: number;
     /** When the developer pays for purchased surplus rights (years from signing). */

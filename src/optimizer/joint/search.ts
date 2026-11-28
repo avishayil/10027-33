@@ -1,179 +1,406 @@
 /**
- * Iteration 9 / phase E — the bilateral contract search (first version).
+ * Iteration 10 / I3 — the bilateral contract search on one executable contract (review of c689d0b, §A).
  *
- * A contract here is (combination %, tax arrangement); the owner's markup and offer terms stay as entered. For each
- * contract on a grid it asks two questions on the same model:
- *  - the owner: is there an evidence-based route this household can fund (and, for the whole-apartment goal, that
- *    ends with a whole apartment)? Its value is the route's equity NPV.
- *  - the developer: does the lot leave at least the target margin (the hurdle — an assumption, not a statutory rule)?
- * Contracts that pass both are feasible; the non-dominated ones (owner value ↑, developer margin ↑) form the frontier.
- * When none pass, a gap certificate says how far apart the two sides are on each arrangement and which single lever
- * would close it. Thresholds are read from the grid as intervals (no monotonicity is assumed).
- * Equal developer profit is never presented as viability: a contract passes only above the hurdle.
+ * A contract is (tax arrangement, combination %, the owner's markup and offer terms, and the funding the household
+ * relies on). For each contract tested, every route is evaluated once (`snapshotsFor`) and both sides are read from the
+ * same snapshot: the owner accepts a route when it is fundable, needs no unverified price or apartment inventory and
+ * meets the household's goal; the developer accepts it when the lot margin *with that route* reaches the hurdle. A
+ * (contract, route) pair is feasible only when both accept it — never the household's best route against a generic
+ * developer baseline. Feasible pairs are still conditional: neither side's outside option is known.
+ *
+ * The % grid includes both endpoints and is refined to the slider step wherever the result changes between coarse
+ * points. A feasible set narrower than the coarse spacing could still be missed, so the search never claims to be
+ * complete ("not found in the tested scenarios", not "none exists").
+ * When nothing is feasible, the gap is the minimum distance between the two sides on the same route, with levers each
+ * re-evaluated on both sides (a price that saves the developer's margin also changes the owner's numbers).
  */
+import { directCostPerSaleableSqm } from '../../domain/lotDeveloper';
 import { calculateRights } from '../../domain/rights';
-import { developerBreakEvens, lotDeveloperPnL, lotViablePct } from '../../domain/lotDeveloper';
-import { policyBlock } from '../../domain/policy';
+import { validateInputs } from '../../domain/validation';
 import type { CommercialTerms, ProjectConfig, TaxArrangement, UserProfile } from '../../domain/types';
-import { withArrangement } from '../../domain/arrangements';
-import { evaluateCandidate, type EngineContext } from '../evaluate';
-import { assessEvaluation } from '../feasibility';
+import { contractConfig, snapshotsFor, type ContractFunding, type ContractSnapshot, type ContractStatus, type ContractTerms, type OwnerReason } from '../contract';
+import type { EngineContext } from '../evaluate';
 import { generateStrategies } from '../generate';
 import { requiredAdditionalCapital } from '../reverse';
 
 export const ARRANGEMENTS: TaxArrangement[] = ['gross', 'mixed', 'net'];
+const EPS = 1e-9;
+const round = (x: number) => Math.round(x * 1e6) / 1e6;
 
+/** One (contract, route) pair, read from its snapshot. */
+export interface JointPair {
+  arrangement: TaxArrangement;
+  combinationPct: number;
+  funding: ContractFunding;
+  contractId: string;
+  routeId: string;
+  ownerValue: number;
+  ownerAccepts: boolean;
+  ownerReason: OwnerReason | null;
+  wholeApartments: number;
+  developerMargin: number | null;
+  developerOk: boolean;
+  status: ContractStatus;
+  conditions: string[];
+}
+
+/** Summary of one tested contract: the owner's best accepted route and its own developer margin. */
 export interface JointCell {
   arrangement: TaxArrangement;
   combinationPct: number;
+  funding: ContractFunding;
   owner: { ok: boolean; routeId: string | null; value: number | null; wholeApartments: number };
-  developer: { ok: boolean; margin: number };
+  /** ok = the developer reaches the hurdle on at least one route; margin = on the owner's best route (else the best). */
+  developer: { ok: boolean; margin: number | null };
+  feasibleRoutes: string[];
+}
+
+export interface PriceLever {
+  arrangement: TaxArrangement;
+  combinationPct: number;
+  funding: ContractFunding;
+  routeId: string;
+  /** Lowest apartment price per m² at which this route leaves the developer the hurdle. */
+  pricePerSqm: number;
+  /** At that price, does the owner still accept the route (re-evaluated, not assumed)? */
+  ownerAccepts: boolean;
+}
+
+export interface CostLever {
+  arrangement: TaxArrangement;
+  combinationPct: number;
+  funding: ContractFunding;
+  routeId: string;
+  /** Highest developer direct cost per saleable m² that leaves the hurdle on this route (now: current). */
+  directCostPerSqm: number;
+  current: number;
+  ownerAccepts: boolean;
+}
+
+export interface CapitalLever {
+  arrangement: TaxArrangement;
+  combinationPct: number;
+  funding: ContractFunding;
+  routeId: string;
+  extraCapital: number;
+  /** Funding-only candidates examined (all of them — none dropped). */
+  candidates: number;
+  /** With the extra capital, re-evaluated: does the owner accept and does the developer still reach the hurdle? */
+  ownerAccepts: boolean;
+  developerOk: boolean;
 }
 
 export interface ArrangementSummary {
   arrangement: TaxArrangement;
-  /** Combination % ranges (grid points, inclusive) where each side / both sides accept. */
+  /** % ranges (tested points, inclusive) where the owner accepts some route / the developer accepts some route / both the same route. */
   ownerOk: [number, number][];
-  /** The developer's highest viable % found exactly (it can lie below the slider's range); null = not even at 0%. */
-  developerMaxExact: number | null;
   developerOk: [number, number][];
   both: [number, number][];
-  /** When there is no overlap: lowest % the owner accepts, highest % the developer accepts, and the gap between. */
   gap: null | {
+    /** Lowest % the owner accepts (any route) and highest % the developer accepts (any route), in the tested range. */
     ownerMin: number | null;
     developerMax: number | null;
-    points: number | null;
-    /** At the owner's minimum %: the developer's margin, and the cost / price that would restore its hurdle. */
-    atOwnerMin: null | { margin: number; maxDirectCostPerSqm: number | null; minApartmentPricePerSqm: number | null };
-    /** At the developer's maximum % (exact): the extra own capital that would let the owner fund a route. */
-    atDeveloperMax: null | { combinationPct: number; extraCapital: number | null; routeId: string | null };
+    /** Minimum distance between the two sides on the same route and funding; null = no route has both sides in range. */
+    nearest: null | { routeId: string; funding: ContractFunding; ownerAt: number; developerAt: number; points: number };
+    /** At the owner's closest accepted pair: the developer's margin there (the hurdle it would have to accept). */
+    marginLever: null | { combinationPct: number; routeId: string; funding: ContractFunding; margin: number };
+    priceLever: PriceLever | null;
+    costLever: CostLever | null;
+    capitalLever: CapitalLever | null;
   };
 }
 
 export interface JointResult {
-  grid: JointCell[];
-  feasible: JointCell[];
-  frontier: JointCell[];
+  cells: JointCell[];
+  feasible: JointPair[];
+  frontier: JointPair[];
   arrangements: ArrangementSummary[];
+  fundings: ContractFunding[];
   targetMargin: number;
   step: number;
+  /** Widest spacing between tested points (where nothing changed between coarse points). */
+  resolution: number;
+  /** Always false: a feasible set narrower than the resolution can be missed. */
+  complete: false;
+  contractsEvaluated: number;
 }
 
-const EPS = 1e-9;
-/** Routes whose outcome hinges on an unverified price never count as the owner's evidence (as in the main ranking). */
-const PRICE_LEGS = new Set(['sell_rights', 'revenue_share', 'buy_rights', 'settle_fraction_cash']);
+/** Points from min to max at `step`, both endpoints included. Throws on a non-positive or non-finite step. */
+export function gridPoints(min: number, max: number, step: number): number[] {
+  if (!Number.isFinite(step) || step <= 0) throw new Error(`צעד חיפוש לא תקין: ${step}`);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) throw new Error(`טווח חיפוש לא תקין: ${min}–${max}`);
+  const out: number[] = [];
+  const n = Math.floor((max - min) / step + EPS);
+  for (let i = 0; i <= n; i += 1) out.push(round(min + i * step));
+  if (out[out.length - 1] < round(max) - EPS) out.push(round(max));
+  return out;
+}
 
-function ownerSide(profile: UserProfile, terms: CommercialTerms, config: ProjectConfig): JointCell['owner'] & { blockedOnlyByFunding: string[] } {
-  const info = calculateRights(profile.landAreaSqm, config, profile.lotId);
-  const ctx: EngineContext = { info, profile, terms };
-  const R = info.apartmentEquivalents;
-  const wantsWhole = profile.goal === 'maximize_apartments';
-  let best: { id: string; value: number; whole: number } | null = null;
-  const fundingOnly: string[] = [];
-  for (const c of generateStrategies(info, terms, config)) {
-    if (c.type === 'S13') continue; // no assumed apartment sizes in the summary-level decision
-    if (c.legs.some((l) => PRICE_LEGS.has(l.kind))) continue;
-    if (policyBlock(c, R, config)) continue;
-    const ev = evaluateCandidate(c, ctx, config);
-    const whole = ev.plan.wholeApartmentsRetained;
-    if (wantsWhole && whole < 1) continue;
-    const a = assessEvaluation(c, ev, profile, config, R);
-    if (a.fails.length || a.missing.length) {
-      if (a.fails.every((f) => f === 'UNFUNDED_OBLIGATION' || f === 'REPAYMENT_EXCEEDED' || f === 'LTV_EXCEEDED')) fundingOnly.push(c.id);
-      continue;
-    }
-    if (!best || ev.comparisonValue > best.value) best = { id: c.id, value: ev.comparisonValue, whole };
+/**
+ * Evaluate every `every`-th point (and the last), then every point between two coarse points whose signature differs.
+ * Returns the evaluated points in order with their values.
+ */
+export function adaptiveGrid<T>(
+  min: number,
+  max: number,
+  step: number,
+  every: number,
+  evalAt: (c: number) => T,
+  signature: (t: T) => string = (t) => String(t),
+): { points: number[]; values: Map<number, T>; resolution: number; complete: false } {
+  if (!Number.isInteger(every) || every < 1) throw new Error(`צעד גס לא תקין: ${every}`);
+  const all = gridPoints(min, max, step);
+  const values = new Map<number, T>();
+  const at = (i: number) => {
+    const c = all[i];
+    if (!values.has(c)) values.set(c, evalAt(c));
+    return values.get(c)!;
+  };
+  const coarse: number[] = [];
+  for (let i = 0; i < all.length; i += every) coarse.push(i);
+  if (coarse[coarse.length - 1] !== all.length - 1) coarse.push(all.length - 1);
+  coarse.forEach(at);
+  let widest = 0;
+  for (let k = 0; k + 1 < coarse.length; k += 1) {
+    const [a, b] = [coarse[k], coarse[k + 1]];
+    if (signature(at(a)) !== signature(at(b))) for (let i = a + 1; i < b; i += 1) at(i);
+    else widest = Math.max(widest, all[b] - all[a]);
   }
-  return { ok: !!best, routeId: best?.id ?? null, value: best?.value ?? null, wholeApartments: best?.whole ?? 0, blockedOnlyByFunding: fundingOnly };
+  const points = all.filter((c) => values.has(c));
+  return { points, values, resolution: round(Math.max(widest, step)), complete: false };
 }
 
-/** Inclusive ranges of consecutive grid points where pred holds (no monotonicity assumed). */
-function ranges(points: number[], pred: (i: number) => boolean): [number, number][] {
+export const bothAccept = (p: JointPair, hurdle: number) => p.ownerAccepts && p.developerMargin !== null && p.developerMargin >= hurdle - EPS;
+
+/**
+ * Non-dominated pairs on (owner value ↑, developer margin ↑). Pairs with the same values (e.g. the same route with an
+ * unused tax loan) appear once — the first, i.e. the simplest funding.
+ */
+export function frontierOf(pairs: JointPair[]): JointPair[] {
+  const m = (p: JointPair) => p.developerMargin ?? -Infinity;
+  const seen = new Set<string>();
+  return pairs
+    .filter((g) => !pairs.some((o) => o !== g && o.ownerValue >= g.ownerValue && m(o) >= m(g) && (o.ownerValue > g.ownerValue || m(o) > m(g))))
+    .filter((g) => {
+      const key = `${g.arrangement}|${g.combinationPct}|${Math.round(g.ownerValue)}|${m(g).toFixed(6)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+/** Inclusive ranges of consecutive tested points where pred holds (no monotonicity assumed). */
+function ranges(points: number[], pred: (c: number) => boolean): [number, number][] {
   const out: [number, number][] = [];
   let start: number | null = null;
   points.forEach((p, i) => {
-    if (pred(i)) {
-      if (start === null) start = p;
-      if (i === points.length - 1 || !pred(i + 1)) {
-        out.push([start, p]);
-        start = null;
-      }
+    if (!pred(p)) return;
+    if (start === null) start = p;
+    if (i === points.length - 1 || !pred(points[i + 1])) {
+      out.push([start, p]);
+      start = null;
     }
   });
   return out;
 }
 
-export function jointSearch(profile: UserProfile, terms: CommercialTerms, config: ProjectConfig, step = 0.02): JointResult {
-  const { min, max } = config.commercial.combination;
-  const points: number[] = [];
-  for (let c = min; c <= max + EPS; c += step) points.push(Math.round(c * 1e6) / 1e6);
-  const target = config.developer.targetMarginOnRevenue;
-  const info = calculateRights(profile.landAreaSqm, config, profile.lotId);
-  const lotCtx = { info, profile, config };
-  const opts = { markup: terms.developerMarkup };
+const toPair = (s: ContractSnapshot): JointPair => ({
+  arrangement: s.contract.arrangement,
+  combinationPct: s.contract.combinationPct,
+  funding: s.contract.funding,
+  contractId: s.id,
+  routeId: s.routeId,
+  ownerValue: s.owner.value,
+  ownerAccepts: s.owner.accepts,
+  ownerReason: s.owner.reasonCode,
+  wholeApartments: s.owner.wholeApartments,
+  developerMargin: s.developer.margin,
+  developerOk: s.developer.ok,
+  status: s.status,
+  conditions: s.conditions,
+});
 
-  const grid: JointCell[] = [];
-  const funding = new Map<string, string[]>();
-  for (const arrangement of ARRANGEMENTS) {
-    const cfg = withArrangement(config, arrangement);
-    for (const c of points) {
-      const o = ownerSide(profile, { ...terms, combinationPct: c }, cfg);
-      funding.set(`${arrangement}|${c}`, o.blockedOnlyByFunding);
-      const margin = lotDeveloperPnL({ ...lotCtx, config: cfg }, arrangement, c, opts).margin;
-      grid.push({
-        arrangement,
-        combinationPct: c,
-        owner: { ok: o.ok, routeId: o.routeId, value: o.value, wholeApartments: o.wholeApartments },
-        developer: { ok: margin >= target - EPS, margin },
-      });
-    }
+/** Funding the household could rely on: none; a developer tax loan (if they can repay at all); another property's loan. */
+export function fundingsFor(profile: UserProfile): ContractFunding[] {
+  const out: ContractFunding[] = ['none'];
+  if (profile.maxMonthlyRepayment !== 0) out.push('developer_loan');
+  if (profile.soleHome === false && profile.maxMonthlyRepayment !== 0 && typeof profile.otherPropertyBorrowingLimit !== 'number') out.push('other_property');
+  return out;
+}
+
+/** Bisect the boundary of a monotone predicate on [lo, hi]; `rising` = false below, true above. */
+function boundary(lo: number, hi: number, ok: (x: number) => boolean, rising: boolean, iters = 22): number | null {
+  if (rising ? !ok(hi) : !ok(lo)) return null;
+  if (rising ? ok(lo) : ok(hi)) return rising ? lo : hi;
+  for (let i = 0; i < iters; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (ok(mid) === rising) hi = mid;
+    else lo = mid;
   }
+  return rising ? hi : lo;
+}
 
-  const feasible = grid.filter((g) => g.owner.ok && g.developer.ok);
-  const frontier = feasible.filter(
-    (g) => !feasible.some((o) => o !== g && o.owner.value! >= g.owner.value! && o.developer.margin >= g.developer.margin && (o.owner.value! > g.owner.value! || o.developer.margin > g.developer.margin)),
-  );
+export interface JointOptions {
+  /** Finest % step (default: the slider step). */
+  step?: number;
+  /** Coarse pass every n fine steps (default 2), refined where anything changes. */
+  coarseEvery?: number;
+}
 
-  const arrangements: ArrangementSummary[] = ARRANGEMENTS.map((arrangement) => {
-    const cells = grid.filter((g) => g.arrangement === arrangement);
-    const ownerOk = ranges(points, (i) => cells[i].owner.ok);
-    const developerOk = ranges(points, (i) => cells[i].developer.ok);
-    const both = ranges(points, (i) => cells[i].owner.ok && cells[i].developer.ok);
-    const cfgA = withArrangement(config, arrangement);
-    const developerMaxExact = lotViablePct({ ...lotCtx, config: cfgA }, arrangement, opts);
-    let gap: ArrangementSummary['gap'] = null;
-    if (!both.length) {
-      const ownerMin = cells.find((g) => g.owner.ok)?.combinationPct ?? null;
-      const developerMax = [...cells].reverse().find((g) => g.developer.ok)?.combinationPct ?? developerMaxExact;
-      const cfg = withArrangement(config, arrangement);
-      let atOwnerMin: NonNullable<ArrangementSummary['gap']>['atOwnerMin'] = null;
-      if (ownerMin !== null) {
-        const b = developerBreakEvens({ ...lotCtx, config: cfg }, arrangement, ownerMin, opts);
-        atOwnerMin = { margin: cells.find((g) => g.combinationPct === ownerMin)!.developer.margin, maxDirectCostPerSqm: b.maxDirectCostPerSqm, minApartmentPricePerSqm: b.minApartmentPricePerSqm };
-      }
-      let atDeveloperMax: NonNullable<ArrangementSummary['gap']>['atDeveloperMax'] = null;
-      if (developerMax !== null && developerMax > 0 && profile.availableCapital !== null) {
-        const t = { ...terms, combinationPct: developerMax };
-        const ctx: EngineContext = { info: calculateRights(profile.landAreaSqm, cfg, profile.lotId), profile, terms: t };
-        const ids = funding.get(`${arrangement}|${developerMax}`) ?? ownerSide(profile, t, cfg).blockedOnlyByFunding;
-        const cands = generateStrategies(ctx.info, t, cfg).filter((c) => ids.includes(c.id)).slice(0, 4);
-        let bestExtra: { extra: number; id: string } | null = null;
-        for (const c of cands) {
-          const v = requiredAdditionalCapital(c, ctx, cfg).value;
-          if (v !== null && (!bestExtra || v < bestExtra.extra)) bestExtra = { extra: v, id: c.id };
-        }
-        atDeveloperMax = { combinationPct: developerMax, extraCapital: bestExtra?.extra ?? null, routeId: bestExtra?.id ?? null };
-      }
-      gap = {
-        ownerMin,
-        developerMax,
-        points: ownerMin !== null && developerMax !== null ? Math.max(0, ownerMin - developerMax) : null,
-        atOwnerMin,
-        atDeveloperMax,
-      };
-    }
-    return { arrangement, ownerOk, developerMaxExact, developerOk, both, gap };
+export function jointSearch(
+  profile: UserProfile,
+  terms: CommercialTerms,
+  offer: ContractTerms['offer'],
+  config: ProjectConfig,
+  opts: JointOptions = {},
+): JointResult {
+  const step = opts.step ?? config.commercial.combination.step;
+  const every = opts.coarseEvery ?? 2;
+  const { min, max } = config.commercial.combination;
+  gridPoints(min, max, step); // validates before any work
+  const invalid = validateInputs(profile, terms, config);
+  if (invalid.length) throw new Error(invalid.join(' '));
+  const hurdle = config.developer.targetMarginOnRevenue;
+  const fundings = fundingsFor(profile);
+  const K = (arrangement: TaxArrangement, combinationPct: number, funding: ContractFunding): ContractTerms => ({
+    arrangement,
+    combinationPct,
+    markup: terms.developerMarkup,
+    offer,
+    funding,
   });
 
-  return { grid, feasible, frontier, arrangements, targetMargin: target, step };
+  let contractsEvaluated = 0;
+  let resolution = step;
+  const cells: JointCell[] = [];
+  const pairsBy = new Map<TaxArrangement, JointPair[]>();
+  const pointsBy = new Map<TaxArrangement, Set<number>>();
+  for (const arrangement of ARRANGEMENTS) {
+    const list: JointPair[] = [];
+    const pts = new Set<number>();
+    for (const funding of fundings) {
+      const g = adaptiveGrid(
+        min,
+        max,
+        step,
+        every,
+        (c) => {
+          contractsEvaluated += 1;
+          return snapshotsFor(profile, K(arrangement, c, funding), config).map(toPair);
+        },
+        (ps) => ps.map((p) => `${p.routeId}:${p.ownerAccepts ? 1 : 0}${p.developerOk ? 1 : 0}`).join('|'),
+      );
+      resolution = Math.max(resolution, g.resolution);
+      for (const c of g.points) {
+        pts.add(c);
+        const ps = g.values.get(c)!;
+        list.push(...ps);
+        const accepted = ps.filter((p) => p.ownerAccepts).sort((a, b) => b.ownerValue - a.ownerValue);
+        const best = accepted[0] ?? null;
+        const margins = ps.map((p) => p.developerMargin).filter((m): m is number => m !== null);
+        cells.push({
+          arrangement,
+          combinationPct: c,
+          funding,
+          owner: { ok: !!best, routeId: best?.routeId ?? null, value: best?.ownerValue ?? null, wholeApartments: best?.wholeApartments ?? 0 },
+          developer: { ok: ps.some((p) => p.developerOk), margin: best ? best.developerMargin : margins.length ? Math.max(...margins) : null },
+          feasibleRoutes: ps.filter((p) => bothAccept(p, hurdle)).map((p) => p.routeId),
+        });
+      }
+    }
+    pairsBy.set(arrangement, list);
+    pointsBy.set(arrangement, pts);
+  }
+
+  const feasible = [...pairsBy.values()].flat().filter((p) => bothAccept(p, hurdle));
+  const frontier = frontierOf(feasible);
+
+  const snapshotOf = (p: { arrangement: TaxArrangement; combinationPct: number; funding: ContractFunding; routeId: string }, cfg = config, prof = profile) =>
+    snapshotsFor(prof, K(p.arrangement, p.combinationPct, p.funding), cfg).find((s) => s.routeId === p.routeId) ?? null;
+
+  const arrangements: ArrangementSummary[] = ARRANGEMENTS.map((arrangement) => {
+    const list = pairsBy.get(arrangement)!;
+    const points = [...pointsBy.get(arrangement)!].sort((a, b) => a - b);
+    const at = (c: number) => list.filter((p) => p.combinationPct === c);
+    const ownerOk = ranges(points, (c) => at(c).some((p) => p.ownerAccepts));
+    const developerOk = ranges(points, (c) => at(c).some((p) => p.developerOk));
+    const both = ranges(points, (c) => at(c).some((p) => bothAccept(p, hurdle)));
+    if (both.length) return { arrangement, ownerOk, developerOk, both, gap: null };
+
+    const ownerMin = ownerOk[0]?.[0] ?? null;
+    const developerMax = developerOk.length ? developerOk[developerOk.length - 1][1] : null;
+    // Minimum distance on the same route and funding.
+    let nearest: NonNullable<ArrangementSummary['gap']>['nearest'] = null;
+    const keys = [...new Set(list.map((p) => `${p.funding}|${p.routeId}`))];
+    for (const key of keys) {
+      const same = list.filter((p) => `${p.funding}|${p.routeId}` === key);
+      const O = same.filter((p) => p.ownerAccepts).map((p) => p.combinationPct);
+      const D = same.filter((p) => p.developerOk).map((p) => p.combinationPct);
+      for (const o of O)
+        for (const d of D) {
+          const dist = round(Math.abs(o - d));
+          if (!nearest || dist < nearest.points - EPS) nearest = { routeId: same[0].routeId, funding: same[0].funding, ownerAt: o, developerAt: d, points: dist };
+        }
+    }
+    // The owner's closest accepted pair: on the nearest route, else the accepted pair with the highest developer margin.
+    const accepted = list.filter((p) => p.ownerAccepts && p.developerMargin !== null);
+    const anchor =
+      (nearest && accepted.find((p) => p.routeId === nearest!.routeId && p.funding === nearest!.funding && p.combinationPct === nearest!.ownerAt)) ||
+      [...accepted].sort((a, b) => b.developerMargin! - a.developerMargin!)[0] ||
+      null;
+    const marginLever = anchor ? { combinationPct: anchor.combinationPct, routeId: anchor.routeId, funding: anchor.funding, margin: anchor.developerMargin! } : null;
+
+    let priceLever: PriceLever | null = null;
+    let costLever: CostLever | null = null;
+    if (anchor) {
+      const priced = (p: number): ProjectConfig => ({ ...config, market: { ...config.market, apartmentValuePerSqm: p } });
+      const price0 = config.market.apartmentValuePerSqm;
+      const devOkAt = (cfg: ProjectConfig) => {
+        const s = snapshotOf(anchor, cfg);
+        return !!s && s.developer.margin !== null && s.developer.margin >= hurdle - EPS;
+      };
+      const p = boundary(price0, price0 * 3, (x) => devOkAt(priced(x)), true);
+      if (p !== null) {
+        const pr = Math.ceil(p);
+        priceLever = { ...pick(anchor), pricePerSqm: pr, ownerAccepts: !!snapshotOf(anchor, priced(pr + 1))?.owner.accepts };
+      }
+      const lotId = profile.lotId || config.rights.defaultLotId;
+      const cost0 = directCostPerSaleableSqm(config, lotId);
+      const costed = (d: number): ProjectConfig => ({ ...config, developer: { ...config.developer, directCostPerSqm: d } });
+      const d = boundary(0, cost0, (x) => devOkAt(costed(x)), false);
+      if (d !== null) {
+        const dc = Math.floor(d);
+        costLever = { ...pick(anchor), directCostPerSqm: dc, current: Math.round(cost0), ownerAccepts: !!snapshotOf(anchor, costed(dc - 1))?.owner.accepts };
+      }
+    }
+
+    // Extra own capital where the developer reaches the hurdle: every funding-only candidate, none dropped.
+    let capitalLever: CapitalLever | null = null;
+    const devAt = nearest?.developerAt ?? developerMax;
+    if (devAt !== null && profile.availableCapital !== null) {
+      const cands = list.filter((p) => p.combinationPct === devAt && p.developerOk && p.ownerReason === 'unfunded');
+      let best: { extra: number; pair: JointPair } | null = null;
+      for (const c of cands) {
+        const k = K(arrangement, devAt, c.funding);
+        const cfg = contractConfig(config, k);
+        const info = calculateRights(profile.landAreaSqm, cfg, profile.lotId);
+        const t: CommercialTerms = { combinationPct: devAt, developerMarkup: terms.developerMarkup };
+        const ctx: EngineContext = { info, profile, terms: t };
+        const cand = generateStrategies(info, t, cfg).find((x) => x.id === c.routeId);
+        if (!cand) continue;
+        const v = requiredAdditionalCapital(cand, ctx, cfg).value;
+        if (v !== null && (!best || v < best.extra)) best = { extra: v, pair: c };
+      }
+      if (best) {
+        const extra = Math.ceil(best.extra / 1000) * 1000;
+        const s = snapshotOf(best.pair, config, { ...profile, availableCapital: profile.availableCapital + extra });
+        capitalLever = { ...pick(best.pair), extraCapital: extra, candidates: cands.length, ownerAccepts: !!s?.owner.accepts, developerOk: !!s?.developer.ok };
+      }
+    }
+    return { arrangement, ownerOk, developerOk, both, gap: { ownerMin, developerMax, nearest, marginLever, priceLever, costLever, capitalLever } };
+  });
+
+  return { cells, feasible, frontier, arrangements, fundings, targetMargin: hurdle, step, resolution, complete: false, contractsEvaluated };
 }
+
+const pick = (p: JointPair) => ({ arrangement: p.arrangement, combinationPct: p.combinationPct, funding: p.funding, routeId: p.routeId });
