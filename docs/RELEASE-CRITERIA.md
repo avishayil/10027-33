@@ -10,7 +10,7 @@ with evidence (a test, a measurement or a signed record). Status as of the basel
 | A — Baseline and scope freeze | Pin main; inventory findings; requirements; approved assumptions | Every backlog item mapped to code/test/evidence; no new mandatory questions | done |
 | B — Economic correctness | MH-01…09 with independent fixtures | All P0 accounting, feasibility and snapshot tests pass; unsupported advanced claims disabled or conditional | done (VALIDATION-REPORT) |
 | C — Consumer experience | MH-10…13: simplified verdict, actual-offer comparison, print | Each of the five goals gives meaningful guidance or an explicit no-fit reason for representative profiles | done (`guidance.test.ts`) |
-| D — Evidence and professional review | Area definitions, offers when available, tax and legal treatment | Signed validation record with unresolved data disclosed; no unqualified commercial recommendation | open (sign-off is external) |
+| D — Evidence and professional review | Area definitions, offers when available, tax and legal treatment | Signed validation record with unresolved data disclosed; no unqualified commercial recommendation | packets and source refresh done (`docs/review/`); **sign-off open — external, blocking** |
 | E — Release hardening | Browser, performance, privacy, accessibility, docs | CI and production acceptance pass; V1.0 report and open limitations published | open |
 
 ## Definition of done (V1.0)

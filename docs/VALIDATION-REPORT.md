@@ -460,3 +460,13 @@ negotiation list and presentation; it does not change the ranking.
 **Limits**: the offer check maps taxes onto the three arrangement templates (a per-tax VAT payer is flagged, not
 modelled); completion timing in an offer is not modelled (its price is); the print report is tested in the browser
 in Milestone E.
+
+## V1.0 — Milestone D: evidence and professional review (2026-11-28)
+
+**Acceptance**: a validation record with unresolved data disclosed and no unqualified commercial recommendation.
+**Done**: review packets (`docs/review/appraiser.md`, `tax-adviser.md`, `lawyer.md`) with 19 fixtures/situations and
+their questions; sign-off table; source refresh (construction survey confirmed with one column to confirm visually;
+BOI 329 not re-verifiable automatically; VAT from secondary sources; Rothstein reachable); six open data questions;
+"not professionally validated" in the footer and the print header.
+**Open (blocking for reliance)**: the three signatures; a current developer offer or an approved benchmark.
+**Behaviour**: no model value changed.

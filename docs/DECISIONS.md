@@ -549,3 +549,8 @@ Owner decisions this iteration: the entitlement is the official allocation share
 148. **Print report and storage warning** (C6): a print-only report from the analysed snapshot (direction, taxes by
      payer, dependencies, offer comparison, questions, key assumptions with source dates); the save box warns about
      shared devices and the limits of browser storage.
+149. **Professional review is external and blocking** (Milestone D). Review packets for an appraiser, a tax adviser
+     and a real-estate lawyer (`docs/review/`) list fixtures with independent expected numbers and explicit questions;
+     the sign-off table is open. Until it is signed the app footer, the printout and the docs say "not professionally
+     validated". Sources were refreshed where automated access allows; the ones that could not be re-verified are
+     listed, not assumed current.

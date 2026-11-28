@@ -123,3 +123,10 @@ post-approval land value (₪7,100), sale-today reference (₪1,916), revenue sh
 complementary price are **hypothetical**, the immediate sale price **unknown**, the buy-back factor **assumed**. Changing a
 term to `confirmed_offer` (with its source) is the only way it is evaluated as fact. No market values changed in this
 iteration; `CONFIG_VERSION` 2026-11-28.14 records the entitlement basis and the slider step.
+
+## V1.0 Milestone D — source refresh (2026-11-28)
+
+See `docs/review/README.md` for the full table. Construction survey June 2026: underground ₪3,400, balconies 30–50%,
+excluding VAT, ±10%, licensed m², direct costs only — confirmed; the Sharon high-rise column (₪6,600) to be confirmed
+visually by the appraiser. BOI directive 329: not re-verified (automated access blocked) — human check required. VAT
+18%: secondary sources only. Rothstein 2024: reachable, clause locator open. No model value changed.
