@@ -6,62 +6,77 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CommercialTerms, DecisionResult, Goal, ProjectConfig, StrategyResult, UserProfile } from '../../domain/types';
-import { contingentPlan } from '../../optimizer/contingent';
+import { contingentPlan, type StateOutcome } from '../../optimizer/contingent';
 import { GOAL_LABELS, strategyTitle } from '../../optimizer/explain';
 import { fingerprint } from '../../optimizer/contract';
 import { MAX_MEMBERS, planGroup, type GroupMember, type GroupResult, type MemberStatus } from '../../optimizer/group/collective';
 import { formatCompactCurrency, formatNumber } from '../../utils/format';
 
-const money = (x: number | null) => (x === null ? 'לא ניתן' : formatCompactCurrency(x));
 
 export function ContingentCard({ result, profile, terms, config }: { result: DecisionResult; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig }) {
+  // Always the inputs the result was computed from (passed together by the engine), never newer ones.
   const plan = useMemo(() => contingentPlan(result, profile, terms, config), [result, profile, terms, config]);
   if (!plan.rows.length) return null;
   const title = (id: string) => {
     const r = result.results.find((x) => x.id === id);
     return r ? strategyTitle(r) : id;
   };
+  const cell = (o: StateOutcome) => (o.value === null ? 'לא ניתן לבצע' : formatCompactCurrency(o.value));
+  const regret = (x: number) => (Number.isFinite(x) ? (x < 1000 ? 'אין' : formatCompactCurrency(x)) : 'לא ניתן באחד המצבים');
   return (
     <section className="card detail-section" aria-labelledby="contingent-title">
       <h2 id="contingent-title">חוזה עם אופציה — מה קורה בכל מצב</h2>
       <p className="card-sub">
-        שלושה מצבים שאי אפשר לדעת בחתימה. במקום להמר על אחד: חוזה קומבינציה עכשיו, עם אפשרות לעבור למסלול אחר אחרי האישור —
-        רק אם המימון אושר. ״חרטה״ = כמה פחות מהבחירה הטובה ביותר באותו מצב. בלי הסתברויות.
+        שלושה מצבים שאי אפשר לדעת בחתימה. כל שורה היא חוזה מפורש: חוזה קבוע מתבצע כפי שנכתב או לא מתבצע — בלי מעבר אוטומטי
+        לקומבינציה. חוזה עם אופציה: קומבינציה רגילה עכשיו (חלופת ברירת המחדל המוסכמת), ואפשרות לעבור למסלול אחר במועד אישור התכנית
+        (חודש {plan.exerciseMonth}) — רק אם המימון אושר. ״חרטה״ = כמה פחות מהבחירה הטובה ביותר באותו מצב, בכל שלושת המצבים. בלי הסתברויות.
       </p>
       <div className="table-scroll">
         <table className="compare-table">
           <thead>
             <tr>
               <th>חוזה</th>
-              <th>התכנית לא מאושרת (חשיפה מרבית)</th>
               <th>מאושרת ויש מימון</th>
               <th>מאושרת בלי מימון</th>
+              <th>התכנית לא מאושרת</th>
               <th>חרטה מרבית</th>
             </tr>
           </thead>
           <tbody>
             {plan.rows.map((r) => (
-              <tr key={r.label}>
+              <tr key={r.id}>
                 <th>
-                  {r.optionRouteId ? (
+                  {r.option ? (
                     <>
-                      {title(r.routeId)}, ואופציה ל{title(r.optionRouteId)}
+                      {title(r.option.fallbackRouteId)}, ואופציה ל{title(r.option.targetRouteId)}
+                      {r.option.targetContract.funding !== 'none' && <span className="sub">{FUNDING[r.option.targetContract.funding]}</span>}
                     </>
                   ) : (
-                    title(r.routeId)
+                    <>
+                      {title(r.routeId)}
+                      {r.conditional && (
+                        <span className="sub">
+                          בתנאים אחרים: {ARR_NAMES[r.contract.arrangement]}, {formatNumber(r.contract.combinationPct * 100, 1)}%
+                          {r.contract.funding !== 'none' ? `, ${FUNDING[r.contract.funding]}` : ''}
+                        </span>
+                      )}
+                    </>
                   )}
                 </th>
-                <td>{r.noApprovalExposure > 1000 ? formatCompactCurrency(r.noApprovalExposure) : 'אין'}</td>
-                <td>
-                  {money(r.financed)}
-                  {r.fellBackFinanced && r.financed !== null && <span className="sub">חוזר לקומבינציה</span>}
+                <td className={r.states.financed.executable ? '' : 'cell-fail'}>
+                  {cell(r.states.financed)}
+                  {r.option && r.states.financed.exercised === false && <span className="sub">האופציה לא ממומשת</span>}
                 </td>
-                <td>
-                  {money(r.noFinancing)}
-                  {r.fellBackNoFinancing && r.noFinancing !== null && <span className="sub">חוזר לקומבינציה</span>}
-                </td>
+                <td className={r.states.no_financing.executable ? '' : 'cell-fail'}>{cell(r.states.no_financing)}</td>
+                <td>{(r.states.no_approval.value ?? 0) < -1000 ? `הפסד עד ${formatCompactCurrency(-(r.states.no_approval.value ?? 0))}` : 'אין הפסד'}</td>
                 <td className={Number.isFinite(r.maxRegret) && r.maxRegret < 1000 ? '' : 'cell-fail'}>
-                  {Number.isFinite(r.maxRegret) ? (r.maxRegret < 1000 ? 'אין' : formatCompactCurrency(r.maxRegret)) : 'לא ניתן באחד המצבים'}
+                  {regret(r.maxRegret)}
+                  {r.option && r.option.premium.ownerMax !== null && r.option.premium.developerMin !== null && (
+                    <span className="sub">
+                      דמי אופציה: לכם שווה עד {formatCompactCurrency(r.option.premium.ownerMax)}, ליזם עולה לפחות {formatCompactCurrency(r.option.premium.developerMin)}
+                      {r.option.premium.agreeable ? '' : ' — אין מחיר שמתאים לשניכם'}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -69,8 +84,11 @@ export function ContingentCard({ result, profile, terms, config }: { result: Dec
         </table>
       </div>
       <p className="field-hint">
-        ערכים: ערך נוכחי במחירי היום, כמו בהשוואה הראשית. ״בלי מימון״: בלי משכנתא, בלי הלוואה על נכס אחר ובלי הלוואת מסים. מסלול
-        שלא ניתן לבצע במצב מסוים חוזר לקומבינציה המלאה. אופציה כזו צריכה את הסכמת היזם וייתכן שיהיה לה מחיר — לא הנחנו אותו.
+        ערכים: ערך נוכחי במחירי היום, כמו בהשוואה הראשית, ביחס לאותה נקודת ייחוס — להישאר עם הקרקע בלי עסקה. ״לא מאושרת״: ההפסד
+        המרבי שמודל (מקדמות וריבית, בלי הגנה). ״יש מימון״: רק המימון שהחוזה מניח (משכנתא בגבול ההחזר שלכם, והלוואת מסים או הלוואה על
+        נכס אחר רק אם החוזה כולל אותן); ״בלי מימון״: בלי אף אחד מהם. באופציה, מה ששולם לפני מועד המימוש הוא של חוזה הקומבינציה, ומה
+        שהמסלול החדש דורש לפני כן משולם במועד המימוש — לא בדיעבד. דמי האופציה, ההודעה המוקדמת והבטחת המלאי צריכים הסכמה עם היזם —
+        לא הנחנו אותם; ״דמי אופציה״ מראים רק את הטווח שבו זה יכול להשתלם לשני הצדדים במצב שיש מימון.
       </p>
     </section>
   );

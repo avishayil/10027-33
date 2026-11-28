@@ -143,8 +143,12 @@ export function liquidityYears(profile: UserProfile, config: ProjectConfig): num
 }
 
 /** Forward evaluation of one candidate under one (already scenario-adjusted) configuration. */
-export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, config: ProjectConfig): Evaluation {
-  const plan = buildTransactionPlan(candidate, { ...ctx, config });
+/** Rewrites a plan before it is simulated (e.g. a contract switched at an exercise date — contingent.ts). */
+export type PlanTransform = (plan: TransactionPlan, config: ProjectConfig) => TransactionPlan;
+
+export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, config: ProjectConfig, transform?: PlanTransform): Evaluation {
+  const built = buildTransactionPlan(candidate, { ...ctx, config });
+  const plan = transform ? transform(built, config) : built;
   const startingCash = Math.max(0, ctx.profile.availableCapital ?? 0);
   // Common horizon within a scenario: at least the configured horizon and a year after completion, so a delayed
   // delivery is never valued as a completed apartment before it exists.

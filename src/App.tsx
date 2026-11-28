@@ -160,7 +160,9 @@ export default function App() {
                 <ScenarioComparison result={result} />
                 <NegotiationPanel result={result} />
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
-                {profile && <ContingentCard result={result} profile={profile} terms={terms} config={analysisConfig} />}
+                {engine.analysis && (
+                  <ContingentCard result={engine.analysis.result} profile={engine.analysis.profile} terms={engine.analysis.terms} config={engine.analysis.config} />
+                )}
                 <GroupPlanner terms={terms} config={analysisConfig} lotId={profile?.lotId || PROJECT_CONFIG.rights.defaultLotId} />
                 {profile && (
                   <JointSearch
@@ -173,7 +175,7 @@ export default function App() {
                 <ProjectionSection result={result} />
                 <Assumptions />
                 <div className="no-print print-actions">
-                  <button type="button" className="btn-primary" onClick={() => window.print()}>
+                  <button type="button" className="btn-primary" onClick={() => window.print()} disabled={engine.updating} title={engine.updating ? 'מחשב את הנתונים החדשים…' : undefined}>
                     הדפסת סיכום לפגישה
                   </button>
                   <span className="field-hint">החישוב נעשה כולו בדפדפן שלכם. שום נתון לא נשלח לשרת.</span>
@@ -181,7 +183,7 @@ export default function App() {
               </>
             ) : result ? (
               <div className="no-print print-actions">
-                <button type="button" className="btn-primary" onClick={() => window.print()}>
+                <button type="button" className="btn-primary" onClick={() => window.print()} disabled={engine.updating} title={engine.updating ? 'מחשב את הנתונים החדשים…' : undefined}>
                   הדפסת סיכום לפגישה
                 </button>
               </div>
