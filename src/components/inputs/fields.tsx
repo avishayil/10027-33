@@ -12,10 +12,12 @@ import { formatCurrency, formatNumber } from '../../utils/format';
  * The three questions a landowner actually asks: what pays best, do I end up with an apartment, can I avoid debt.
  * "Most apartments" became "a whole apartment" — the developer releases at most one apartment per owner, so for
  * almost everyone "more apartments" means one whole apartment. Rental income follows from keeping that apartment,
- * and "cash soon" is what the no-debt route already favours (combination or selling, no loans). The engine still
- * understands the two retired goals so older saved answers keep working (they are migrated on load).
+ * and "cash soon" is what the no-debt route already favours (combination or selling, no loans). The advanced view
+ * offers all five (ALL_GOALS); a saved goal is kept as it is.
  */
 export const GOALS: Goal[] = ['balanced', 'maximize_apartments', 'minimize_risk'];
+/** All five goals (advanced view; V1 / D-2). A saved goal outside the wizard's three is kept, never migrated. */
+export const ALL_GOALS: Goal[] = ['balanced', 'maximize_apartments', 'passive_income', 'immediate_cash', 'minimize_risk'];
 
 export const GOAL_HINTS: Record<Goal, string> = {
   balanced: 'מה שמשאיר לכם הכי הרבה ערך בסוף, בלי להסתכן יותר מדי. מתאים לרוב האנשים.',
@@ -25,7 +27,7 @@ export const GOAL_HINTS: Record<Goal, string> = {
   minimize_risk: 'בלי משכנתא ובלי התחייבויות. גם אם זה פחות רווחי, או אומר למכור.',
 };
 
-/** Presets chosen from the engine's own thresholds for 167 m² (2.25 rights) — see DECISIONS #53. */
+/** Presets chosen from the engine's own thresholds for 167 m² — see DECISIONS #53. */
 export const CAPITAL_PRESETS = [0, 250_000, 500_000, 750_000, 1_000_000];
 export const REPAYMENT_PRESETS = [2_500, 4_000, 6_000, 8_000, 10_000];
 /** Common holdings in the original parcel (m²). */
@@ -120,7 +122,8 @@ export function LandFields({ engine }: { engine: DecisionEngine }) {
         השטח במ״ר הוא החלק שלכם בחלקה המקורית — רק דרך נוחה לתאר אותו. כל החישובים לפי הטבלאות המעודכנות
         (106(ב)): הזכאות היא חלקכם בשטח המגורים של המגרש — כל {PROJECT_CONFIG.rights.originalAreaSqm} מ״ר ≈{' '}
         {formatNumber(calculateRights(PROJECT_CONFIG.rights.originalAreaSqm, PROJECT_CONFIG, i.lotId || undefined).apartmentEquivalents, 2)} שוות-ערך
-        לדירת 100 מ״ר במגרש {i.lotId || PROJECT_CONFIG.rights.defaultLotId} (כ-2.4 יחידות ממוצעות של 110 מ״ר).
+        לדירת 100 מ״ר במגרש {i.lotId || PROJECT_CONFIG.rights.defaultLotId} (בסימולציה המקובלת: {formatNumber(PROJECT_CONFIG.rights.apartmentEquivalents, 2)}). זו
+        חלוקה לפי הטבלה, לא מלאי דירות בפועל, ולא קובעת בעלות משפחתית מדויקת.
       </p>
       <div className="field">
         <label htmlFor={ids.lot}>המגרש שהוקצה לכם (לא חובה)</label>
@@ -250,7 +253,8 @@ export function GoalFields({ engine, name = 'goal' }: { engine: DecisionEngine; 
   return (
     <fieldset className="fields goal-list">
       <legend className="sr-only">מה חשוב לי</legend>
-      {GOALS.map((g) => (
+      {/* A goal chosen in the advanced view (or saved earlier) stays visible and selected here. */}
+      {(GOALS.includes(i.goal) ? GOALS : [...GOALS, i.goal]).map((g) => (
         <label key={g} className={`goal-option ${i.goal === g ? 'active' : ''}`}>
           <input type="radio" name={name} checked={i.goal === g} onChange={() => i.setGoal(g)} />
           <span>

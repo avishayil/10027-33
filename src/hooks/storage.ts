@@ -24,8 +24,6 @@ export interface SavedInputs {
   developerMarkup: number;
   basisText: string;
   deadlineYears: number;
-  /** Set on load when a retired goal was mapped to a current one (never saved). */
-  migratedGoalFrom?: Goal;
   /** Added in iteration 3; older saved answers without it are migrated to 'unknown'. */
   soleHome?: 'unknown' | 'yes' | 'no' | 'replacement';
   /** What the developer pays at the offered combination %. Older saves without it load as 'mixed'. */
@@ -64,13 +62,11 @@ export function loadInputs(): SavedInputs | null {
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isValid(parsed)) return null;
-    // The wizard now offers three goals; the two retired ones map to their nearest successor — and the app says so once.
-    const goal: Goal =
-      parsed.goal === 'passive_income' ? 'maximize_apartments' : parsed.goal === 'immediate_cash' ? 'minimize_risk' : parsed.goal;
-    const migratedGoalFrom = goal !== parsed.goal ? parsed.goal : undefined;
+    // V1 / D-2: a saved goal is kept as it is (the wizard offers three, the advanced view all five) — never replaced.
+    const goal: Goal = parsed.goal;
     // A saved lot the current tables no longer have is dropped (the default lot is then assumed and flagged).
     const lotId = PROJECT_CONFIG.rights.lotIds.includes(parsed.lotId) ? parsed.lotId : '';
-    return { soleHome: 'unknown', taxArrangement: 'mixed', levyCapText: '', developerPaysInterest: false, otherPropertyLimitText: '', ...parsed, goal, lotId, migratedGoalFrom };
+    return { soleHome: 'unknown', taxArrangement: 'mixed', levyCapText: '', developerPaysInterest: false, otherPropertyLimitText: '', ...parsed, goal, lotId };
   } catch {
     return null;
   }

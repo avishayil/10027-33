@@ -166,6 +166,10 @@ export function AllocationTable({ result }: { result: DecisionResult }) {
   const info = result.rights;
   const t = info.table;
   const lot = getLot(PROJECT_CONFIG.rights.tableVersion, info.lotId);
+  // V1 / spec §3.1: the simulation convention shown beside the official share, with the difference explained.
+  const simulated = (info.landAreaSqm / PROJECT_CONFIG.rights.originalAreaSqm) * PROJECT_CONFIG.rights.apartmentEquivalents;
+  const unit = PROJECT_CONFIG.market.apartmentValuePerSqm * PROJECT_CONFIG.construction.apartmentSizeSqm;
+  const diff = info.apartmentEquivalents - simulated;
   const rows: [string, string][] = [
     ['מגרש', `${info.lotId}${info.lotAssumed ? ' (הנחה — לא הוזן)' : ''}`],
     ['חלק במגרש', `${formatNumber(t.lotShare * 100, 3)}%`],
@@ -173,7 +177,8 @@ export function AllocationTable({ result }: { result: DecisionResult }) {
     ['שטח מגורים לפי החלק במגרש', `${formatNumber(t.lotShare * lot.residentialArea, 1)} מ״ר`],
     ['שווי במצב הנכנס', formatCurrency(t.incomingValue)],
     ['שווי הזכויות (מצב יוצא)', formatCurrency(t.allocationValue)],
-    ['הזכאות בשוות-ערך לדירת 100 מ״ר (חלקכם בשטח המגורים ÷ 100)', formatNumber(info.apartmentEquivalents, 2)],
+    ['הזכאות בשוות-ערך לדירת 100 מ״ר (חלקכם בשטח המגורים ÷ 100) — הבסיס בחישוב', formatNumber(info.apartmentEquivalents, 2)],
+    [`בסימולציה המקובלת (${formatNumber(PROJECT_CONFIG.rights.apartmentEquivalents, 2)} זכויות לכל ${PROJECT_CONFIG.rights.originalAreaSqm} מ״ר)`, formatNumber(simulated, 2)],
   ];
   return (
     <Section title="הזכויות שלכם לפי טבלת ההקצאה" sub={`${formatArea(info.landAreaSqm)} מ״ר בחלקה`}>
@@ -188,8 +193,11 @@ export function AllocationTable({ result }: { result: DecisionResult }) {
         </tbody>
       </table>
       <p className="field-hint">
-        הטבלה הרשמית מראה כ-{formatNumber(t.units, 2)} יחידות; הסימולציה מחשבת {formatNumber(info.apartmentEquivalents, 2)} זכויות (ההנחה שלכם). ההפרש מוצג
-        בפירוט ההמלצה בשורה ״לפי הטבלה הרשמית — לא נספר לטובתכם״.
+        החישוב משתמש בחלקכם הרשמי בשטח המגורים ({formatNumber(info.apartmentEquivalents, 2)} שוות-ערך לדירת 100 מ״ר). בסימולציה המקובלת (
+        {formatNumber(PROJECT_CONFIG.rights.apartmentEquivalents, 2)} לכל {PROJECT_CONFIG.rights.originalAreaSqm} מ״ר) יוצא {formatNumber(simulated, 2)} — הפרש של{' '}
+        {formatNumber(Math.abs(diff), 2)} שוות-ערך (כ-{formatCurrency(Math.abs(diff) * unit)} במחיר דירה משוער של {formatCurrency(unit)}). ההפרש נובע מכך שהמגרש
+        גדול יותר בשטח מגורים ממה שהסימולציה מניחה; זו חלוקה רשמית, לא מלאי דירות בפועל, ואינה מבטיחה דירה מסוימת. יחידות לפי הטבלה: כ-
+        {formatNumber(t.units, 2)} (בגודל הממוצע במגרש).
       </p>
     </Section>
   );

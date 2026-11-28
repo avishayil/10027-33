@@ -1,22 +1,19 @@
 import type { Goal } from '../../domain/types';
 import type { DecisionEngine } from '../../hooks/useDecisionEngine';
 import { GOAL_LABELS } from '../../optimizer/explain';
-import { describeAnswers, TermsFields } from './fields';
+import { ALL_GOALS, describeAnswers, TermsFields } from './fields';
 import type { WizardStep } from './Wizard';
 
 interface Props {
   engine: DecisionEngine;
   saved: boolean;
-  /** A retired goal from saved answers that was mapped to a current one (shown once, until the goal is changed). */
-  migratedGoalFrom?: Goal;
   onEdit: (step: WizardStep) => void;
   onForget: () => void;
 }
 
 /** The user's answers at a glance, each editable, plus where they are stored. */
-export function AnswersBar({ engine, saved, migratedGoalFrom, onEdit, onForget }: Props) {
+export function AnswersBar({ engine, saved, onEdit, onForget }: Props) {
   const a = describeAnswers(engine);
-  const migratedTo = migratedGoalFrom ? GOAL_LABELS[engine.inputs.goal] : null;
   const items: { step: WizardStep; label: string; value: string }[] = [
     { step: 'land', label: 'הזכויות שלי', value: a.land },
     { step: 'capital', label: 'כסף פנוי', value: a.capital },
@@ -44,11 +41,6 @@ export function AnswersBar({ engine, saved, migratedGoalFrom, onEdit, onForget }
           </div>
         ))}
       </dl>
-      {migratedGoalFrom && migratedTo && (
-        <p className="field-hint" role="note">
-          ההעדפה ששמרתם — ״{GOAL_LABELS[migratedGoalFrom]}״ — כבר לא מוצגת בשאלון, והועברה ל״{migratedTo}״. אפשר לשנות ב״מה חשוב לי״.
-        </p>
-      )}
       <p className="answers-storage">
         {saved ? (
           <>
@@ -71,6 +63,23 @@ export function TermsCard({ engine }: { engine: DecisionEngine }) {
       <h2 id="terms-title">תנאים משוערים מול היזם</h2>
       <p className="card-sub">הזיזו כדי לראות מיד איך התנאים משנים את ההמלצה.</p>
       <TermsFields engine={engine} />
+      <AllGoals engine={engine} />
     </section>
+  );
+}
+
+/** Advanced view (V1 / D-2): all five goals; the wizard keeps the three most people ask about. */
+function AllGoals({ engine }: { engine: DecisionEngine }) {
+  return (
+    <label className="inline-field">
+      מה חשוב לכם (כל האפשרויות){' '}
+      <select aria-label="מה חשוב לכם — כל האפשרויות" value={engine.inputs.goal} onChange={(e) => engine.inputs.setGoal(e.target.value as Goal)}>
+        {ALL_GOALS.map((g) => (
+          <option key={g} value={g}>
+            {GOAL_LABELS[g]}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

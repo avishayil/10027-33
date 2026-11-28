@@ -2209,3 +2209,30 @@ button {
   border: 1px solid currentColor;
   padding: 0.3em 0.5em;
 }
+
+/* V1: the goal's own measure and the direction's timeline in the simple view */
+.goal-measure {
+  margin: 0.25rem 0 0.75rem;
+}
+.priority-timeline {
+  font-size: 0.9em;
+  color: var(--muted, #555);
+}
+
+/* V1: labelled prototypes and the protections list */
+.badge {
+  display: inline-block;
+  font-size: 0.7em;
+  font-weight: 600;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  vertical-align: middle;
+  border: 1px solid currentColor;
+}
+.badge-warn {
+  color: #8a5a00;
+  background: #fff4dc;
+}
+.protections li {
+  margin-bottom: 0.4rem;
+}

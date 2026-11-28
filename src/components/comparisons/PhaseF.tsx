@@ -13,9 +13,67 @@ import { MAX_MEMBERS, planGroup, type GroupMember, type GroupResult, type Member
 import { formatCompactCurrency, formatNumber } from '../../utils/format';
 
 
-export function ContingentCard({ result, profile, terms, config }: { result: DecisionResult; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig }) {
+type Props = { result: DecisionResult; profile: UserProfile; terms: CommercialTerms; config: ProjectConfig };
+
+/**
+ * V1 / MH-07: protections and negotiation questions for the route — what the contract must say if the plan is not
+ * approved, if financing fails, if the developer fails, and whether to ask for an option. Options are ranked only
+ * when their terms (exercise date, fee) are entered in the actual-offer panel (`optionTermsKnown`); otherwise an
+ * unpriced option is a question, not a recommendation.
+ */
+export function ContingentCard({ optionTermsKnown = false, ...props }: Props & { optionTermsKnown?: boolean }) {
+  const { result, profile, terms, config } = props;
   // Always the inputs the result was computed from (passed together by the engine), never newer ones.
   const plan = useMemo(() => contingentPlan(result, profile, terms, config), [result, profile, terms, config]);
+  const rec = result.recommendation ?? result.conditionalRecommendation?.result ?? null;
+  if (!rec) return null;
+  const title = (id: string) => {
+    const r = result.results.find((x) => x.id === id);
+    return r ? strategyTitle(r) : id;
+  };
+  const fixed = plan.rows.find((r) => r.kind === 'fixed' && r.routeId === rec.id);
+  const financingDependent = !!fixed && fixed.states.financed.executable && !fixed.states.no_financing.executable;
+  const options = plan.rows.filter((r) => r.kind === 'option' && r.states.financed.exercised);
+  const items: string[] = [];
+  if (rec.noApproval.unprotected > 1000)
+    items.push(
+      `אם התכנית לא תאושר: ערבות או סעיף החזר למקדמות — בלי הגנה החשיפה עד ${formatCompactCurrency(rec.noApproval.unprotected)}; עם החזר מלא נשאר הפסד של כ-${formatCompactCurrency(rec.noApproval.protected)} (ריבית ועלויות).`,
+    );
+  if (rec.developerFailure.paidToDeveloper > 1000)
+    items.push(`אם היזם לא ישלים: ערבות חוק המכר או נאמנות על התשלומים ליזם (${formatCompactCurrency(rec.developerFailure.paidToDeveloper)} עד אמצע הבנייה).`);
+  items.push('מועד אחרון לאישור התכנית, ומה קורה אם הוא עובר — זכות יציאה בלי קנס, והחזר מה ששולם.');
+  if (financingDependent)
+    items.push('המסלול תלוי במימון שעוד לא אושר: תנאי מתלה — אם המשכנתא או ההלוואה לא יאושרו, זכות לבטל או לעבור לקומבינציה מלאה בלי תשלום.');
+  for (const o of options)
+    items.push(
+      `לשאול אם היזם יסכים לאופציה: קומבינציה רגילה עכשיו, ומעבר ל${title(o.option!.targetRouteId)} במועד אישור התכנית אם המימון יאושר. מה המחיר, ההודעה המוקדמת, והאם המקום או המלאי שמורים?${
+        o.option!.premium.ownerMax !== null ? ` לפי המודל זה שווה לכם עד כ-${formatCompactCurrency(o.option!.premium.ownerMax)} — רק אם יהיה מימון.` : ''
+      }`,
+    );
+  return (
+    <section className="card detail-section" aria-labelledby="contingent-title">
+      <h2 id="contingent-title">הגנות בחוזה ושאלות ליזם</h2>
+      <p className="card-sub">למסלול {strategyTitle(rec)}: מה צריך להיכתב בחוזה למקרה שהתכנית לא תאושר, שהמימון לא יאושר או שהיזם לא ישלים.</p>
+      <ul className="protections">
+        {items.map((x) => (
+          <li key={x}>{x}</li>
+        ))}
+      </ul>
+      {optionTermsKnown ? (
+        <OptionComparison {...props} plan={plan} />
+      ) : (
+        options.length > 0 && (
+          <p className="field-hint">
+            השוואת חוזים עם אופציה מוצגת רק כשתנאי האופציה ידועים (מועד מימוש, מחיר) — הזינו אותם בבדיקת ההצעה. אופציה בלי מחיר היא שאלה, לא המלצה.
+          </p>
+        )
+      )}
+    </section>
+  );
+}
+
+/** The option comparison (all-state regret) — only with entered option terms. */
+function OptionComparison({ result, plan }: Props & { plan: ReturnType<typeof contingentPlan> }) {
   if (!plan.rows.length) return null;
   const title = (id: string) => {
     const r = result.results.find((x) => x.id === id);
@@ -24,8 +82,8 @@ export function ContingentCard({ result, profile, terms, config }: { result: Dec
   const cell = (o: StateOutcome) => (o.value === null ? 'לא ניתן לבצע' : formatCompactCurrency(o.value));
   const regret = (x: number) => (Number.isFinite(x) ? (x < 1000 ? 'אין' : formatCompactCurrency(x)) : 'לא ניתן באחד המצבים');
   return (
-    <section className="card detail-section" aria-labelledby="contingent-title">
-      <h2 id="contingent-title">חוזה עם אופציה — מה קורה בכל מצב</h2>
+    <section aria-labelledby="option-title">
+      <h3 id="option-title">חוזה עם אופציה — מה קורה בכל מצב</h3>
       <p className="card-sub">
         שלושה מצבים שאי אפשר לדעת בחתימה. כל שורה היא חוזה מפורש: חוזה קבוע מתבצע כפי שנכתב או לא מתבצע — בלי מעבר אוטומטי
         לקומבינציה. חוזה עם אופציה: קומבינציה רגילה עכשיו (חלופת ברירת המחדל המוסכמת), ואפשרות לעבור למסלול אחר במועד אישור התכנית
@@ -149,7 +207,13 @@ export function GroupPlanner({ terms, config, lotId }: { terms: CommercialTerms;
   const num = (v: string) => (v.trim() === '' ? null : Math.max(0, Number(v.replace(/[^\d.]/g, '')) || 0));
   return (
     <section className="card detail-section" aria-labelledby="group-title">
-      <h2 id="group-title">תכנון קבוצתי — כמה בעלים באותו מגרש</h2>
+      <h2 id="group-title">
+        תכנון קבוצתי — כמה בעלים באותו מגרש <span className="badge badge-warn">המחשה · מוגבל</span>
+      </h2>
+      <p className="field-hint">
+        כלי להמחשה בלבד (MH-06): עד {MAX_MEMBERS} בעלים, עד 5 מסלולים לכל אחד, תנאי חוזה אחד לכולם, בלי העברת זכויות בין בעלים. הקצאה קבוצתית מלאה
+        אינה חלק מגרסה זו, וכל תוצאה כאן מותנית בהסכם שיתוף, במלאי בפועל ובהסכמת היזם.
+      </p>
       <p className="card-sub">
         בעלים באותו מגרש (מגרש {lotId}, כמו בנתונים שלכם) מתחרים על מקומות לשירותי בנייה, ויחידת סל נמכרת רק בדירות שלמות. כאן
         אפשר להזין קבוצה אנונימית (ללא שמות) ולבדוק חלוקה על אותם תנאי חוזה לכולם. הנתונים לא נשמרים ולא נשלחים.

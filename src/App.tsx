@@ -128,7 +128,6 @@ export default function App() {
             <AnswersBar
               engine={engine}
               saved={remember}
-              migratedGoalFrom={saved?.migratedGoalFrom && saved.goal === engine.inputs.goal ? saved.migratedGoalFrom : undefined}
               onEdit={edit}
               onForget={forget}
             />

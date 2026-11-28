@@ -5,8 +5,10 @@
  */
 import type { DecisionResult, Goal, TaxArrangement } from '../../domain/types';
 import { FAMILY_LABELS, PAYMENT_METHOD, priorityRoutes, type RouteCondition, type RouteOption } from '../../optimizer/families';
+import { goalGuidance } from '../../optimizer/guidance';
 import {
   AFFORDABILITY_LABELS,
+  GOAL_LABELS,
   debtLabel,
   formatRights,
   plainExplanation,
@@ -250,7 +252,9 @@ export function TopPriorities({
   /** The household entered its acquisition cost (the capital-gains estimate uses it). */
   basisKnown?: boolean;
 }) {
-  const items = priorityRoutes(result, goal);
+  // One direction and up to two materially different alternatives (V1 / spec §3): one card per deal family, three at most.
+  const items = priorityRoutes(result, goal).slice(0, 3);
+  const guide = goalGuidance(result, goal);
   const R = result.rights.apartmentEquivalents;
   // A household that wants no risk or cash soon: a sale may be its direction even though today's price is unknown —
   // say so, with the price it would need, rather than let a calculable development route look better by default.
@@ -264,6 +268,21 @@ export function TopPriorities({
       <h2 id="priorities-title" className="section-title">
         סוגי העסקאות לפי סדר התאמה · {formatRights(result.rights.landAreaSqm)} מ״ר · {formatRights(R)} זכויות
       </h2>
+      <p className="goal-measure">
+        לפי מה שחשוב לכם — {GOAL_LABELS[goal]}: {guide.measure.label}
+        {guide.kind === 'no_fit' ? ' (במסלול הקרוב ביותר)' : ''}: <strong>{guide.measure.text}</strong>
+      </p>
+      {guide.kind === 'no_fit' && (
+        <div className="card callout callout-strong" role="note">
+          <strong>אף מסלול לא מתאים עכשיו לנתונים שהזנתם.</strong> מה חוסם:
+          <ul>
+            {guide.reasons.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+          האפשרויות הקרובות מוצגות למטה — לא כהמלצה. בתצוגה המתקדמת: מה היה צריך להשתנות, ומה לבקש מהיזם.
+        </div>
+      )}
       {items.length === 0 && (
         <p className="card">אין מסלול שאפשר לחשב עם הנתונים שהזנתם. נסו לשנות את התשובות, או פתחו את התצוגה המתקדמת.</p>
       )}
@@ -296,6 +315,12 @@ export function TopPriorities({
               </div>
               {risk.reasons.length > 0 && <p className="priority-risk">{risk.reasons.join(' · ')}</p>}
               {pocketNote(r) && <p className="priority-risk">{pocketNote(r)}</p>}
+              {i === 0 && p.kind === 'fits' && (
+                <p className="priority-timeline">
+                  בחתימה: {r.cashAtSigning > 1 ? formatCompactCurrency(r.cashAtSigning) : '₪0'} מכיסכם · במסירה: מצב נטו{' '}
+                  {formatCompactCurrency(r.delivery.netPosition)} (מחירי היום — לא כסף ביד) · תחזית לטווח ארוך: רק בתצוגה המתקדמת, להמחשה
+                </p>
+              )}
               <dl className="priority-numbers">
                 <div>
                   <dt>דירות שלמות</dt>
