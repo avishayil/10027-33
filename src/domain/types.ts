@@ -131,6 +131,8 @@ export interface ProjectConfig {
     annualIndexation: number;
     schedule: PaymentMilestone[];
   };
+  /** Typed evidence per price-dependent term: a confirmed offer is evaluated; a scenario never becomes a fact. */
+  evidence: Record<PriceKnob, EvidenceRef>;
   timeline: Timeline;
   commercial: {
     combination: { min: number; max: number; default: number };
@@ -508,6 +510,12 @@ export interface SimulationResult {
   taxLoanMaturityGap: number;
   /** Tax-loan interest the developer bears on the owner's behalf (a developer cost, not the owner's). */
   taxLoanSubsidy: number;
+  /** Tax-loan interest capitalised up to delivery (overdue accrual after it excluded). */
+  taxLoanInterestToDelivery: number;
+  /** The refinance ceiling at maturity, nominal (any-purpose share, within the status mortgage limit). */
+  taxLoanRefinanceCap: number;
+  /** Interest deflated to today's prices on its own month, for the today's-price views. */
+  real: { interestToCompletion: number; taxLoanInterestToDelivery: number; interestToApproval: number; interestToFailure: number };
   /** Present value at signing of all interest the owner pays (monthly interest, and capitalised interest at maturity). */
   pvInterest: number;
   /** Interest paid up to plan approval (what financing would have cost if the plan is then cancelled). */
@@ -516,7 +524,7 @@ export interface SimulationResult {
   pvFinancing: number;
   /** Each financing facility on its own: drawn, peak balance, rate and repayment schedule. */
   facilities: {
-    type: 'project_loan' | 'secured_other_property' | 'tax_loan';
+    type: 'project_loan' | 'secured_other_property' | 'tax_loan' | 'tax_loan_refinance';
     drawn: number;
     peak: number;
     annualRate: number;
@@ -1009,6 +1017,13 @@ export interface DeveloperPnL {
   lines: { label: string; amount: number }[];
 }
 
+/** How a price or term is known (iteration 10 / review D7): only a confirmed offer or an observation is evaluated as fact. */
+export type EvidenceStatus = 'observed' | 'appraisal' | 'confirmed_offer' | 'assumed' | 'hypothetical' | 'unknown';
+export interface EvidenceRef {
+  status: EvidenceStatus;
+  source: string;
+}
+
 export type PriceKnob =
   | 'developer_price'
   | 'post_approval_price'
@@ -1027,6 +1042,8 @@ export interface DeliverySnapshot {
   ownerCashOut: number;
   constructionAndCompletionPaid: number;
   interestToDelivery: number;
+  /** All amounts in today's prices (nominal events and interest deflated on their dates). */
+  basis: 'today';
   debtAtDelivery: number;
   /** Receipts due after delivery (e.g. a delayed pool sale): receivables at delivery, not cash. */
   receivablesAfterDelivery: number;

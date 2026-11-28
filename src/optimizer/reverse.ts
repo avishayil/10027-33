@@ -25,51 +25,52 @@ export function financiallyFeasible(candidate: Candidate, ctx: EngineContext, co
   return a.fails.length === 0;
 }
 
-const SCAN = 24;
+const SCAN = 48;
 
 /**
- * Smallest x in [lo, hi] for which pred holds. Scans a grid first (so a non-monotone or disjoint feasible set is
- * bracketed at its FIRST feasible interval), then bisects inside that bracket.
+ * The feasible set of pred on [lo, hi], as intervals (iteration 10 / review D8): a grid scan, then each boundary refined
+ * by bisection. No monotonicity is assumed. `complete` is false because a feasible set narrower than one grid step can
+ * still be missed — the result says what was found at that resolution, not that nothing else exists.
  */
-export function solveMin(lo: number, hi: number, pred: (x: number) => boolean): number | null {
-  if (pred(lo)) return lo;
-  let prev = lo;
-  for (let i = 1; i <= SCAN; i += 1) {
-    const x = lo + ((hi - lo) * i) / SCAN;
-    if (pred(x)) {
-      let a = prev;
-      let b = x;
-      for (let k = 0; k < ITER; k += 1) {
-        const mid = (a + b) / 2;
-        if (pred(mid)) b = mid;
-        else a = mid;
-      }
-      return b;
+export function solveIntervals(lo: number, hi: number, pred: (x: number) => boolean, scan = SCAN): { intervals: [number, number][]; resolution: number; complete: false } {
+  if (!(Number.isFinite(lo) && Number.isFinite(hi)) || hi < lo || !(scan >= 1)) throw new Error('טווח חיפוש לא תקין');
+  const step = (hi - lo) / scan;
+  const xs = Array.from({ length: scan + 1 }, (_, i) => (i === scan ? hi : lo + step * i));
+  const ok = xs.map(pred);
+  const edge = (a: number, b: number, okAtA: boolean) => {
+    // a and b straddle a boundary; returns the feasible side's limit.
+    let x = a;
+    let y = b;
+    for (let k = 0; k < ITER; k += 1) {
+      const mid = (x + y) / 2;
+      if (pred(mid) === okAtA) x = mid;
+      else y = mid;
     }
-    prev = x;
+    return x;
+  };
+  const intervals: [number, number][] = [];
+  let start: number | null = null;
+  for (let i = 0; i < xs.length; i += 1) {
+    if (ok[i] && start === null) start = i === 0 ? xs[0] : edge(xs[i], xs[i - 1], true);
+    if (ok[i] && (i === xs.length - 1 || !ok[i + 1])) {
+      const end = i === xs.length - 1 ? xs[i] : edge(xs[i], xs[i + 1], true);
+      intervals.push([start!, end]);
+      start = null;
+    }
   }
-  return null;
+  return { intervals, resolution: step, complete: false };
 }
 
-/** Largest x in [lo, hi] for which pred holds, scanning down from the first feasible point at lo. */
+/** Smallest x in [lo, hi] for which pred holds (first feasible interval found), or null. */
+export function solveMin(lo: number, hi: number, pred: (x: number) => boolean): number | null {
+  const r = solveIntervals(lo, hi, pred);
+  return r.intervals.length ? r.intervals[0][0] : null;
+}
+
+/** Largest x in [lo, hi] for which pred holds (last feasible interval found), or null. */
 export function solveMax(lo: number, hi: number, pred: (x: number) => boolean): number | null {
-  if (!pred(lo)) return null;
-  let prev = lo;
-  for (let i = 1; i <= SCAN; i += 1) {
-    const x = lo + ((hi - lo) * i) / SCAN;
-    if (!pred(x)) {
-      let a = prev;
-      let b = x;
-      for (let k = 0; k < ITER; k += 1) {
-        const mid = (a + b) / 2;
-        if (pred(mid)) a = mid;
-        else b = mid;
-      }
-      return a;
-    }
-    prev = x;
-  }
-  return hi;
+  const r = solveIntervals(lo, hi, pred);
+  return r.intervals.length ? r.intervals[r.intervals.length - 1][1] : null;
 }
 
 const withDeveloperPrice = (config: ProjectConfig, price: number): ProjectConfig => ({

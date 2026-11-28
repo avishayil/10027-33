@@ -2,6 +2,7 @@ import { simulateCashflow } from '../domain/cashflow';
 import { permitMonth } from '../domain/construction';
 import { taxLoanRate, taxLoanSubsidyRate } from '../domain/taxation';
 import { approvalMonthOf, buildTransactionPlan, monthlyNetRentFor } from '../domain/transactions';
+import { mortgageLtvLimit } from './feasibility';
 import type {
   Candidate,
   CommercialTerms,
@@ -58,8 +59,10 @@ export interface Delivery {
   ownerCashIn: number;
   ownerCashOut: number;
   constructionAndCompletionPaid: number;
-  /** Interest paid during construction plus the tax-loan interest capitalised to delivery. */
+  /** Interest paid during construction plus the tax-loan interest capitalised to delivery (today's prices). */
   interestToDelivery: number;
+  /** Every amount in this view is in today's prices (nominal events and interest deflated on their dates). */
+  basis: 'today';
   debtAtDelivery: number;
   /** Receipts due after delivery (e.g. a delayed pool sale) — receivables at delivery, not cash. */
   receivablesAfterDelivery: number;
@@ -74,7 +77,9 @@ export interface Delivery {
  * still due to or from the owner after it, and the interest to delivery.
  */
 export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config: ProjectConfig): Delivery {
-  const sum = (pred: (e: LedgerEntry) => boolean) => plan.ledger.filter(pred).reduce((s, e) => s + e.amount, 0);
+  // One money basis (iteration 10 / review D4): nominal (indexed) events deflated to today's prices on their dates.
+  const real = (e: LedgerEntry) => (e.priceBasis === 'nominal' ? e.amount * Math.pow(1 + config.analysis.inflation, -e.month / 12) : e.amount);
+  const sum = (pred: (e: LedgerEntry) => boolean) => plan.ledger.filter(pred).reduce((s, e) => s + real(e), 0);
   const owner = (e: LedgerEntry) => e.payer === 'owner' && e.direction === 'out';
   const byDelivery = (e: LedgerEntry) => e.month <= plan.completionMonth;
   const aptToday = apartmentValueToday(config);
@@ -85,7 +90,8 @@ export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config:
   const reserveNet = sum((e) => e.category === 'contingency_reserve') - sum((e) => e.category === 'contingency_release');
   const apartmentsValue = plan.wholeApartmentValueEq * aptToday;
   const fractionValue = plan.fractionalShare * aptToday * (1 - config.market.fractionIlliquidityDiscount);
-  const interestToDelivery = sim.interestPaidToCompletion + sim.taxLoanInterest;
+  // Interest to delivery only (an overdue tax loan's later accrual is excluded), deflated month by month.
+  const interestToDelivery = sim.real.interestToCompletion + sim.real.taxLoanInterestToDelivery;
   return {
     apartmentsValue,
     fractionValue,
@@ -93,7 +99,9 @@ export function deliveryOf(plan: TransactionPlan, sim: SimulationResult, config:
     ownerCashOut: ownerCashOut + reserveNet,
     constructionAndCompletionPaid: sum((e) => owner(e) && (e.category === 'construction' || e.category === 'completion_payment')),
     interestToDelivery,
-    debtAtDelivery: sim.debtAtCompletion,
+    basis: 'today',
+    // The debt is a nominal balance at delivery; shown in today's prices.
+    debtAtDelivery: sim.debtAtCompletion * Math.pow(1 + config.analysis.inflation, -plan.completionMonth / 12),
     receivablesAfterDelivery,
     payablesAfterDelivery,
     netPosition:
@@ -176,6 +184,8 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
     securedLoan: config.financing.securedLoan,
     // Refinancing a tax loan on the delivered whole apartments: the "any purpose" share of their value (conditional).
     taxLoanRefinanceLimit: config.financing.ltvLimits.additionalHome * plan.postCompletionCollateral,
+    // …and within the status-based mortgage limit, after the project mortgage already on the apartment.
+    mortgageLimitShare: mortgageLtvLimit(plan.apartmentValues, ctx.profile.soleHome ?? null, config, ctx.profile.replacementHome === true),
     // Plan amounts in today's prices (and rent, collateral) are converted to nominal shekels on their dates.
     realInputs: { rent: true, collateral: true },
     // A developer/bank tax loan for combination taxes: only when the configuration enables it (conditional run).

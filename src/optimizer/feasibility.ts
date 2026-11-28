@@ -67,9 +67,10 @@ export function assessEvaluation(
     // Without the user's capital the borrowing need itself is unknown, so collateral cannot be judged either.
     // Construction-stage limit before delivery; the Bank of Israel limit by property status on the delivered homes.
     const postLimit = mortgageLtvLimit(ev.plan.apartmentValues, profile.soleHome ?? null, config, profile.replacementHome === true);
-    // Refinancing a tax loan on the delivered apartment is not a purchase loan: "any purpose" limit (50%).
-    const refinanceCap = config.financing.ltvLimits.additionalHome * ev.plan.postCompletionCollateral;
-    const refinanceExceeds = sim.taxLoanRefinanced > refinanceCap + 1;
+    // Refinancing a tax loan on the delivered apartment is not a purchase loan: "any purpose" limit (50%), within the
+    // status mortgage limit after the project mortgage — compared on one money basis (the simulation's nominal cap at
+    // maturity; iteration 10 / review D3).
+    const refinanceExceeds = sim.taxLoanRefinanced > sim.taxLoanRefinanceCap + 1;
     const exceeds = sim.peakPreCompletionLtv > config.financing.maxLtv || sim.peakPostCompletionLtv > postLimit + 1e-9 || refinanceExceeds;
     const ltv = Math.max(sim.peakPreCompletionLtv, sim.peakPostCompletionLtv);
     if (capitalKnown && exceeds) fails.push('LTV_EXCEEDED');

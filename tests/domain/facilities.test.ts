@@ -43,8 +43,9 @@ describe('facilities', () => {
   it('each facility is reported on its own, and their draws add up', () => {
     const s = simulateCashflow({ ...base([tax, { month: 30, amount: -300_000, label: 'בנייה', category: 'construction' }]), taxLoan: { annualRate: 0.08 } });
     const types = s.facilities.map((f) => f.type).sort();
-    expect(types).toEqual(['project_loan', 'tax_loan']);
-    expect(s.facilities.reduce((x, f) => x + f.drawn, 0)).toBeCloseTo(s.totalDrawn, 4);
+    // Iteration 10: the tax loan refinanced into the mortgage at maturity is its own row — a transfer, not a draw.
+    expect(types).toEqual(['project_loan', 'tax_loan', 'tax_loan_refinance']);
+    expect(s.facilities.filter((f) => f.type !== 'tax_loan_refinance').reduce((x, f) => x + f.drawn, 0)).toBeCloseTo(s.totalDrawn, 4);
   });
 });
 

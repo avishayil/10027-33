@@ -58,9 +58,14 @@ describe('tax loan: maturity balance, exposure and cost (review §6)', () => {
   it('the delivery value deducts the capitalised tax-loan interest', () => {
     const r = analyzeProfile(MODERATE, TERMS, WITH_TAX_LOAN).results.find((x) => x.id === 'S02P')!;
     expect(r.simulation.taxLoanInterest).toBeGreaterThan(30_000);
-    expect(r.delivery.interestToDelivery).toBeCloseTo(r.simulation.interestPaidToCompletion + r.simulation.taxLoanInterest, 4);
+    // Iteration 10: interest to delivery only, deflated to today's prices as it accrues.
+    expect(r.delivery.interestToDelivery).toBeCloseTo(r.simulation.real.interestToCompletion + r.simulation.real.taxLoanInterestToDelivery, 4);
+    expect(r.delivery.interestToDelivery).toBeLessThan(r.simulation.interestPaidToCompletion + r.simulation.taxLoanInterest);
     const d = r.delivery;
-    expect(d.netPosition).toBeCloseTo(d.apartmentsValue + d.fractionValue + d.ownerCashIn - d.ownerCashOut - d.interestToDelivery, 4);
+    expect(d.netPosition).toBeCloseTo(
+      d.apartmentsValue + d.fractionValue + d.ownerCashIn - d.ownerCashOut + d.receivablesAfterDelivery - d.payablesAfterDelivery - d.interestToDelivery,
+      4,
+    );
   });
 });
 

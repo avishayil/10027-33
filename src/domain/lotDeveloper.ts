@@ -83,6 +83,10 @@ export interface LotOptions {
    * area (default 1). Not verified that 11,209 m² uses the same area definition as the ₪/m² sales evidence.
    */
   saleableAreaFactor?: number;
+  /** Stress: typical owners' acquisition basis (default unknown = zero, conservative). */
+  typicalBasis?: 'unknown' | 'incoming';
+  /** Stress: escort-loan cap as a share of costs (default none); the excess is extra developer equity. */
+  maxLoanShareOfCosts?: number;
   /** Sensitivity: the 325 m² of public buildings are already inside the plan's above-ground area (no separate cost). */
   publicBuildingsInPlanAreas?: boolean;
 }
@@ -157,8 +161,12 @@ export function annualIrr(flows: number[]): number | null {
  * shortfall is met by developer equity (up to a share of total costs), then an escort loan that accrues interest
  * and is repaid from later cash. Conservation: endingCash − equity = Σ flows − financingCost − endingLoan.
  */
-export function financeFlows(flows: number[], o: { equityShareOfCosts: number; totalCosts: number; monthlyRate: number }): FinancingResult {
+export function financeFlows(
+  flows: number[],
+  o: { equityShareOfCosts: number; totalCosts: number; monthlyRate: number; /** Escort-loan cap; the excess needs more equity. */ maxLoan?: number },
+): FinancingResult {
   const equityCap = o.equityShareOfCosts * o.totalCosts;
+  const maxLoan = o.maxLoan ?? Infinity;
   let cash = 0;
   let equity = 0;
   let loan = 0;
@@ -178,8 +186,14 @@ export function financeFlows(flows: number[], o: { equityShareOfCosts: number; t
       equity += fromEquity;
       cash += fromEquity;
       if (cash < 0) {
-        loan += -cash;
-        cash = 0;
+        // The escort loan up to its cap; beyond it the developer must add equity.
+        const fromLoan = Math.min(-cash, Math.max(0, maxLoan - loan));
+        loan += fromLoan;
+        cash += fromLoan;
+        if (cash < 0) {
+          equity += -cash;
+          cash = 0;
+        }
       }
     } else if (loan > 0) {
       const repay = Math.min(loan, cash);
@@ -198,10 +212,12 @@ export function financeFlows(flows: number[], o: { equityShareOfCosts: number; t
 // ---------------------------------------------------------------------------
 
 /** A typical 167 m² holding in the user's lot: unknown basis (conservative), template terms, no personal offer. */
-function typical(ctx: LotContext): { info: RightsInfo; profile: UserProfile; config: ProjectConfig } {
+function typical(ctx: LotContext, basis: 'unknown' | 'incoming' = 'unknown'): { info: RightsInfo; profile: UserProfile; config: ProjectConfig } {
   const config: ProjectConfig = { ...ctx.config, commercial: { ...ctx.config.commercial, offer: { levyCap: null, developerPaysTaxLoanInterest: false } } };
   const info = calculateRights(config.rights.originalAreaSqm, config, ctx.info.lotId);
-  const profile: UserProfile = { landAreaSqm: info.landAreaSqm, availableCapital: 0, maxMonthlyRepayment: 0, goal: 'balanced', lotId: ctx.info.lotId, acquisitionBasis: null };
+  // Stress (iteration 10): a known acquisition basis at the appraisal's incoming value instead of the conservative zero.
+  const acquisitionBasis = basis === 'incoming' ? info.table.incomingValue : null;
+  const profile: UserProfile = { landAreaSqm: info.landAreaSqm, availableCapital: 0, maxMonthlyRepayment: 0, goal: 'balanced', lotId: ctx.info.lotId, acquisitionBasis };
   return { info, profile, config };
 }
 
@@ -277,7 +293,7 @@ function expectedParticipation(ctx: LotContext): number {
 }
 
 export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c: number, opts: LotOptions = {}): LotPnL {
-  const t = typical(ctx);
+  const t = typical(ctx, opts.typicalBasis);
   const config = withArrangement(t.config, arrangement);
   const vat = config.taxation.vatRate;
   const lot = getLot(config.rights.tableVersion, ctx.info.lotId);
@@ -326,7 +342,12 @@ export function lotDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement, c:
     revenue += opts.delta.revenue;
     costs += opts.delta.costs;
   }
-  const fin = financeFlows(f.values, { equityShareOfCosts: config.developer.equityShare, totalCosts: costs, monthlyRate: config.developer.escortLoanRate / 12 });
+  const fin = financeFlows(f.values, {
+    equityShareOfCosts: config.developer.equityShare,
+    totalCosts: costs,
+    monthlyRate: config.developer.escortLoanRate / 12,
+    maxLoan: opts.maxLoanShareOfCosts === undefined ? undefined : opts.maxLoanShareOfCosts * costs,
+  });
   const profit = revenue - costs - fin.financingCost;
   return {
     units,
@@ -575,10 +596,16 @@ export function projectDeveloperPnL(ctx: LotContext, arrangement: TaxArrangement
  */
 export function developerStress(ctx: LotContext, arrangement: TaxArrangement, c: number, opts: LotOptions = {}) {
   const base = ctx.config;
+  // Scales the survey rates and, when set, the direct-cost override too (iteration 10 / review D6).
   const cost = (f: number): ProjectConfig => ({
     ...base,
-    developer: { ...base.developer, survey: { ...base.developer.survey, aboveGroundPerSqm: base.developer.survey.aboveGroundPerSqm * f, undergroundPerSqm: base.developer.survey.undergroundPerSqm * f } },
+    developer: {
+      ...base.developer,
+      directCostPerSqm: base.developer.directCostPerSqm === null ? null : base.developer.directCostPerSqm * f,
+      survey: { ...base.developer.survey, aboveGroundPerSqm: base.developer.survey.aboveGroundPerSqm * f, undergroundPerSqm: base.developer.survey.undergroundPerSqm * f },
+    },
   });
+  const presale = (cfg: ProjectConfig, share: number): ProjectConfig => ({ ...cfg, developer: { ...cfg.developer, presaleShare: share } });
   const price = (cfg: ProjectConfig, f: number): ProjectConfig => ({ ...cfg, market: { ...cfg.market, apartmentValuePerSqm: cfg.market.apartmentValuePerSqm * f } });
   const delay = (cfg: ProjectConfig, months: number): ProjectConfig => ({ ...cfg, timeline: { ...cfg.timeline, approvalMonths: cfg.timeline.approvalMonths + months } });
   const rate = (cfg: ProjectConfig, add: number): ProjectConfig => ({ ...cfg, developer: { ...cfg.developer, escortLoanRate: cfg.developer.escortLoanRate + add } });
@@ -594,13 +621,21 @@ export function developerStress(ctx: LotContext, arrangement: TaxArrangement, c:
     run('עיכוב של 12 חודשים באישור', delay(base, 12)),
     run('ריבית ליווי +2%', rate(base, 0.02)),
     run('מבני הציבור כבר בתוך שטחי התכנית', base, { publicBuildingsInPlanAreas: true }),
+    run('שירותי בנייה: אף משתתף', base, { participation: 0 }),
+    run('שירותי בנייה: המכסה המלאה', base, { participation: 1 }),
+    run('מכירה מוקדמת: 0% (הכול במסירה)', presale(base, 0)),
+    run('מכירה מוקדמת: 40%', presale(base, 0.4)),
+    run('עלות רכישה ידועה לכל הבעלים (שווי נכנס)', base, { typicalBasis: 'incoming' }),
+    run('תקרת ליווי: 60% מהעלויות', base, { maxLoanShareOfCosts: 0.6 }),
     run('משולב: עלות +10%, מחיר −10%, עיכוב 12 ח׳, ריבית +2%', rate(delay(price(cost(1.1), 0.9), 12), 0.02)),
   ];
   const b = lotDeveloperPnL(ctx, arrangement, c, opts);
   const target = base.developer.targetMarginOnRevenue;
   return {
     rows,
+    // Static arithmetic: extra cost per saleable m² the lot absorbs, without the financing that cost would itself need.
     headroom: {
+      kind: 'static' as const,
       toTargetPerSqm: (b.profit - target * b.revenue) / b.saleableArea,
       toZeroPerSqm: b.profit / b.saleableArea,
     },

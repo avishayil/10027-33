@@ -30,6 +30,14 @@ export const PROJECT_CONFIG: ProjectConfig = {
     annualIndexation: COMMERCIAL.annualIndexation.value,
     schedule: PAYMENT_SCHEDULE,
   },
+  evidence: {
+    developer_price: { status: 'hypothetical', source: 'תרחיש ₪6,900 למ״ר — אין הצעה' },
+    post_approval_price: { status: 'hypothetical', source: 'אין עסקה אחרי אישור' },
+    immediate_price: { status: 'unknown', source: 'אין שומה עדכנית לחלקה' },
+    revenue_share: { status: 'hypothetical', source: 'אין הצעת תמורות' },
+    buyback_factor: { status: 'assumed', source: 'הנחה: 80% משווי שוק' },
+    complementary_price: { status: 'hypothetical', source: 'אין מחיר מוסכם בין בעלים' },
+  },
   timeline: {
     approvalMonths: COMMERCIAL.approvalMonths.value,
     permitAfterApprovalMonths: COMMERCIAL.permitAfterApprovalMonths.value,

@@ -84,15 +84,19 @@ function resilienceOf(base: Evaluation, adverseFeasible: boolean, adverse: Evalu
  * (no current market valuation, developer offer, post-approval price, revenue-share % or buy-back price is known);
  * instead the engine reports the price they would need.
  */
-export function priceDependencyOf(candidate: Candidate, plan: { fractionSettled: { mode: string } | null }): PriceKnob | null {
+export function priceDependencyOf(candidate: Candidate, plan: { fractionSettled: { mode: string } | null }, config?: ProjectConfig): PriceKnob | null {
+  // A term backed by a confirmed offer or an observation is evaluated as a fact; anything else stays conditional.
+  const known = (k: PriceKnob) => !!config && (config.evidence[k].status === 'confirmed_offer' || config.evidence[k].status === 'observed');
   for (const leg of candidate.legs) {
-    if (leg.kind === 'sell_rights' && leg.market === 'developer') return 'developer_price';
-    if (leg.kind === 'sell_rights' && leg.market === 'post_approval') return 'post_approval_price';
-    if (leg.kind === 'sell_rights' && leg.market === 'open_market') return 'immediate_price';
-    if (leg.kind === 'buy_rights') return 'complementary_price';
-    if (leg.kind === 'revenue_share') return 'revenue_share';
+    let k: PriceKnob | null = null;
+    if (leg.kind === 'sell_rights' && leg.market === 'developer') k = 'developer_price';
+    if (leg.kind === 'sell_rights' && leg.market === 'post_approval') k = 'post_approval_price';
+    if (leg.kind === 'sell_rights' && leg.market === 'open_market') k = 'immediate_price';
+    if (leg.kind === 'buy_rights') k = 'complementary_price';
+    if (leg.kind === 'revenue_share') k = 'revenue_share';
+    if (k && !known(k)) return k;
   }
-  if (plan.fractionSettled?.mode === 'cash') return 'buyback_factor';
+  if (plan.fractionSettled?.mode === 'cash' && !known('buyback_factor')) return 'buyback_factor';
   return null;
 }
 
@@ -236,7 +240,7 @@ export function buildResult(
     comparisonValue: base.comparisonValue,
     developerLot,
     levy,
-    priceDependency: priceDependencyOf(candidate, plan),
+    priceDependency: priceDependencyOf(candidate, plan, config),
     netCashAtDelivery: sim.cashAtCompletion - sim.referenceAtCompletion,
     feasibility,
     assessment,
@@ -269,11 +273,14 @@ function noApprovalOutcome(
   config: ProjectConfig,
 ): StrategyResult['noApproval'] {
   const approval = approvalMonthOf(config);
+  // Today's prices throughout (iteration 10 / review D4): nominal events deflated on their dates, interest deflated as it
+  // accrues. The contingency reserve is refundable liquidity, never a lost payment (ownerOut excludes it).
+  const real = (e: LedgerEntry) => (e.priceBasis === 'nominal' ? e.amount * Math.pow(1 + config.analysis.inflation, -e.month / 12) : e.amount);
   const before = ledger.filter((e) => ownerOut(e) && e.month < approval);
-  const advances = before.reduce((s, e) => s + e.amount, 0);
-  const nonRefundable = before.filter((e) => e.category === 'purchase_tax' || e.category === 'transaction_costs').reduce((s, e) => s + e.amount, 0);
-  const purchasedRights = before.filter((e) => e.category === 'rights_purchase').reduce((s, e) => s + e.amount, 0);
-  const interest = sim.interestToApproval;
+  const advances = before.reduce((s, e) => s + real(e), 0);
+  const nonRefundable = before.filter((e) => e.category === 'purchase_tax' || e.category === 'transaction_costs').reduce((s, e) => s + real(e), 0);
+  const purchasedRights = before.filter((e) => e.category === 'rights_purchase').reduce((s, e) => s + real(e), 0);
+  const interest = sim.real.interestToApproval;
   const refundable = advances - nonRefundable;
   return {
     advances,
@@ -312,11 +319,13 @@ function developerFailureOutcome(
   config: ProjectConfig,
 ): StrategyResult['developerFailure'] {
   const month = failureMonthOf(config, completionMonth);
+  const real = (e: LedgerEntry) => (e.priceBasis === 'nominal' ? e.amount * Math.pow(1 + config.analysis.inflation, -e.month / 12) : e.amount);
   const paidToDeveloper = ledger
     .filter((e) => ownerOut(e) && e.month <= month && (e.category === 'construction' || e.category === 'completion_payment'))
-    .reduce((s, e) => s + e.amount, 0);
-  const interest = sim.interestToFailure;
-  return { month, paidToDeveloper, interest, debtOutstanding: sim.debtAtFailure, protected: interest, unprotected: paidToDeveloper + interest };
+    .reduce((s, e) => s + real(e), 0);
+  const interest = sim.real.interestToFailure;
+  const debtOutstanding = sim.debtAtFailure * Math.pow(1 + config.analysis.inflation, -month / 12);
+  return { month, paidToDeveloper, interest, debtOutstanding, protected: interest, unprotected: paidToDeveloper + interest };
 }
 
 export interface CoreAnalysis {
@@ -530,7 +539,7 @@ export function analyzeProfile(
   // A developer that takes on taxes offers a lower %, so each other arrangement is evaluated at its
   // developer-equivalent % — never at the slider's % (that would treat the taxes as free).
   const headline = config.commercial.taxArrangement;
-  const eqCtx = { info: ctx.info, profile, config };
+  const eqCtx = { info: ctx.info, profile, config, markup: terms.developerMarkup };
   const arrangementTops: { arrangement: TaxArrangement; top: StrategyResult | null; combinationPct: number | null }[] = [];
   const arrangements: ArrangementOutcome[] = TAX_ARRANGEMENTS.map((arrangement) => {
     const pct = arrangement === headline ? terms.combinationPct : developerEquivalentPct(eqCtx, headline, terms.combinationPct, arrangement);

@@ -79,6 +79,11 @@ export interface SimulationInput {
    * facility cannot cover is a maturity gap, never silently turned into a mortgage.
    */
   taxLoanRefinanceLimit?: number;
+  /**
+   * Total mortgage limit on the delivered apartment as a share of its value (status-based, e.g. 75%): the refinance
+   * may only use what the project mortgage leaves of it (iteration 10 / review D3). Default: no combined limit.
+   */
+  mortgageLimitShare?: number;
   /** Most that can be borrowed against the other property (default: no limit). */
   securedLoanLimit?: number;
   /** Real annual discount rate for pvInterest (default 0). */
@@ -175,6 +180,15 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
   // The refinance facility's limit in nominal shekels, fixed at maturity.
   let refinanceCap = 0;
   const refinanceLimit = input.taxLoanRefinanceLimit ?? Infinity;
+  // External project draws only (construction, completion, …) — a tax loan refinanced into the mortgage is a transfer.
+  let projectDrawn = 0;
+  let taxLoanInterestToDelivery = 0;
+  // Interest deflated to today's prices on the month it accrues (for the today's-price views).
+  const deflateAt = (m: number) => Math.pow(1 + (input.inflation ?? 0), -m / 12);
+  let realInterestToCompletion = 0;
+  let realTaxLoanInterestToDelivery = 0;
+  let realInterestToApproval = 0;
+  let realInterestToFailure = 0;
   const taxLoanLimit = input.taxLoan?.limit ?? Infinity;
   const securedLimit = input.securedLoanLimit ?? Infinity;
   let interestAfterCompletion = 0;
@@ -221,6 +235,10 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       const accrued = taxLoanBalance * taxLoanMonthly;
       taxLoanBalance += accrued;
       taxLoanInterest += accrued;
+      if (m <= input.completionMonth) {
+        taxLoanInterestToDelivery += accrued;
+        realTaxLoanInterestToDelivery += accrued * deflateAt(m);
+      }
       if (taxLoanMatured) pvInterest += accrued * dfMonth(m);
       // Interest the developer pays on the owner's behalf (it accrues on the developer, not on the balance).
       if (m <= input.completionMonth) taxLoanSubsidy += taxLoanBalance * subsidyMonthly;
@@ -273,6 +291,7 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
         debt += x;
         totalDrawn += x;
         drawsByStage[stage] += x;
+        projectDrawn += x;
         draw(m, x);
       }
     }
@@ -285,7 +304,11 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
       if (!taxLoanMatured) {
         taxLoanMatured = true;
         taxLoanAtMaturity = taxLoanBalance;
-        refinanceCap = collateralAt(refinanceLimit, m);
+        // The any-purpose ceiling, and what the status-based mortgage limit leaves after the project mortgage — both in
+        // nominal shekels of the maturity month.
+        const combined =
+          input.mortgageLimitShare === undefined ? Infinity : Math.max(0, collateralAt(input.mortgageLimitShare * (input.postCompletionCollateral ?? 0), m) - debt);
+        refinanceCap = Math.min(collateralAt(refinanceLimit, m), combined);
         // The capitalised tax-loan interest falls due at maturity.
         pvInterest += taxLoanInterest * dfMonth(m);
       }
@@ -338,11 +361,19 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     let payment = 0;
     if (debt > 1e-9) {
       const interest = debt * r;
-      if (m <= input.completionMonth) interestToCompletion += interest;
-      else interestAfterCompletion += interest;
+      if (m <= input.completionMonth) {
+        interestToCompletion += interest;
+        realInterestToCompletion += interest * deflateAt(m);
+      } else interestAfterCompletion += interest;
       pvInterest += interest * dfMonth(m);
-      if (input.approvalMonth !== undefined && m <= input.approvalMonth) interestToApproval += interest;
-      if (input.failureMonth !== undefined && m <= input.failureMonth) interestToFailure += interest;
+      if (input.approvalMonth !== undefined && m <= input.approvalMonth) {
+        interestToApproval += interest;
+        realInterestToApproval += interest * deflateAt(m);
+      }
+      if (input.failureMonth !== undefined && m <= input.failureMonth) {
+        interestToFailure += interest;
+        realInterestToFailure += interest * deflateAt(m);
+      }
       if (!afterCompletion) {
         payment = interest;
         constructionMonthly = Math.max(constructionMonthly, payment);
@@ -359,11 +390,19 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     // The loan on another property: interest and principal every month from the draw.
     if (secured > 1e-9) {
       const interest = secured * securedRate;
-      if (m <= input.completionMonth) interestToCompletion += interest;
-      else interestAfterCompletion += interest;
+      if (m <= input.completionMonth) {
+        interestToCompletion += interest;
+        realInterestToCompletion += interest * deflateAt(m);
+      } else interestAfterCompletion += interest;
       pvInterest += interest * dfMonth(m);
-      if (input.approvalMonth !== undefined && m <= input.approvalMonth) interestToApproval += interest;
-      if (input.failureMonth !== undefined && m <= input.failureMonth) interestToFailure += interest;
+      if (input.approvalMonth !== undefined && m <= input.approvalMonth) {
+        interestToApproval += interest;
+        realInterestToApproval += interest * deflateAt(m);
+      }
+      if (input.failureMonth !== undefined && m <= input.failureMonth) {
+        interestToFailure += interest;
+        realInterestToFailure += interest * deflateAt(m);
+      }
       const p = Math.min(securedPayment, secured + interest);
       secured = Math.max(0, secured - (p - interest));
       payment += p;
@@ -381,7 +420,8 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     if (m === input.liquidityMonth) cashAtLiquidity = cash;
     if (m === input.completionMonth) {
       cashAtCompletion = cash;
-      debtAtCompletion = debt + secured;
+      // Including a tax-loan balance that is overdue (neither repaid nor refinanced at maturity).
+      debtAtCompletion = debt + secured + taxLoanBalance;
       referenceAtCompletion = reference;
     }
     if (m === input.failureMonth) debtAtFailure = debt + secured + taxLoanBalance;
@@ -421,15 +461,25 @@ export function simulateCashflow(input: SimulationInput): SimulationResult {
     taxLoanRefinanced,
     taxLoanMaturityGap,
     taxLoanSubsidy,
+    taxLoanInterestToDelivery,
+    taxLoanRefinanceCap: Number.isFinite(refinanceCap) ? refinanceCap : 0,
+    real: {
+      interestToCompletion: realInterestToCompletion,
+      taxLoanInterestToDelivery: realTaxLoanInterestToDelivery,
+      interestToApproval: realInterestToApproval,
+      interestToFailure: realInterestToFailure,
+    },
     pvInterest,
     interestToApproval,
     interestToFailure,
     debtAtFailure,
     pvFinancing,
     facilities: [
-      { type: 'project_loan', drawn: drawsByStage.bridge + drawsByStage.construction + drawsByStage.mortgage - taxLoanAtMaturity, peak: projectPeak, annualRate: input.annualRate, repayment: 'interest_only_then_amortising', termMonths: input.mortgageYears * 12, monthsUsed: mortgageMonthsUsed },
+      { type: 'project_loan', drawn: projectDrawn, peak: projectPeak, annualRate: input.annualRate, repayment: 'interest_only_then_amortising', termMonths: input.mortgageYears * 12, monthsUsed: mortgageMonthsUsed },
       { type: 'secured_other_property', drawn: taxesFinanced, peak: securedPeak, annualRate: securedRate * 12, repayment: 'amortising_from_draw', termMonths: securedYears * 12, monthsUsed: 0 },
       { type: 'tax_loan', drawn: taxLoanDrawn, peak: taxLoanAtMaturity, annualRate: taxLoanMonthly * 12, repayment: 'bullet_at_delivery', termMonths: input.completionMonth, monthsUsed: 0 },
+      // The part of the tax loan moved into the mortgage at maturity: a transfer between facilities, not a new draw.
+      { type: 'tax_loan_refinance', drawn: taxLoanRefinanced, peak: taxLoanRefinanced, annualRate: input.annualRate, repayment: 'interest_only_then_amortising', termMonths: input.mortgageYears * 12, monthsUsed: 0 },
     ].filter((f) => f.drawn > 0.5) as SimulationResult['facilities'],
     peakPreCompletionLtv: peakPreLtv,
     peakPostCompletionLtv: peakPostLtv,

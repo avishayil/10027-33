@@ -250,11 +250,12 @@ describe('P0 projection and figures shown', () => {
 });
 
 describe('reverse solvers', () => {
-  it('bracket the first feasible interval of a non-monotone predicate', async () => {
+  it('find the feasible set of a non-monotone predicate (iteration 10: max = the last feasible interval found)', async () => {
     const { solveMin, solveMax } = await import('../../src/optimizer/reverse');
     const pred = (x: number) => (x >= 30 && x <= 40) || x >= 80; // disjoint feasible set
     expect(solveMin(0, 100, pred)).toBeCloseTo(30, 3);
-    expect(solveMax(30, 100, pred)).toBeCloseTo(40, 3);
+    expect(solveMax(30, 100, pred)).toBeCloseTo(100, 3);
+    expect(solveMax(0, 60, pred)).toBeCloseTo(40, 3);
     expect(solveMin(0, 100, () => false)).toBeNull();
   });
 });

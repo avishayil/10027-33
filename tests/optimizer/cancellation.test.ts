@@ -14,7 +14,8 @@ describe('developer failure half-way through construction', () => {
       expect(f.month).toBe(failureMonthOf(C, r.plan.completionMonth));
       const paid = r.ledger
         .filter((e) => e.payer === 'owner' && e.direction === 'out' && !e.deferred && e.month <= f.month && (e.category === 'construction' || e.category === 'completion_payment'))
-        .reduce((s, e) => s + e.amount, 0);
+        // Today's prices (iteration 10): nominal (indexed) payments deflated on their dates.
+        .reduce((s, e) => s + (e.priceBasis === 'nominal' ? e.amount * Math.pow(1 + C.analysis.inflation, -e.month / 12) : e.amount), 0);
       expect(f.paidToDeveloper).toBeCloseTo(paid, 4);
       expect(f.protected).toBeCloseTo(f.interest, 9);
       expect(f.unprotected).toBeCloseTo(f.paidToDeveloper + f.interest, 9);
