@@ -21,6 +21,8 @@ import { ContingentCard, GroupPlanner } from './components/comparisons/PhaseF';
 import { AnswersBar, TermsCard } from './components/inputs/AnswersBar';
 import { Wizard, type WizardStep } from './components/inputs/Wizard';
 import { PrintHeader } from './components/print/PrintHeader';
+import { OfferCheck } from './components/offer/OfferCheck';
+import { EMPTY_OFFER, type ActualOffer } from './optimizer/offer';
 import { FollowUps } from './components/verdict/FollowUps';
 import { TopPriorities } from './components/verdict/TopPriorities';
 import { Alternatives, Verdict } from './components/verdict/Verdict';
@@ -50,6 +52,8 @@ export default function App() {
   // Simple view by default: only the three priorities. Advanced view shows every detail (a display preference, not
   // personal data, so it is remembered in this browser).
   const [advanced, setAdvancedState] = useState(readAdvanced);
+  // An actual developer offer: this visit only — never saved, never sent (V1 / MH-10).
+  const [offer, setOffer] = useState<ActualOffer>(EMPTY_OFFER);
   const setAdvanced = (on: boolean) => {
     setAdvancedState(on);
     try {
@@ -88,6 +92,7 @@ export default function App() {
   };
   const forget = () => {
     clearInputs();
+    setOffer(EMPTY_OFFER);
     setRemember(false);
   };
 
@@ -161,7 +166,16 @@ export default function App() {
                 <NegotiationPanel result={result} />
                 <DeveloperPanel result={result} combinationPct={terms.combinationPct} />
                 {engine.analysis && (
-                  <ContingentCard result={engine.analysis.result} profile={engine.analysis.profile} terms={engine.analysis.terms} config={engine.analysis.config} />
+                  <OfferCheck offer={offer} onChange={setOffer} profile={engine.analysis.profile} terms={engine.analysis.terms} config={engine.analysis.config} />
+                )}
+                {engine.analysis && (
+                  <ContingentCard
+                    result={engine.analysis.result}
+                    profile={engine.analysis.profile}
+                    terms={engine.analysis.terms}
+                    config={engine.analysis.config}
+                    optionTermsKnown={offer.option.fee !== null}
+                  />
                 )}
                 {engine.analysis && concessionRoute(engine.analysis.result) && (
                   <ConcessionsCard

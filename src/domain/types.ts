@@ -266,6 +266,8 @@ export interface ProjectConfig {
       vatOnInterest: boolean;
       /** Facility cap as a share of the owner's apartment entitlement value today; null = no cap. */
       maxShareOfEntitlement: number | null;
+      /** An absolute cap on the tax loan (₪) from an actual offer; null = only the share of entitlement applies. */
+      amountCap?: number | null;
       /** Evaluate it as a conditional funding route when it is not assumed (off = no tax loan exists at all). */
       considerAsAlternative: boolean;
     };

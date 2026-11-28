@@ -146,6 +146,18 @@ export function liquidityYears(profile: UserProfile, config: ProjectConfig): num
 /** Rewrites a plan before it is simulated (e.g. a contract switched at an exercise date — contingent.ts). */
 export type PlanTransform = (plan: TransactionPlan, config: ProjectConfig) => TransactionPlan;
 
+/** The tax-loan facility limit: the share of the entitlement (the lender's security) and an offer's absolute cap. */
+function taxLoanLimit(config: ProjectConfig, plan: TransactionPlan): number | undefined {
+  const t = config.financing.taxLoan;
+  // The lender's security is the apartment entitlement the owner receives (before any fraction is sold).
+  const byShare =
+    t.maxShareOfEntitlement === null
+      ? Infinity
+      : t.maxShareOfEntitlement * (plan.retainedApartmentEquivalents + (plan.fractionSettled?.share ?? 0) + plan.apartmentsSoldByOwner) * apartmentValueToday(config);
+  const limit = Math.min(byShare, t.amountCap ?? Infinity);
+  return Number.isFinite(limit) ? limit : undefined;
+}
+
 export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, config: ProjectConfig, transform?: PlanTransform): Evaluation {
   const built = buildTransactionPlan(candidate, { ...ctx, config });
   const plan = transform ? transform(built, config) : built;
@@ -198,13 +210,7 @@ export function evaluateCandidate(candidate: Candidate, ctx: EngineContext, conf
         ? {
             annualRate: taxLoanRate(config),
             subsidyRate: taxLoanSubsidyRate(config),
-            limit:
-              config.financing.taxLoan.maxShareOfEntitlement === null
-                ? undefined
-                : // The lender's security is the apartment entitlement the owner receives (before any fraction is sold).
-                  config.financing.taxLoan.maxShareOfEntitlement *
-                  (plan.retainedApartmentEquivalents + (plan.fractionSettled?.share ?? 0) + plan.apartmentsSoldByOwner) *
-                  apartmentValueToday(config),
+            limit: taxLoanLimit(config, plan),
           }
         : undefined,
   });

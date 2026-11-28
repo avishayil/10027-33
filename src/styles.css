@@ -2236,3 +2236,25 @@ button {
 .protections li {
   margin-bottom: 0.4rem;
 }
+
+/* V1: actual-offer check */
+.offer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.6rem 1rem;
+  margin: 0.75rem 0;
+}
+.offer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9em;
+}
+.offer-field input,
+.offer-field select {
+  width: 100%;
+}
+.cell-ok {
+  color: #1d6b2f;
+  font-weight: 600;
+}
