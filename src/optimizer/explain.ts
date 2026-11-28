@@ -33,6 +33,8 @@ export const FEASIBILITY_HINTS: Record<Feasibility, string> = {
   unknown: 'אי אפשר להעריך בלי מידע נוסף.',
 };
 
+import { formatCompactCurrency } from '../utils/format';
+
 const fmtN = (n: number) => new Intl.NumberFormat('he-IL', { maximumFractionDigits: 2 }).format(n);
 
 export function strategyTitle(r: StrategyResult): string {
@@ -197,14 +199,14 @@ export function explainWhy(r: StrategyResult, goal: Goal, ranked: StrategyResult
     out.push('שימו לב: לפי מודל צד היזם, העסקה כמעט לא משאירה לו רווח בהנחות הנוכחיות — ייתכן שלא תוצע.');
   }
   if (r.mortgageRequired <= 1) out.push('לא נדרשת משכנתא.');
-  else out.push(`נדרשת ${debtLabel(r)} של כ-${fmtN(Math.round(r.mortgageRequired / 1000))} אלף ₪.`);
+  else out.push(`נדרשת ${debtLabel(r)} של כ-${formatCompactCurrency(r.mortgageRequired)}.`);
   if (m.resilience >= 0.5) out.push('נשאר מתאים גם בתרחיש השמרני.');
   if (r.feasibility === 'fragile') out.push('שימו לב: בתרחיש השמרני המסלול חורג מהיכולת שלכם.');
   if (goal === 'passive_income' && m.sustainableMonthlyIncome > 0) {
     out.push(`הכנסה חודשית משוערת אחרי החזר המשכנתא: כ-${fmtN(Math.round(m.sustainableMonthlyIncome))} ₪.`);
   }
   if (goal === 'immediate_cash' && m.liquidity > 0) {
-    out.push(`כסף נטו בתוך תקופת היעד: כ-${fmtN(Math.round(m.liquidity / 1000))} אלף ₪.`);
+    out.push(`כסף נטו בתוך תקופת היעד: כ-${formatCompactCurrency(m.liquidity)}.`);
   }
   if (r.reasonCodes.includes('COMBINATION_BELOW_WHOLE_UNIT')) out.push(REASON_TEXT.COMBINATION_BELOW_WHOLE_UNIT);
   if (r.reasonCodes.includes('RENT_SUPPORTS_REPAYMENT')) out.push(REASON_TEXT.RENT_SUPPORTS_REPAYMENT);
@@ -243,7 +245,7 @@ export function riskLevel(r: StrategyResult): { level: RiskLevel; reasons: strin
   }
   if (r.noApproval.unprotected > 1000) {
     points += 1;
-    reasons.push(`אם התכנית לא תאושר — חשיפה של עד כ-${fmtN(Math.round(r.noApproval.unprotected / 1000))} אלף ₪ (תלוי בערבויות בחוזה)`);
+    reasons.push(`אם התכנית לא תאושר — חשיפה של עד כ-${formatCompactCurrency(r.noApproval.unprotected)} (תלוי בערבויות בחוזה)`);
   }
   if (r.assessment.resilience === 'fragile') {
     points += 2;

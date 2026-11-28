@@ -359,13 +359,13 @@ export function Financing({ result, r }: { result: DecisionResult; r: StrategyRe
             <tr>
               <td>מזומן</td>
               {s.yearly.map((y) => (
-                <td key={y.year}>{formatNumber(y.cash / 1000, 0)}K</td>
+                <td key={y.year}>{formatCompactCurrency(y.cash)}</td>
               ))}
             </tr>
             <tr>
               <td>חוב</td>
               {s.yearly.map((y) => (
-                <td key={y.year}>{formatNumber(y.debt / 1000, 0)}K</td>
+                <td key={y.year}>{formatCompactCurrency(y.debt)}</td>
               ))}
             </tr>
           </tbody>

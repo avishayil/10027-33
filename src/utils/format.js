@@ -28,11 +28,17 @@ export function formatPercent(fraction, decimals = 2) {
   return `${formatNumber(fraction * 100, decimals)}%`;
 }
 
-/** Short amount for large headline numbers: 202,321 → "202 אלף ₪", 1,250,000 → "1.25 מיליון ₪"; below 10,000 stays exact. */
+const upTo2 = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 2 });
+
+/**
+ * Short amount for large headline numbers: 202,321 → "202 אלף ₪", 1,250,000 → "1.25 מיליון ₪", 1,500,000 →
+ * "1.5 מיליון ₪"; below 10,000 stays exact. The scale is chosen after rounding, so 999,600 is "1 מיליון ₪", never
+ * "1,000 אלף ₪".
+ */
 export function formatCompactCurrency(amount) {
   const n = Number.isFinite(amount) ? amount : 0;
-  const abs = Math.abs(n);
-  if (abs < 10000) return formatCurrency(n);
-  if (abs < 1_000_000) return `${formatNumber(n / 1000, 0)} אלף ₪`;
-  return `${formatNumber(n / 1_000_000, 2)} מיליון ₪`;
+  if (Math.abs(n) < 10000) return formatCurrency(n);
+  const thousands = Math.round(n / 1000);
+  if (Math.abs(thousands) < 1000) return `${formatNumber(thousands, 0)} אלף ₪`;
+  return `${upTo2.format(Math.round(n / 10000) / 100)} מיליון ₪`;
 }

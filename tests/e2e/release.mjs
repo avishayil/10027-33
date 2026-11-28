@@ -82,11 +82,21 @@ void step;
 await page.waitForFunction(() => !document.querySelector('.results-updating'), null, { timeout: 15_000 });
 await axe('summary');
 
+/** Money must read correctly: never "1,000 אלף" (that is a million), no "1.00 / 1.50 מיליון", no English "K". */
+const badNumbers = async (where) => {
+  const text = await page.evaluate(() => document.body.innerText);
+  const bad = [...text.matchAll(/\d{1,3}(,\d{3})+ אלף|\d\.\d*0 מיליון|\d\.0+ מיליון|\d+K\b/g)].map((m) => m[0]);
+  if (bad.length) failures.push(`numbers (${where}): ${[...new Set(bad)].slice(0, 5).join(' | ')}`);
+};
+await badNumbers('summary');
+
 // Advanced view, offer check: nothing sent, nothing stored.
 await page.getByRole('switch', { name: /תצוגה מתקדמת/ }).check();
 await page.waitForSelector('#offer-title');
 await page.waitForFunction(() => !document.querySelector('.results-updating'), null, { timeout: 15_000 });
 await axe('advanced view');
+await page.evaluate(() => document.querySelectorAll('details').forEach((d) => (d.open = true)));
+await badNumbers('advanced view');
 const before = requests.length;
 const offer = page.locator('section[aria-labelledby="offer-title"]');
 await offer.getByLabel('אחוז קומבינציה (%)').fill('41.5');
@@ -104,6 +114,7 @@ else if (!/חישוב [0-9a-f]{8}/.test((await header.textContent()) ?? '')) fai
 if (!(await page.locator('.print-report').isVisible())) failures.push('print: report not visible');
 if (await page.locator('.answers-bar').isVisible()) failures.push('print: answers bar (controls) printed');
 if (await page.locator('.offer-grid').isVisible()) failures.push('print: offer form printed');
+await badNumbers('print');
 await page.emulateMedia({ media: 'screen' });
 
 // Stale then print: right after an input change the print button is disabled; it comes back when the result is current.
